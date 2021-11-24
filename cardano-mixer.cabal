@@ -1,0 +1,234 @@
+cabal-version:      2.4
+name:               cardano-mixer
+version:            0.1.0.0
+
+-- A short (one-line) description of the package.
+-- synopsis:
+
+-- A longer description of the package.
+-- description:
+
+-- A URL where users can report bugs.
+-- bug-reports:
+
+license: Apache-2.0
+license-files: LICENSE
+-- author:             
+maintainer:         devteam@cardmix.io
+
+-- A copyright notice.
+-- copyright:
+-- category:
+-- extra-source-files: CHANGELOG.md
+
+flag defer-plugin-errors
+    description:
+        Defer errors from the plugin, useful for things like Haddock that can't handle it.
+    default: False
+    manual: True
+
+common lang
+    default-language:   Haskell2010
+    ghc-options:
+      -Wall
+      -Wnoncanonical-monad-instances
+      -Wincomplete-uni-patterns
+      -Wincomplete-record-updates
+      -Wredundant-constraints
+      -fwarn-redundant-constraints
+      -Widentities -rtsopts
+      -- See Plutus Tx readme
+      -fno-specialise -fno-strictness -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    -- if flag(defer-plugin-errors)
+    --   ghc-options: 
+        -fplugin-opt PlutusTx.Plugin:defer-errors
+
+library
+    import: lang
+    exposed-modules:
+      MixerStateMachine
+      Mixer
+      MixerFactory      
+      MixerProofs
+      CheckKey
+      AdminKey
+      Utility
+      Crypto
+      Crypto.ZKSNARK
+      Crypto.R1CS
+      Crypto.MerkleTree
+      Crypto.DFT
+      Crypto.BLS12381
+      Crypto.Curve
+      Crypto.Extension
+      Crypto.Polynomial
+      Crypto.Zp
+      Crypto.Conversions
+      -- ZpTest
+    build-depends:
+      base                          >= 4.9 && < 5,
+      aeson                                  -any,
+      bytestring                             -any,
+      containers                             -any,
+      data-default                           -any,
+      extra                                  -any,
+      freer-extras                           -any,
+      flat                                   -any,
+      lens                                   -any,
+      mtl                                    -any,
+      playground-common                      -any,
+      plutus-contract                        -any,
+      plutus-core                            -any,
+      plutus-chain-index                     -any,
+      plutus-tx-plugin                       -any,
+      plutus-tx                              -any,
+      plutus-ledger                          -any,
+      plutus-ledger-api                      -any,
+      plutus-use-cases                       -any,
+      random                                 -any,
+      serialise                              -any,
+      text                                   -any,
+      generic-arbitrary                      -any,
+      prettyprinter                          -any,
+      QuickCheck                             -any
+    hs-source-dirs: src
+    -- default-language: Haskell2010
+    -- ghc-options:
+    --         -- See Plutus Tx readme
+            -- -fno-specialise -fno-strictness -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+
+-- test-suite cardano-mixer-test
+--   type: exitcode-stdio-1.0
+--   main-is: Spec.hs
+--   hs-source-dirs: examples/test
+--   other-modules:
+--     Spec.Game
+--   default-language: Haskell2010
+--   ghc-options: -Wall -Wnoncanonical-monad-instances
+--               -Wincomplete-uni-patterns -Wincomplete-record-updates
+--               -Wredundant-constraints -Widentities -rtsopts
+--               -- See Plutus Tx readme
+--               -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+--   build-depends:
+--     plutus-tx -any,
+--     plutus-tx-plugin,
+--     plutus-contract -any,
+--     plutus-ledger -any,
+--     cardano-mixer -any
+--   build-depends:
+--     base >= 4.9 && < 5,
+--     tasty -any,
+--     tasty-hunit -any,
+--     tasty-hedgehog >=0.2.0.0
+
+executable cardano-mixer-pab
+  import: lang
+  main-is: mixer-pab.hs
+  hs-source-dirs: app
+  ghc-options:
+    -threaded
+  build-depends:
+    aeson                                  -any,
+    base                          >= 4.9 && < 5,
+    bytestring                             -any,
+    cardano-mixer                          -any,
+    containers                             -any,
+    data-default                           -any,
+    freer-extras                           -any,
+    freer-simple                           -any,
+    plutus-contract                        -any,
+    plutus-ledger                          -any,
+    plutus-pab                             -any,
+    plutus-tx                              -any,
+    plutus-use-cases                       -any,
+    prettyprinter                          -any,
+    text                                   -any
+    
+executable cardano-mixer-client
+  import: lang
+  main-is: mixer-client.hs
+  hs-source-dirs: app
+  ghc-options:
+    -threaded
+  build-depends:
+    aeson                                  -any,
+    base                          >= 4.9 && < 5,
+    bytestring                             -any,
+    cardano-mixer                          -any,
+    containers                             -any,
+    data-default                           -any,
+    freer-extras                           -any,
+    freer-simple                           -any,
+    plutus-contract                        -any,
+    plutus-ledger                          -any,
+    plutus-ledger-api                      -any,
+    plutus-pab                             -any,
+    plutus-tx                              -any,
+    plutus-use-cases                       -any,
+    prettyprinter                          -any,
+    regex-tdfa                      ^>= 1.3.1.0,
+    req                               ^>= 3.9.0,
+    text                                   -any,
+    uuid                                   -any
+    
+    
+executable cardano-mixer-qap
+  import: lang
+  main-is: mixer-qap.hs
+  hs-source-dirs: app
+  ghc-options:
+    -threaded
+  build-depends:
+    aeson                                  -any,
+    base                          >= 4.9 && < 5,
+    bytestring                             -any,
+    cardano-mixer                          -any,
+    containers                             -any,
+    data-default                           -any,
+    freer-extras                           -any,
+    freer-simple                           -any,
+    plutus-contract                        -any,
+    plutus-ledger                          -any,
+    plutus-ledger-api                      -any,
+    plutus-pab                             -any,
+    plutus-tx                              -any,
+    plutus-use-cases                       -any,
+    prettyprinter                          -any,
+    regex-tdfa                      ^>= 1.3.1.0,
+    req                               ^>= 3.9.0,
+    text                                   -any,
+    uuid                                   -any
+    
+    
+executable cardano-mixer-zksnark-setup
+  import: lang
+  main-is: mixer-zksnark-setup.hs
+  hs-source-dirs: app
+  ghc-options:
+    -threaded
+  build-depends:
+    aeson                                  -any,
+    base                          >= 4.9 && < 5,
+    bytestring                             -any,
+    cardano-mixer                          -any,
+    containers                             -any,
+    data-default                           -any,
+    freer-extras                           -any,
+    freer-simple                           -any,
+    plutus-contract                        -any,
+    plutus-ledger                          -any,
+    plutus-ledger-api                      -any,
+    plutus-pab                             -any,
+    plutus-tx                              -any,
+    plutus-use-cases                       -any,
+    prettyprinter                          -any,
+    regex-tdfa                      ^>= 1.3.1.0,
+    req                               ^>= 3.9.0,
+    text                                   -any,
+    uuid                                   -any
+    
+    
+    
+    
+    
+    
