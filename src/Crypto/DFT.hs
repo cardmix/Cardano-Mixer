@@ -24,7 +24,7 @@ module Crypto.DFT
    toIDFT, unIDFT,
    toDFT,  unDFT,
    extend, extendDFT,
-   targetPolyDFT, nearestPowerOfTwo) where
+   targetPolyDFT, nearestPowerOfTwo, padToPowerOfTwo) where
 
 import           Data.Aeson                        (FromJSON, ToJSON)
 import           GHC.Generics                      (Generic)

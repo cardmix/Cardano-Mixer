@@ -4,49 +4,70 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE NamedFieldPuns     #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RankNTypes         #-}
+{-# LANGUAGE TemplateHaskell    #-}
 {-# LANGUAGE TypeApplications   #-}
 {-# LANGUAGE TypeFamilies       #-}
 {-# LANGUAGE TypeOperators      #-}
+
 
 
 module Main
     ( main
     ) where
 
-import           Data.Aeson                          (FromJSON(..), ToJSON(..), encode)
+import           Data.Either                         (rights)
+import           Data.Text                           (pack)
 import           Control.Monad                       (void)
-import           Control.Monad.Freer                 (interpret)
 import           Control.Monad.IO.Class              (MonadIO (..))
-import           Data.Default                        (Default (..))
-import           Data.Text.Prettyprint.Doc           (Pretty (..), viaShow)
-import           GHC.Generics                        (Generic)
-import           Ledger.Value                        (Value(..))                        
+
+import           Ledger.Value                        (Value(..))
 import           PlutusTx.AssocMap                   (elems)
-import           PlutusTx.Prelude                    ((+), length)
-import           Plutus.Contracts.Currency           (CurrencySchema, mintCurrency)
-import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), BuiltinHandler(..), HasDefinitions(..),
-                                                        handleBuiltin, endpointsToSchemas)
+
+import           Plutus.PAB.Effects.Contract.Builtin (Builtin, handleBuiltin)
+import           Plutus.PAB.Run                      (runWith)
 import qualified Plutus.PAB.Simulator                as Simulator
 import qualified Plutus.PAB.Webserver.Server         as PAB.Server
-import           Wallet.Emulator.Types               (Wallet (..))
+import           Plutus.Trace.Emulator
+import           System.Environment                  (getArgs)
+import           Wallet.Emulator.Wallet              (fromBase16, Wallet (..))
 
-import           Crypto
-import           Mixer                               (mixerProgram)
-import           MixerFactory                        (mixerFactoryProgram)
+import           Config                              (pabWallet)
+import           PAB
 
-import Data.ByteString.Lazy (writeFile)
-import System.CPUTime
-import Wallet.Emulator.Wallet (Wallet(Wallet), walletPubKey)
-import Ledger (pubKeyHash)
-
-r1csFile :: String
-r1csFile = "circuit-mixer.json"
+--- For Emulator
+import Control.Monad.Freer.Extras (logInfo)
+import Contracts.Currency (mintCurrency, SimpleMPS (SimpleMPS))
+import MixerFactory (mixerFactoryProgram, StartParams (StartParams))
+import AdminKey (adminKeyTokenName)
+import Plutus.V1.Ledger.Ada (lovelaceValueOf)
+import Plutus.Trace (writeScriptsTo, ScriptsConfig (..), Command (Scripts, Transactions))
+import Data.Default (def)
+import Ledger (ValidatorMode(FullyAppliedValidators))
+-- import Cardano.Api
+-- import Cardano.Api
+import Cardano.Api.NetworkId.Extra (testnetNetworkId, NetworkIdWrapper (unNetworkIdWrapper))
 
 main :: IO ()
-main = void $ Simulator.runSimulationWith handlers $ do
+main = do
+    args <- getArgs
+    case args of
+        ["emulator"]  -> --void $ writeScriptsTo (ScriptsConfig "testnet" (Transactions (unNetworkIdWrapper testnetNetworkId) "testnet/protocol-parameters.json") ) "trace" pabEmulator def
+            void $ writeScriptsTo (ScriptsConfig "testnet" (Scripts FullyAppliedValidators) ) "trace" pabEmulator def
+            -- runEmulatorTraceIO pabEmulator
+        ["simulator"] -> pabSimulator
+        _             -> pabTestNet
+
+pabTestNet :: IO ()
+pabTestNet = runWith (handleBuiltin @MixerContracts)
+
+--------------------------------------- Simulator -----------------------------------------------
+
+pabSimulator :: IO ()
+pabSimulator = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin MixerContracts) "Starting Oracle PAB webserver. Press enter to exit."
     shutdown <- PAB.Server.startServerDebug
 
@@ -56,31 +77,23 @@ main = void $ Simulator.runSimulationWith handlers $ do
     b <- Simulator.currentBalances
     Simulator.logBalances @(Builtin MixerContracts) b
 
-    f <- head . elems . head . elems . getValue <$> Simulator.walletFees (Wallet 1)
+    f <- head . elems . head . elems . getValue <$> Simulator.walletFees pabWallet
     Simulator.logString @(Builtin MixerContracts) $ "Total fees paid: " ++ show ((fromIntegral f :: Double) / 1_000_000) ++ " ADA"
 
     shutdown
 
-data MixerContracts = MintAdminKey | Start | UseMixer
-    deriving (Eq, Ord, Show, Generic, FromJSON, ToJSON)
+--------------------------------------- Emulator -----------------------------------------------
 
-instance Pretty MixerContracts where
-    pretty = viaShow
+pabEmulator :: EmulatorTrace ()
+pabEmulator = do
+    c1 <- activateContractWallet pabWallet (void mintCurrency)
+    callEndpoint @"Create native token" c1 (SimpleMPS adminKeyTokenName 1)
 
--- TODO: Proof data type does not have ToSchema
-instance HasDefinitions MixerContracts where
-    getDefinitions = [MintAdminKey, Start, UseMixer]
-    getSchema = \case
-        MintAdminKey     -> endpointsToSchemas  @CurrencySchema
-        Start            -> [] --endpointsToSchemas  @MixerFactorySchema
-        UseMixer         -> [] --endpointsToSchemas  @MixerSchema
-    getContract = \case
-        MintAdminKey -> SomeBuiltin mintCurrency
-        Start        -> SomeBuiltin mixerFactoryProgram
-        UseMixer     -> SomeBuiltin mixerProgram
+    _ <- waitNSlots 1
 
-handlers :: Simulator.SimulatorEffectHandlers (Builtin MixerContracts)
-handlers =
-    Simulator.mkSimulatorHandlers @(Builtin MixerContracts) def def
-    $ interpret (contractHandler handleBuiltin)
-    
+    c2 <- activateContractWallet pabWallet (void mixerFactoryProgram)
+    callEndpoint @"start" c2 (StartParams (lovelaceValueOf 200_000_000) 10)
+
+    _ <- waitNSlots 1
+
+    logInfo @String "Finished."

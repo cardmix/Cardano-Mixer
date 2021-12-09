@@ -17,15 +17,30 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE NumericUnderscores         #-}
 
-module Crypto.MerkleTree (addMerkleLeaf, mimcHash) where
+module Crypto.MerkleTree (addMerkleLeaf, getMerkleCoPath, mimcHash) where
 
 import           Data.Tuple                        (swap)
+import           Data.Tuple.Extra                  (snd3)
 import           PlutusTx.Prelude
 
 import           Crypto.Zp                         (Zp, FiniteField(..), toZp)
 
 --------------------- Merkle Tree -------------------------------------
 
+{-# INLINABLE getMerkleCoPath #-}
+getMerkleCoPath :: FiniteField p => [Zp p] -> Integer -> [Zp p]
+getMerkleCoPath lst pos = snd3 $ getMerkleCoPath' (lst, [], pos)
+
+{-# INLINABLE getMerkleCoPath' #-}
+getMerkleCoPath' :: FiniteField p => ([Zp p], [Zp p], Integer) -> ([Zp p], [Zp p], Integer)
+getMerkleCoPath' ([] , path, pos) = ([], path, pos)
+getMerkleCoPath' (lst, path, pos) = getMerkleCoPath' (f lst, path ++ [lst !! coPos], q)
+  where (q, r) = quotRem (pos + 1) 2
+        coPos  = if r == 0 then pos else pos-2
+        f []         = []
+        f (x1:x2:xs) = (if x1 == zero && x2 == zero then zero else mimcHash x1 x2) : f xs
+        f _          = error ()
+        
 {-# INLINABLE addMerkleLeaf #-}
 addMerkleLeaf :: FiniteField p => Zp p -> Integer -> [Zp p] -> [Zp p]
 addMerkleLeaf l pos oPath

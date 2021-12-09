@@ -23,6 +23,7 @@ module MixerStateMachine (
     MixerInput(..),
     mixerStateMachine,
     mixerValidatorHash,
+    mixerAddress,
     mixerClient,
     mixerTokenValue,
     withdrawToken,
@@ -36,18 +37,17 @@ import           Ledger                            hiding (singleton, validatorH
 import           Ledger.Constraints.TxConstraints
 import           Ledger.Tokens                     (token)
 import           Ledger.Typed.Scripts              (TypedValidator, mkTypedValidator, validatorScript, validatorHash, wrapValidator)
-import           Ledger.Value                      (AssetClass(..), CurrencySymbol(..), TokenName(..), geq)
-import           Plutus.Contract.StateMachine
-import           Plutus.Contract.StateMachine.ThreadToken (threadTokenValue)
+import           Ledger.Value                      (AssetClass(..), CurrencySymbol(..), TokenName(..))
 import           PlutusTx
 import           PlutusTx.Prelude                  hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                           (Show (..))
 
-import           AdminKey                          (adminKeyRequired, adminKey)
+import           AdminKey                          (adminKeyRequired)
 import           CheckKey                          (checkKeyRequired)
+import           Contracts.StateMachine
+import           Contracts.StateMachine.ThreadToken (threadTokenValue)
 import           Crypto
-import           MixerProofs                       (verifyWithdraw)
-import           Utility                           (mapError', last, init)
+import           Utility                           (mapError', init)
 
 ----------------------- Data types, instances, and constants -----------------------------
 
@@ -109,11 +109,9 @@ final _ _ = False
 {-# INLINABLE check #-}
 check :: Mixer -> MixerState -> MixerInput -> ScriptContext -> Bool
 check _     _                 (Deposit _)                             _ = True
-check mixer state@(MixerState cp _) input@(Withdraw pkh h l' proof) ctx = 
+check mixer state input ctx = 
     adminKeyRequired state input ctx && -- TEMPORARY: one-server implementation
-    --   verifyWithdraw subs proof &&
       checkKeyRequired (withdrawToken mixer) state input ctx
-    -- where subs = [one, zero, zero, zero, last cp, dataToZp pkh, h, l']
 
 {-# INLINABLE mixerStateMachine #-}
 mixerStateMachine :: Mixer -> StateMachine MixerState MixerInput

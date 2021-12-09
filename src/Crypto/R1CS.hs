@@ -17,19 +17,19 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE NumericUnderscores         #-}
 
-module Crypto.R1CS (R1C(..), R1CS, Assignment, makeSub, solveR1CS, getR1CSPolynomials, loadR1CSFile, example) where
+module Crypto.R1CS (R1C(..), R1CS, Assignment, makeSub, solveR1CS, getR1CSPolynomials, loadR1CSFile) where
 
 import           Data.Aeson                        (FromJSON, decode)
 import           Data.ByteString.Lazy              (readFile)
 import           Data.Map                          (Map, fromList, findWithDefault, toList, union, intersection, difference, singleton, empty)
 import           GHC.Generics                      (Generic)
 import           PlutusTx.Prelude                  hiding ((<$>), (<*>), toList, mconcat)
-import           Prelude                           (Show (..), String, IO, read, unzip3, (<*>), (^), print, Num (negate))
+import           Prelude                           (Show (..), String, IO, read, unzip3, (<*>), (^))
 import qualified Prelude                           (null)
 
 import           Crypto.BLS12381                   (Fr)
-import           Crypto.DFT                        (DFT(..), IDFT(..), toDFT, idft, nearestPowerOfTwo, unDFT, extendDFT, targetPolyDFT, unIDFT, extend, dft, toIDFT)
-import           Crypto.Zp                         (toZp, Zp (Zp))
+import           Crypto.DFT                        (IDFT(..), toDFT, idft, nearestPowerOfTwo, unDFT, extendDFT, unIDFT, toIDFT)
+import           Crypto.Zp                         (toZp)
 import           Utility                           (replicate, drop)
 
 ------------------------------ R1CS -----------------------------
@@ -62,7 +62,10 @@ solveR1C :: Assignment -> R1C -> Assignment
 solveR1C subs r1c = subs `union` subNew
   where
     x   = [leftCoefs, rightCoefs, outCoefs] <*> [r1c] :: [Assignment]
-    [a, b, c] = map (makeSub subs . flip intersection subs) x
+    lst = map (makeSub subs . flip intersection subs) x
+    a   = if length lst >= 3 then head lst else error ()
+    b   = if length lst >= 3 then lst !! 1 else error ()
+    c   = if length lst >= 3 then lst !! 2 else error ()
     diff = map (toList . flip difference subs) x
     subNew = case diff of
       [[], [], []]       -> singleton 0 one
@@ -73,8 +76,8 @@ solveR1C subs r1c = subs `union` subNew
 
 -- Get polynomials (u, v, w, h)
 {-# INLINABLE getR1CSPolynomials #-}
-getR1CSPolynomials :: R1CS -> Assignment -> DFT -> (IDFT, IDFT, IDFT, IDFT)
-getR1CSPolynomials r1cs subs (DFT p) = (u, v, w, h)
+getR1CSPolynomials :: R1CS -> Assignment -> (IDFT, IDFT, IDFT, IDFT)
+getR1CSPolynomials r1cs subs = (u, v, w, h)
   where
     f r1c = (makeSub subs (leftCoefs r1c), makeSub subs (rightCoefs r1c), makeSub subs (outCoefs r1c))
     (a, b, c) = unzip3 $ map f r1cs
@@ -87,26 +90,6 @@ getR1CSPolynomials r1cs subs (DFT p) = (u, v, w, h)
     w = idft wDFT
     m = divide (length $ unDFT lDFT) 2
     h = toIDFT $ drop m (unIDFT $ idft lDFT)
-
-example :: IO ()
-example = do
-    print lDFT
-    print $ idft lDFT
-    print h
-    print $ zipWith (*) (unDFT $ dft $ extend $ toIDFT h) (unDFT p)
-    -- print p
-    -- print $ idft p
-    -- print $ hDFT
-    -- print $ idft hDFT
-  where 
-    uDFT = toDFT [Zp 1, Zp 6, Zp 7, Zp 3]
-    vDFT = toDFT [Zp 5, Zp 6, Zp 8, Zp 9]
-    wDFT = toDFT [Zp 5, Zp 36, Zp 56, Zp 27]
-    lDFT = uDFT * vDFT - extendDFT wDFT
-    p = targetPolyDFT 4
-    m = divide (length $ unDFT lDFT) 2
-    h = drop m (unIDFT $ idft lDFT)
-    -- f v a = 
 
 ----------------------- File operations ----------------------
 

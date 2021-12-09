@@ -28,21 +28,28 @@ module Mixer (
 ) where
 
 import           Data.Aeson                       (FromJSON, ToJSON)
+import           Data.Map                         (elems)
+import qualified Data.Set                         (toList)
 import           GHC.Generics                     (Generic)
 import           Ledger                           (PubKeyHash)
-import           Ledger.Typed.Tx                  (TypedScriptTxOut(tyTxOutData))
-import           Ledger.Value                     (Value)
-import           Plutus.Contract                  (Contract, Promise, type (.\/), Endpoint, endpoint, selectList, throwError, logInfo)
-import           Plutus.Contract.StateMachine     (SMContractError(..), TransitionResult(..), OnChainState(..), getOnChainState, runStepWith)
+import           Ledger.Scripts                   (getRedeemer)
+import           Ledger.Typed.Tx                  (TypedScriptTxOut(..))
+import           Ledger.Value                     (Value, geq)
+import           Plutus.ChainIndex                (ChainIndexTx(..), ChainIndexTxOutputs (..))
+import           Plutus.Contract                  (Contract, Promise, type (.\/), Endpoint, endpoint, selectList, throwError, logInfo, txFromTxId)
+
+import           Plutus.V1.Ledger.Api             (UnsafeFromData (..))
+import           Plutus.V1.Ledger.Tx              (TxOut(..), txInRef, txOutRefId)
 import           PlutusTx.Prelude                 hiding (mempty, (<>))
 import           Prelude                          (Show (..), Monoid (mempty), (<>))
 import           Schema                           (ToSchema)
 
-import           AdminKey
+import           AdminKey                         (adminKeyTx)
 import           CheckKey                         (checkKeyTx)
+import           Contracts.StateMachine           (SMContractError(..), TransitionResult(..), OnChainState(..), getOnChainState, runStepWith)
 import           Crypto
-import           MixerFactory
-import           MixerProofs
+import           MixerFactory                     (getMixerByValue)
+import           MixerProofs                      (verifyWithdraw)
 import           MixerStateMachine
 import           Utility                          (last)
 
@@ -149,8 +156,45 @@ updateMixerState v input = do
 getMixerState :: Value -> Contract w MixerSchema SMContractError MixerState
 getMixerState v = do
     mixer <- getMixerByValue v
-    ocs <- getOnChainState (mixerClient mixer)
+    ocs   <- getOnChainState (mixerClient mixer)
     case ocs of
         Nothing -> throwError $ ChooserError "Mixer not found"
         Just (OnChainState o _ _, _) -> return $ tyTxOutData o
-    
+
+
+--------------------------------------- Getting a list of deposit leafs ---------------------------------
+
+getDepositLeafs :: Value -> Contract w MixerSchema SMContractError [Fr]
+getDepositLeafs v = do
+    mixer <- getMixerByValue v
+    ocs   <- getOnChainState (mixerClient mixer)
+    case ocs of
+        Nothing -> throwError $ ChooserError "Mixer not found"
+        Just (OnChainState o _ tx, _) -> padToPowerOfTwo (length (coPath $ tyTxOutData o) - 1) . snd <$> getDepositLeafs' mixer (Just tx, [])
+
+getDepositLeafs' :: Mixer -> (Maybe ChainIndexTx, [Fr]) -> Contract w MixerSchema SMContractError (Maybe ChainIndexTx, [Fr])
+getDepositLeafs' mixer (Nothing, leafs) = return (Nothing, leafs)
+getDepositLeafs' mixer (Just tx, leafs) = do
+    let leaf = getDepositFromChainIndexTx tx
+    tx' <- getPreviousChainIndexTx mixer tx
+    getDepositLeafs' mixer (tx', leaf ++ leafs)
+
+
+getPreviousChainIndexTx :: Mixer -> ChainIndexTx -> Contract w MixerSchema SMContractError (Maybe ChainIndexTx)
+getPreviousChainIndexTx mixer tx = do
+        res <- mapM txFromTxId ins
+        let txs = map (fromMaybe (error ())) res
+            txs' = PlutusTx.Prelude.filter f txs
+        case txs' of
+            t : _ -> return $ Just t
+            _     -> return Nothing
+    where ins = map (txOutRefId . txInRef) $ Data.Set.toList $ _citxInputs tx
+          f t = case _citxOutputs t of
+                    ValidTx a -> sum (map txOutValue a) `geq` mixerTokenValue mixer
+                    _         -> False
+
+getDepositFromChainIndexTx :: ChainIndexTx -> [Fr]
+getDepositFromChainIndexTx tx = concatMap f (elems $ _citxRedeemers tx)
+    where f r = case unsafeFromBuiltinData $ getRedeemer r of
+                    Deposit leaf -> [leaf]
+                    _            -> []

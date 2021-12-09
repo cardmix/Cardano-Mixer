@@ -171,9 +171,7 @@ generateProofSecret = ZKProofSecret <$> generateFr <*> generateFr
 generateProof :: ProveArguments -> IO Proof
 generateProof pa = do
       secret <- generateProofSecret
-      h <- readFile (folderQAPs ++ fileQAPTarget)
-      let target = fromMaybe (toDFT []) (decode h)
-      return $ prove secret pa target
+      return $ prove secret pa
 
 ---------------------- Groth's zk-SNARKs--------------------
 
@@ -186,15 +184,15 @@ setup (ZKSetupSecret a b g d x) r1cs (QAPData pubExp privExp target) = Reference
       refHg = mul gen g,
       refGd = mul gen d,
       refHd = mul gen d,
-      refGxi = mul gen <$> init xi,
-      refHxi = mul gen <$> init xi,
+      refGxi = mul gen <$> xi,
+      refHxi = mul gen <$> xi,
       refGpub = mul gen <$> pubExp,
       refGpriv = mul gen <$> privExp,
-      refGtarget = mul gen <$> init (init targetExp)
+      refGtarget = mul gen <$> targetExp
     }
   where
     n = length r1cs
-    xi = map (pow x) [0..n]
+    xi = map (pow x) [0..n-1]
     tx = evalPoly x (idft target) * inv d
     targetExp = zipWith (*) xi (replicate n tx)
 
@@ -202,10 +200,10 @@ setup (ZKSetupSecret a b g d x) r1cs (QAPData pubExp privExp target) = Reference
 reduceCRS :: ReferenceString -> ReducedReferenceString
 reduceCRS crs = ReducedReferenceString (refGa crs) (refHb crs) (refHg crs) (refHd crs) (refGpub crs)
 
-prove :: ZKProofSecret -> ProveArguments -> DFT -> Proof
-prove (ZKProofSecret r s) (ProveArguments (SetupArguments l _ _ r1cs) crs subs) target = proof
+prove :: ZKProofSecret -> ProveArguments -> Proof
+prove (ZKProofSecret r s) (ProveArguments (SetupArguments l _ _ r1cs) crs subs) = proof
   where
-    (IDFT u, IDFT v, _, IDFT h) = getR1CSPolynomials r1cs subs target
+    (IDFT u, IDFT v, _, IDFT h) = getR1CSPolynomials r1cs subs
     ai = map snd (dropWhile (\(k, _) -> k <= l) (toList subs))
     a' = refGa crs <> mconcat (zipWith mul (refGxi crs) u)
     a  = a' <> mul (refGd crs) r

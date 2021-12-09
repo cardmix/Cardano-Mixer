@@ -22,5 +22,5 @@ r1csFile = "circuit-mixer.json"
 main :: IO ()
 main = do
     r1cs <- loadR1CSFile r1csFile
-    let sa = SetupArguments 9 34 (21183+34) r1cs
+    let sa = SetupArguments 9 34 21213 r1cs
     void $ generateCRS sa
