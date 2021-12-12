@@ -17,7 +17,7 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
 
-module CheckKey (CheckKeyState(..), checkKeyValidatorHash, checkKeyRequired, checkKeyTx) where
+module CheckKey (CheckKeyState(..), checkKeyValidator, checkKeyValidatorHash, checkKeyRequired, checkKeyTx) where
 
 import           Data.Either                       (fromRight)
 import           Data.Map                          (filter, elems, null, keys)

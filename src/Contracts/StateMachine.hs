@@ -64,7 +64,7 @@ module Contracts.StateMachine(
     , Void
     ) where
 
-import           Control.Lens
+import           Control.Lens                           (makeClassyPrisms, review)
 import           Control.Monad                          (unless)
 import           Control.Monad.Error.Lens
 import           Data.Aeson                             (FromJSON, ToJSON)
@@ -79,14 +79,14 @@ import           Data.Void                              (Void, absurd)
 import           GHC.Generics                           (Generic)
 import           Ledger                                 (POSIXTime, Slot, TxOutRef, Value, scriptCurrencySymbol)
 import qualified Ledger 
-import           Ledger.Constraints                     (ScriptLookups, TxConstraints (..), mintingPolicy, mustMintValueWithRedeemer,
-                                                          mustPayToTheScript, mustSpendPubKeyOutput)
+import           Ledger.Constraints                     (ScriptLookups, TxConstraints(..), mintingPolicy, mustMintValueWithRedeemer,
+                                                         mustPayToTheScript, mustSpendPubKeyOutput)
 import           Ledger.Constraints.OffChain            (UnbalancedTx)
 import qualified Ledger.Constraints.OffChain            as Constraints
 import           Ledger.Constraints.TxConstraints       (InputConstraint (..), OutputConstraint (..))
 import qualified Ledger.Tx                              as Tx
 import qualified Ledger.Typed.Scripts                   as Scripts
-import           Ledger.Typed.Tx                        (TypedScriptTxOut (..))
+import           Ledger.Typed.Tx                        (TypedScriptTxOut (TypedScriptTxOut, tyTxOutData, tyTxOutTxOut))
 import qualified Ledger.Typed.Tx                        as Typed
 import qualified Ledger.Value                           as Value
 import           Plutus.ChainIndex                      (ChainIndexTx (..))
@@ -430,6 +430,8 @@ runInitialiseWith ::
     -- ^ The value locked by the contract at the beginning
     -> Contract w schema e state
 runInitialiseWith customLookups customConstraints StateMachineClient{scInstance} initialState initialValue = mapError (review _SMContractError) $ do
+    ownPK <- ownPaymentPubKeyHash
+    utxo <- utxosAt (Ledger.pubKeyHashAddress ownPK Nothing)
     utxos <- case smThreadToken $ stateMachine scInstance of
         Just tt -> do
             let txOutRef = ttOutRef tt
@@ -447,13 +449,19 @@ runInitialiseWith customLookups customConstraints StateMachineClient{scInstance}
         lookups = Constraints.typedValidatorLookups typedValidator
             <> foldMap (mintingPolicy . curPolicy . ttOutRef) (smThreadToken stateMachine)
             <> Constraints.unspentOutputs utxos
+            <> Constraints.unspentOutputs utxo
             <> customLookups
     utx <- either (throwing _ConstraintResolutionError) pure (Constraints.mkTx lookups constraints)
     let adjustedUtx = Constraints.adjustUnbalancedTx utx
     unless (utx == adjustedUtx) $
       logWarn @Text $ "Contracts.StateMachine.runInitialise: "
                     <> "Found a transaction output value with less than the minimum amount of Ada. Adjusting ..."
-    untilRight $ submitTxConfirmed adjustedUtx
+    
+    logInfo @String $ show adjustedUtx
+    logInfo @String $ show utxos
+    logInfo @String $ show utxo
+    submitTxConfirmed adjustedUtx
+    -- untilRight $ submitTxConfirmed adjustedUtx
     pure initialState
 
 -- | Run one step of a state machine, returning the new state. We can supply additional constraints and lookups for transaction.
@@ -494,8 +502,8 @@ runGuardedStepWith ::
     -> Contract w schema e (Either a (TransitionResult state input))
 runGuardedStepWith userLookups userConstraints smc input guard = mapError (review _SMContractError) $ mkStep smc input >>= \case
     Right StateMachineTransition{smtConstraints,smtOldState=State{stateData=os}, smtNewState=State{stateData=ns}, smtLookups} -> do
-        pk <- ownPubKeyHash
-        let lookups = smtLookups { Constraints.slOwnPubkeyHash = Just pk }
+        pk <- ownPaymentPubKeyHash
+        let lookups = smtLookups { Constraints.slOwnPaymentPubKeyHash = Just pk }
         utx <- either (throwing _ConstraintResolutionError)
                       pure
                       (Constraints.mkTx (lookups <> userLookups) (smtConstraints <> userConstraints))

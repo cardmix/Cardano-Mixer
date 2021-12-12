@@ -31,7 +31,7 @@ import           Data.Aeson                       (FromJSON, ToJSON)
 import           Data.Map                         (elems)
 import qualified Data.Set                         (toList)
 import           GHC.Generics                     (Generic)
-import           Ledger                           (PubKeyHash)
+import           Ledger                           (PubKeyHash, PaymentPubKeyHash)
 import           Ledger.Scripts                   (getRedeemer)
 import           Ledger.Typed.Tx                  (TypedScriptTxOut(..))
 import           Ledger.Value                     (Value, geq)
@@ -75,7 +75,7 @@ deposit = endpoint @"deposit" @DepositParams $ \(DepositParams v leaf) -> do
 data WithdrawParams = WithdrawParams
     {
         wpValue         :: !Value,
-        wpPKH           :: !PubKeyHash,
+        wpPKH           :: !PaymentPubKeyHash,
         wpKey           :: !Fr,
         wpLeaf'         :: !Fr,
         wpProof         :: !Proof
@@ -99,7 +99,7 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \(WithdrawParams v pkh key lea
 data CollectParams = CollectParams
     {
         ctpValue          :: !Value,
-        ctpPKH            :: !PubKeyHash,
+        ctpPKH            :: !PaymentPubKeyHash,
         ctpKey            :: !Fr,
         ctpProof          :: !Proof,
         ctpOldHash        :: !Fr,
@@ -117,7 +117,7 @@ collect = endpoint @"collect" @CollectParams $ \(CollectParams v pkh _ proof oh 
 data ClaimParams = ClaimParams
     {
         clpValue          :: !Value,
-        clpPKH            :: !PubKeyHash,
+        clpPKH            :: !PaymentPubKeyHash,
         clpClaimValue     :: !Value,
         clpOldHash        :: !Fr,
         clpNewHash        :: !Fr

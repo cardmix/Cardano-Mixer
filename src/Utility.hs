@@ -25,8 +25,8 @@ import           Data.Aeson                        (ToJSON)
 import           Data.List                         (partition, unzip)
 import qualified Data.Map
 import           Data.Text                         (Text, pack)
-import           Ledger                            (PubKeyHash, Value)
-import           Plutus.Contract                   (Contract, mapError, ownPubKeyHash, logInfo, txOutFromRef, runError, logWarn, waitNSlots, AsContractError)
+import           Ledger                            (PaymentPubKeyHash, Value)
+import           Plutus.Contract                   (Contract, mapError, ownPaymentPubKeyHash, logInfo, txOutFromRef, runError, logWarn, waitNSlots, AsContractError)
 import           Plutus.Contracts.Currency         (SimpleMPS(..), OneShotCurrency, CurrencyError, mintContract, )
 import           Plutus.Contract.StateMachine      (SMContractError(..))
 import           Plutus.Contract.Wallet            (getUnspentOutput)
@@ -114,7 +114,7 @@ charToHex _   = error ()
 
 --------------------------- Smart Contracts ---------------------------------
 
-collateralConstraints :: PubKeyHash -> [Value] -> TxConstraints i o
+collateralConstraints :: PaymentPubKeyHash -> [Value] -> TxConstraints i o
 collateralConstraints pkh vals = mconcat $ map (mustPayToPubKey pkh) vals
 
 mapError' :: Contract w s SMContractError a -> Contract w s Text a
@@ -129,23 +129,5 @@ untilRight contract = do
             _ <- waitNSlots 500
             untilRight contract
         Right val -> pure val
-
--- Minting tokens for a State Machine contract
-mintTokens :: SimpleMPS -> Contract w s SMContractError OneShotCurrency
-mintTokens (SimpleMPS name amt) = do
-    pkh <- ownPubKeyHash
-    logInfo @String $ show pkh
-    logInfo @String $ show (name, amt)
-    txOutRef <- getUnspentOutput
-    ciTxOut <- txOutFromRef txOutRef
-    let utxos = maybe Prelude.mempty (Data.Map.singleton txOutRef) ciTxOut
-    let lookups     = unspentOutputs utxos
-        mintTx      = mustSpendPubKeyOutput txOutRef
-    logInfo @String $ show lookups
-    logInfo @String $ show (mintTx :: TxConstraints () ())
-    c <- mapError (const $ ChooserError "Could not mint tokens")
-         (mintContract pkh [(name, amt)] :: Contract w s CurrencyError OneShotCurrency)
-    logInfo @String $ show c
-    return c
 
 

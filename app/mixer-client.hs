@@ -18,14 +18,14 @@ module Main
 
 import           Control.Concurrent                           (threadDelay)
 import           Data.Either
-import           Ledger                                       (PubKeyHash)
+import           Ledger                                       (PaymentPubKeyHash)
 import           Ledger.Ada                                   (lovelaceValueOf)
 import           Plutus.Contracts.Currency                    (SimpleMPS(..))
 import           PlutusTx.Prelude                             (zero, one)
 import           Prelude                                      hiding (readFile)
 import           System.CPUTime                               (getCPUTime)
 import           System.Environment                           (getArgs)
-import           Wallet.Emulator.Wallet                       (Wallet (..), walletPubKeyHash, knownWallet, fromBase16)
+import           Wallet.Emulator.Wallet                       (Wallet (..), knownWallet, fromBase16)
 
 import           AdminKey                                     (adminKeyTokenName)
 import           Config                                       (pabWallet)
@@ -35,12 +35,13 @@ import           MixerFactory                                 (StartParams(..))
 import           MixerProofs                                  (generateWithdrawProof, verifyWithdraw)
 import           PAB
 import           Requests
+import Wallet.Emulator.Types (mockWalletPaymentPubKeyHash)
 
 
 main :: IO ()
 main = do
-    let pkh1 = walletPubKeyHash $ pabWallet
-        pkh2 = walletPubKeyHash $ knownWallet 2
+    let pkh1 = mockWalletPaymentPubKeyHash $ pabWallet
+        pkh2 = mockWalletPaymentPubKeyHash $ knownWallet 2
     print pabWallet
     args <- getArgs
     case args of
@@ -57,7 +58,7 @@ main = do
 withdrawTest :: Wallet -> IO Proof
 withdrawTest w = do
     let d = 10
-        pkh = walletPubKeyHash w
+        pkh = mockWalletPaymentPubKeyHash w
         a   = dataToZp pkh
         cp0 = replicate d zero
         c0  = 0
@@ -110,9 +111,9 @@ startMixerProcedure w p = do
 
 --------------------------------- Use mixer logic --------------------------------
 
-depositProcedure :: Wallet -> PubKeyHash -> PubKeyHash -> IO ()
+depositProcedure :: Wallet -> PaymentPubKeyHash -> PaymentPubKeyHash -> IO ()
 depositProcedure w pkhFrom pkhTo = do
-    let pkh = walletPubKeyHash w
+    let pkh = mockWalletPaymentPubKeyHash w
         a   = dataToZp pkh
         r1 = toZp 12451 :: Fr
         r2 = toZp 6788546 :: Fr
@@ -122,7 +123,7 @@ depositProcedure w pkhFrom pkhTo = do
     endpointRequest "deposit" cidUseMixer (DepositParams (lovelaceValueOf 200_000_000) k2)
     -- stopRequest cidUseMixer
 
-withdrawProcedure :: Wallet -> PubKeyHash -> PubKeyHash -> Proof -> IO ()
+withdrawProcedure :: Wallet -> PaymentPubKeyHash -> PaymentPubKeyHash -> Proof -> IO ()
 withdrawProcedure w pkhFrom pkhTo proof = do
     let r1 = toZp 12451 :: Fr
         h = mimcHash (toZp 0) r1
@@ -133,6 +134,6 @@ withdrawProcedure w pkhFrom pkhTo proof = do
         k4 = mimcHash k3 r1'
         l' = mimcHash k4 r2'
     cidUseMixer <- activateRequest UseMixer (Just w)
-    endpointRequest "withdraw" cidUseMixer (WithdrawParams (lovelaceValueOf 200_000_000) (walletPubKeyHash w)
+    endpointRequest "withdraw" cidUseMixer (WithdrawParams (lovelaceValueOf 200_000_000) (mockWalletPaymentPubKeyHash w)
      h l' proof)
     -- stopRequest cidUseMixer

@@ -156,7 +156,7 @@ instance AsContractError CurrencyError where
 --   be minted afterwards.
 mintContract :: forall w s e. AsCurrencyError e => SimpleMPS -> Contract w s e OneShotCurrency
 mintContract SimpleMPS{tokenName, amount} = mapError (review _CurrencyError) $ do
-    pkh <- ownPubKeyHash
+    pkh <- ownPaymentPubKeyHash
     txOutRef <- getUnspentOutput
     ciTxOut <- txOutFromRef txOutRef
     let utxos       = maybe Haskell.mempty (Data.Map.singleton txOutRef) ciTxOut
@@ -169,7 +169,8 @@ mintContract SimpleMPS{tokenName, amount} = mapError (review _CurrencyError) $ d
                         <> collateralConstraints pkh [lovelaceValueOf 10_000_000]
     logInfo @String $ show lookups
     logInfo @String $ show mintTx
-    tx <- untilRight $ submitTxConstraintsWith @Scripts.Any lookups mintTx
+    tx <- submitTxConstraintsWith @Scripts.Any lookups mintTx
+    -- tx <- untilRight $ submitTxConstraintsWith @Scripts.Any lookups mintTx
     _ <- awaitTxConfirmed (getCardanoTxId tx)
     pure theCurrency
 

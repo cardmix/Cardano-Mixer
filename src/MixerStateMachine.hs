@@ -86,7 +86,7 @@ data MixerState = MixerState
 
 PlutusTx.unstableMakeIsData ''MixerState
 
-data MixerInput = Deposit Fr | Withdraw PubKeyHash Fr Fr Proof
+data MixerInput = Deposit Fr | Withdraw PaymentPubKeyHash Fr Fr Proof
     deriving Show
 
 PlutusTx.unstableMakeIsData ''MixerInput

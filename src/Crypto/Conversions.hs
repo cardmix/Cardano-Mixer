@@ -19,6 +19,7 @@
 
 module Crypto.Conversions (dataToZp) where
 
+import           Ledger.Address                    (PaymentPubKeyHash (..))
 import           Plutus.V1.Ledger.Api
 import           PlutusTx.AssocMap                 (Map, toList)
 import           PlutusTx.Prelude                  hiding (toList)
@@ -43,9 +44,9 @@ instance FiniteField p => DataToZp BuiltinByteString p where
     {-# INLINABLE dataToZp #-}
     dataToZp = integerToZp . byteStringToInteger 0
 
-instance FiniteField p => DataToZp PubKeyHash p where
+instance FiniteField p => DataToZp PaymentPubKeyHash p where
     {-# INLINABLE dataToZp #-}
-    dataToZp = dataToZp . getPubKeyHash
+    dataToZp = dataToZp . getPubKeyHash . unPaymentPubKeyHash
 
 instance FiniteField p => DataToZp CurrencySymbol p where
     {-# INLINABLE dataToZp #-}

@@ -32,10 +32,10 @@ import           Ledger                           hiding (singleton, unspentOutp
 import           Ledger.Constraints               (mustPayToPubKey)
 import           Ledger.Constraints.OffChain      (ScriptLookups, unspentOutputs)
 import           Ledger.Tokens                    (token)
-import           Ledger.Value                     (AssetClass(..), geq, TokenName (TokenName), CurrencySymbol (CurrencySymbol))
+import           Ledger.Value                     (AssetClass(..), TokenName (..), CurrencySymbol (..), geq)
 import           Plutus.ChainIndex.Tx             (txOutsWithRef)
 import           Plutus.Contract                  (Contract, logInfo)
-import           Plutus.Contract.Request          (ownPubKeyHash, utxosAt)
+import           Plutus.Contract.Request          (ownPaymentPubKeyHash, utxosAt)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
 import           Prelude                          (String, show)
 import           Wallet.Types                     (AsContractError)
@@ -76,8 +76,8 @@ adminKeyRequired _ _ ctx = val `geq` adminKey
 -- TxConstraints that Admin Key is spent by transaction
 adminKeyTx :: (AsContractError e) => Contract w s e (ScriptLookups a, TxConstraints i o)
 adminKeyTx = do
-    pkh <- ownPubKeyHash
-    utxos <- utxosAt (pubKeyHashAddress pkh)
+    pkh <- ownPaymentPubKeyHash
+    utxos <- utxosAt (pubKeyHashAddress pkh Nothing)
     logInfo @String (show adminKey)
     return (unspentOutputs utxos, mustPayToPubKey pkh adminKey)
 

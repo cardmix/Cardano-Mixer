@@ -19,8 +19,6 @@ module Main
     ( main
     ) where
 
-import           Data.Either                         (rights)
-import           Data.Text                           (pack)
 import           Control.Monad                       (void)
 import           Control.Monad.IO.Class              (MonadIO (..))
 
@@ -33,7 +31,6 @@ import qualified Plutus.PAB.Simulator                as Simulator
 import qualified Plutus.PAB.Webserver.Server         as PAB.Server
 import           Plutus.Trace.Emulator
 import           System.Environment                  (getArgs)
-import           Wallet.Emulator.Wallet              (fromBase16, Wallet (..))
 
 import           Config                              (pabWallet)
 import           PAB
@@ -56,8 +53,8 @@ main = do
     args <- getArgs
     case args of
         ["emulator"]  -> --void $ writeScriptsTo (ScriptsConfig "testnet" (Transactions (unNetworkIdWrapper testnetNetworkId) "testnet/protocol-parameters.json") ) "trace" pabEmulator def
-            void $ writeScriptsTo (ScriptsConfig "testnet" (Scripts FullyAppliedValidators) ) "trace" pabEmulator def
-            -- runEmulatorTraceIO pabEmulator
+            -- void $ writeScriptsTo (ScriptsConfig "testnet" (Scripts FullyAppliedValidators) ) "trace" pabEmulator def
+            runEmulatorTraceIO pabEmulator
         ["simulator"] -> pabSimulator
         _             -> pabTestNet
 
@@ -82,18 +79,18 @@ pabSimulator = void $ Simulator.runSimulationWith handlers $ do
 
     shutdown
 
---------------------------------------- Emulator -----------------------------------------------
+--------------------------------------- Emulator  trace -----------------------------------------------
 
 pabEmulator :: EmulatorTrace ()
 pabEmulator = do
     c1 <- activateContractWallet pabWallet (void mintCurrency)
     callEndpoint @"Create native token" c1 (SimpleMPS adminKeyTokenName 1)
 
-    _ <- waitNSlots 1
+    _ <- waitNSlots 10
 
     c2 <- activateContractWallet pabWallet (void mixerFactoryProgram)
     callEndpoint @"start" c2 (StartParams (lovelaceValueOf 200_000_000) 10)
 
-    _ <- waitNSlots 1
+    _ <- waitNSlots 10
 
     logInfo @String "Finished."

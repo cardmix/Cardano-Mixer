@@ -23,9 +23,10 @@ module MixerFactory (
     getMixerByValue
 ) where
 
-import           Data.Aeson                       (FromJSON, ToJSON (toJSON))
+import           Data.Aeson                       (FromJSON, ToJSON)
 import           GHC.Generics                     (Generic)
 import           Ledger                           (Datum(..), Validator, Address, Value, AssetClass, ScriptContext, scriptAddress, minAdaTxOut)
+import           Ledger.Constraints.OffChain      (otherScript)
 import           Ledger.Constraints.TxConstraints (mustPayToOtherScript)
 import           Ledger.Tokens                    (token)
 import           Ledger.Typed.Scripts             (TypedValidator, mkTypedValidator, validatorScript, wrapValidator)
@@ -41,14 +42,13 @@ import           Prelude                          (Monoid(..), Show (..), (^), S
 import           Schema                           (ToSchema)
 
 import           AdminKey
-import           CheckKey                         (CheckKeyState(..), checkKeyValidatorHash)
+import           CheckKey                         (CheckKeyState(..), checkKeyValidatorHash, checkKeyValidator)
 import           Contracts.Currency               (SimpleMPS (..), CurrencyError (..), currencySymbol, mintContract)
 import           Contracts.StateMachine
 import           Crypto.BLS12381                  (R(..))
 import           Crypto.Zp                        (fieldPrime, toZp)
 import           MixerStateMachine
 import           Utility                          (replicate)
-
 
 
 ----------------------- Data types, instances, and constants -----------------------------
@@ -150,9 +150,10 @@ start = endpoint @"start" @StartParams $ \(StartParams v d) -> do
         cp      = replicate (d+1) zero
         c       = 0
         ttVal   = mixerTokenValue mixer
-        lookups = mempty
+        lookups = otherScript $ checkKeyValidator ttVal
         ckState = CheckKeyState zero (toZp (fieldPrime R - 1))
         cons    = mustPayToOtherScript (checkKeyValidatorHash ttVal) (Datum $ toBuiltinData ckState) (token ac <> lovelaceValueOf 2_000_000)
+        -- cons    = mustPayToOtherScript (checkKeyValidatorHash ttVal) (Datum $ toBuiltinData ckState) (lovelaceValueOf 2_000_000)
     logInfo @String "Initializing  Mixer..."
     logInfo @String $ show tt
     _ <- runInitialiseWith lookups cons client (MixerState cp c) (assetClassValue ac (2^d) <> lovelaceValueOf 2_000_000)    -- initialise a new mixer
