@@ -46,7 +46,7 @@ common lang
       -- See Plutus Tx readme
       -fno-specialise -fno-strictness -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
     -- if flag(defer-plugin-errors)
-      -- ghc-options:
+    --   ghc-options:
         -fplugin-opt PlutusTx.Plugin:defer-errors
 
 library
@@ -59,14 +59,10 @@ library
       CheckKey
       AdminKey
       Contracts.Currency
-      Contracts.StateMachine
-      Contracts.StateMachine.MintingPolarity
-      Contracts.StateMachine.OnChain
-      Contracts.StateMachine.ThreadToken
       PAB
       Requests
-      Config
       Utility
+      Configuration.PABConfig
       Crypto
       Crypto.ZKSNARK
       Crypto.R1CS
@@ -201,7 +197,7 @@ executable cardano-mixer-qap
     
     
 executable cardano-mixer-zksnark-setup
-  -- import: lang
+  import: lang
   main-is: mixer-zksnark-setup.hs
   hs-source-dirs: app
   ghc-options:

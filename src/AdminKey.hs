@@ -34,14 +34,14 @@ import           Ledger.Constraints.OffChain      (ScriptLookups, unspentOutputs
 import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..), CurrencySymbol (..), geq)
 import           Plutus.ChainIndex.Tx             (txOutsWithRef)
-import           Plutus.Contract                  (Contract, logInfo)
+import           Plutus.Contract                  (Contract)
 import           Plutus.Contract.Request          (ownPaymentPubKeyHash, utxosAt)
+import           Plutus.Contract.StateMachine
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
-import           Prelude                          (String, show)
 import           Wallet.Types                     (AsContractError)
 
-import           Config                           (adminKeyPolicyId)
-import           Contracts.StateMachine
+import           Configuration.PABConfig          (adminKeyPolicyId)
+
 
 
 ------------------------------------ Admin Key ---------------------------------------------------
@@ -76,9 +76,9 @@ adminKeyRequired _ _ ctx = val `geq` adminKey
 -- TxConstraints that Admin Key is spent by transaction
 adminKeyTx :: (AsContractError e) => Contract w s e (ScriptLookups a, TxConstraints i o)
 adminKeyTx = do
+    -- TODO implement the version of this when adminKey is locked in the script
     pkh <- ownPaymentPubKeyHash
     utxos <- utxosAt (pubKeyHashAddress pkh Nothing)
-    logInfo @String (show adminKey)
     return (unspentOutputs utxos, mustPayToPubKey pkh adminKey)
 
 ----------------------------------- State Machine support ------------------------------------

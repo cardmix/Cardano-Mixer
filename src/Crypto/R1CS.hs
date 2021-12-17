@@ -17,7 +17,7 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE NumericUnderscores         #-}
 
-module Crypto.R1CS (R1C(..), R1CS, Assignment, makeSub, solveR1CS, getR1CSPolynomials, loadR1CSFile) where
+module Crypto.R1CS (R1C(..), R1CS, Wires(..), Assignment, makeSub, solveR1CS, getR1CSPolynomials, loadR1CSFile) where
 
 import           Data.Aeson                        (FromJSON, decode)
 import           Data.ByteString.Lazy              (readFile)
@@ -42,6 +42,9 @@ data R1C = R1C
     } deriving Show
 
 type R1CS = [R1C]
+
+data Wires = Wires Integer Integer Integer
+  deriving Show
 
 ----------------------------- Assingments -----------------------
 
@@ -109,13 +112,13 @@ data R1CSFile = R1CSFile
   deriving (Show, Generic, FromJSON)
 
 {-# INLINABLE loadR1CSFile #-}
-loadR1CSFile :: String -> IO R1CS
+loadR1CSFile :: String -> IO (R1CS, Wires)
 loadR1CSFile str = do
     input <- readFile str
     let maybeR1CSFile = decode input :: Maybe R1CSFile
-        r1cs          = maybe [] decodeR1CS maybeR1CSFile
+        (r1cs, wires) = decodeR1CS maybeR1CSFile
         n             = nearestPowerOfTwo $ length r1cs
-    return $ addEmptyR1CS n r1cs
+    return $ (addEmptyR1CS n r1cs, wires)
 
 {-# INLINABLE addEmptyR1CS #-}
 addEmptyR1CS :: Integer -> R1CS -> R1CS
@@ -126,10 +129,16 @@ addEmptyR1CS n r1cs
   where l = length r1cs
 
 {-# INLINABLE decodeR1CS #-}
-decodeR1CS :: R1CSFile -> R1CS
-decodeR1CS rf = if null r then [] else map f r
-  where
-      r = constraints rf
-      f x = R1C {leftCoefs = g 0 x, rightCoefs = g 1 x, outCoefs = g 2 x}
-      g ind x = fromList $ map h $ toList (x !! ind)
-      h (key, val) = (read key :: Integer, toZp $ read val)
+decodeR1CS :: Maybe R1CSFile -> (R1CS, Wires)
+decodeR1CS mf = case mf of
+                  Nothing -> error()
+                  Just rf -> 
+                        let
+                          r = constraints rf
+                          f x = R1C {leftCoefs = g 0 x, rightCoefs = g 1 x, outCoefs = g 2 x}
+                          g ind x = fromList $ map h $ toList (x !! ind)
+                          h (key, val) = (read key :: Integer, toZp $ read val)
+                          pubWires   = nOutputs rf + nPubInputs rf
+                          privWires  = nOutputs rf + nPubInputs rf + nPrvInputs rf
+                          totalWires = nConstraints rf + nPubInputs rf + nPrvInputs rf
+                        in if null r then error() else (map f r, Wires pubWires privWires totalWires)

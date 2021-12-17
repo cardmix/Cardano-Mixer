@@ -34,7 +34,7 @@ import           Crypto.BLS12381                   (Fr, T1, T2, pairing, generat
 import           Crypto.Curve                      (CurvePoint (..), EllipticCurve(..), mul)
 import           Crypto.DFT
 import           Crypto.Extension                  (pow)
-import           Crypto.R1CS                       (R1CS, R1C(..), Assignment, getR1CSPolynomials)
+import           Crypto.R1CS                       (R1CS, R1C(..), Wires(..), Assignment, getR1CSPolynomials)
 import           Utility                           (replicate, numBatches, selectBatch)
 
 ------------------------ File constants ------------------------------
@@ -69,6 +69,9 @@ fileCRS = "crs.json"
 fileReducedCRS :: FilePath
 fileReducedCRS = "reduced-crs.json"
 
+fileMerkleWithdrawQAP :: FilePath
+fileMerkleWithdrawQAP = "QAP-compilation/cardano-mixer/MerkleWithdraw.json"
+
 ----------------------- ZKSNARK data types ---------------------------
 
 -- Setup
@@ -87,10 +90,8 @@ instance Arbitrary ZKSetupSecret where
 -- Arguments: (public inputs + public outputs) (total inputs + outputs) (total inputs + intermediate + outputs) (r1cs)
 data SetupArguments = SetupArguments
   {
-    setupPublic  :: Integer,
-    setupPrivate :: Integer,
-    setupTotal   :: Integer,
-    setupR1CS    :: R1CS
+    setupR1CS    :: R1CS,
+    setupWires   :: Wires
   }
 
 data ReferenceString = ReferenceString
@@ -201,7 +202,7 @@ reduceCRS :: ReferenceString -> ReducedReferenceString
 reduceCRS crs = ReducedReferenceString (refGa crs) (refHb crs) (refHg crs) (refHd crs) (refGpub crs)
 
 prove :: ZKProofSecret -> ProveArguments -> Proof
-prove (ZKProofSecret r s) (ProveArguments (SetupArguments l _ _ r1cs) crs subs) = proof
+prove (ZKProofSecret r s) (ProveArguments (SetupArguments r1cs (Wires l _ _)) crs subs) = proof
   where
     (IDFT u, IDFT v, _, IDFT h) = getR1CSPolynomials r1cs subs
     ai = map snd (dropWhile (\(k, _) -> k <= l) (toList subs))
@@ -239,7 +240,7 @@ data QAPData = QAPData [Fr] [Fr] DFT
 
 -- Function that writes polynomials forming QAP to files
 compileQAP :: SetupArguments -> IO ()
-compileQAP (SetupArguments l _ m' r1cs) = do
+compileQAP (SetupArguments r1cs (Wires l _ m')) = do
     let batchSize  = 100
         n = length r1cs
     Prelude.mconcat $ map (\j -> writeFile (folderQAPs ++ fileQAPPub ++ show j) (encode $ qap $ selectBatch batchSize 0 l j)) [0 .. numBatches batchSize 0 l - 1]
@@ -255,7 +256,7 @@ compileQAP (SetupArguments l _ m' r1cs) = do
 
 -- Function that computes the public and private exponents as well as loads the target polynomial
 computeQAPData :: ZKSetupSecret -> SetupArguments -> IO QAPData
-computeQAPData (ZKSetupSecret a b g d x) (SetupArguments l _ m' _) = do
+computeQAPData (ZKSetupSecret a b g d x) (SetupArguments _ (Wires l _ m')) = do
     let batchSize  = 100
     mapM_ (f g (folderQAPs ++ fileQAPPub) (folderQAPs ++ folderCRS ++ filePublic))
      ([0 .. numBatches batchSize 0 l - 1] :: [Integer])

@@ -58,7 +58,7 @@ import           Prelude                         (Semigroup (..), Show (show))
 import qualified Prelude                         as Haskell
 import           Schema                          (ToSchema)
 
-import           Utility                         (collateralConstraints, untilRight)
+import           Utility                         (collateralConstraints)
 
 
 {- HLINT ignore "Use uncurry" -}

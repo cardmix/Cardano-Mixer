@@ -21,21 +21,16 @@
 
 module Utility where
 
-import           Data.Aeson                        (ToJSON)
 import           Data.List                         (partition, unzip)
-import qualified Data.Map
 import           Data.Text                         (Text, pack)
 import           Ledger                            (PaymentPubKeyHash, Value)
-import           Plutus.Contract                   (Contract, mapError, ownPaymentPubKeyHash, logInfo, txOutFromRef, runError, logWarn, waitNSlots, AsContractError)
-import           Plutus.Contracts.Currency         (SimpleMPS(..), OneShotCurrency, CurrencyError, mintContract, )
+import           Plutus.Contract                   (Contract, mapError)
 import           Plutus.Contract.StateMachine      (SMContractError(..))
-import           Plutus.Contract.Wallet            (getUnspentOutput)
-import           Ledger.Constraints                (unspentOutputs, mustPayToPubKey)
-import           Ledger.Constraints.TxConstraints  (TxConstraints, mustSpendPubKeyOutput)
+import           Ledger.Constraints                (mustPayToPubKey)
+import           Ledger.Constraints.TxConstraints  (TxConstraints)
 import           PlutusTx.Builtins                 (subtractInteger)
 import           PlutusTx.Prelude
-import           Prelude                           (Show(..), Char, String, mempty)
-
+import           Prelude                           (Show(..), Char, String)
 
 --------------------------------- Lists -------------------------------------
 
@@ -119,15 +114,5 @@ collateralConstraints pkh vals = mconcat $ map (mustPayToPubKey pkh) vals
 
 mapError' :: Contract w s SMContractError a -> Contract w s Text a
 mapError' = mapError $ pack . show
-
-untilRight :: (AsContractError e, ToJSON e) => Contract w s e a -> Contract w s e a
-untilRight contract = do
-    result <- runError contract
-    case result of
-        Left err  -> do
-            logWarn err
-            _ <- waitNSlots 500
-            untilRight contract
-        Right val -> pure val
 
 

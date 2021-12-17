@@ -16,8 +16,6 @@ module Main
         main
     ) where
 
-import           Control.Concurrent                           (threadDelay)
-import           Data.Either
 import           Ledger                                       (PaymentPubKeyHash)
 import           Ledger.Ada                                   (lovelaceValueOf)
 import           Plutus.Contracts.Currency                    (SimpleMPS(..))
@@ -25,63 +23,62 @@ import           PlutusTx.Prelude                             (zero, one)
 import           Prelude                                      hiding (readFile)
 import           System.CPUTime                               (getCPUTime)
 import           System.Environment                           (getArgs)
-import           Wallet.Emulator.Wallet                       (Wallet (..), knownWallet, fromBase16)
+import           Wallet.Emulator.Types                        (mockWalletPaymentPubKeyHash)
+import           Wallet.Emulator.Wallet                       (Wallet (..))
 
 import           AdminKey                                     (adminKeyTokenName)
-import           Config                                       (pabWallet)
+import           Configuration.PABConfig                         (pabWallet)
 import           Crypto
 import           Mixer                                        (DepositParams(..), WithdrawParams(..))
 import           MixerFactory                                 (StartParams(..))
 import           MixerProofs                                  (generateWithdrawProof, verifyWithdraw)
 import           PAB
 import           Requests
-import Wallet.Emulator.Types (mockWalletPaymentPubKeyHash)
+
 
 
 main :: IO ()
 main = do
-    let pkh1 = mockWalletPaymentPubKeyHash $ pabWallet
-        pkh2 = mockWalletPaymentPubKeyHash $ knownWallet 2
+    let pkh = mockWalletPaymentPubKeyHash pabWallet
     print pabWallet
     args <- getArgs
     case args of
-        ["admin"]    -> mintAdminKeyProcedure pabWallet-- for testing purposes
+        ["admin"]    -> mintAdminKeyProcedure pabWallet   -- for testing purposes
         ["start", s] -> startMixerProcedure pabWallet (startParams !! (read s -1))
-        ["deposit"]  -> depositProcedure pabWallet pkh1 pkh1
+        ["deposit"]  -> depositProcedure pabWallet pkh pkh
         ["withdraw"] -> do
                     proof <- withdrawTest pabWallet
-                    withdrawProcedure pabWallet pkh1 pkh1 proof
+                    withdrawProcedure pabWallet pkh pkh proof
         _            -> print ("Unknown command" :: String)
 
 ---------------------- Withdraw test ----------------------------------
 
 withdrawTest :: Wallet -> IO Proof
 withdrawTest w = do
+    let r1 = toZp 12451 :: Fr
+        r2 = toZp 6788546 :: Fr
+        h  = mimcHash (toZp 0) r1
+        hA = mimcHash (dataToZp $ mockWalletPaymentPubKeyHash w) r2
+        v1 = toZp 890523 :: Fr
+        v2 = toZp 35656 :: Fr
+        v3 = toZp 97346 :: Fr
+        oh = mimcHash v1 v2
+        nh = mimcHash v1 v3
     let d = 10
         pkh = mockWalletPaymentPubKeyHash w
+        
         a   = dataToZp pkh
         cp0 = replicate d zero
         c0  = 0
-        r1 = toZp 12451 :: Fr
-        r2 = toZp 6788546 :: Fr
-        r1' = toZp 890523 :: Fr
-        r2' = toZp 35656 :: Fr
-        h = mimcHash (toZp 0) r1
-        k1 = mimcHash a r1
-        k2 = mimcHash k1 r2
-        cp  = addMerkleLeaf k2 (c0+1) cp0
+        k = mimcHash r1 r2
+        cp  = addMerkleLeaf k (c0+1) cp0
         root = last cp
 
         l = replicate d zero :: [Fr]
 
-        a' = toZp 1
-        k3 = mimcHash zero a'
-        k4 = mimcHash k3 r1'
-        l' = mimcHash k4 r2'
-
-        subsPub = [one, zero, zero, zero, zero, root, a, h, l', one] :: [Fr]
+        subsPub = [one, zero, zero, zero, zero, zero, root, a, h, hA, one, oh, nh] :: [Fr]
     t1 <- getCPUTime
-    proof <- generateWithdrawProof (root, a, h, l', one, r1, r2, init cp, l, a', r1', r2')
+    proof <- generateWithdrawProof (root, a, h, hA, one, oh, nh, r1, r2, init cp, l, v1, v2, v3)
     print proof
     t2 <- getCPUTime
     print $ (fromIntegral (t2 - t1) :: Double) / (10^(12 :: Integer))
@@ -112,28 +109,26 @@ startMixerProcedure w p = do
 --------------------------------- Use mixer logic --------------------------------
 
 depositProcedure :: Wallet -> PaymentPubKeyHash -> PaymentPubKeyHash -> IO ()
-depositProcedure w pkhFrom pkhTo = do
-    let pkh = mockWalletPaymentPubKeyHash w
-        a   = dataToZp pkh
-        r1 = toZp 12451 :: Fr
+depositProcedure w _ _ = do
+    let r1 = toZp 12451 :: Fr
         r2 = toZp 6788546 :: Fr
-        k1 = mimcHash a r1
-        k2 = mimcHash k1 r2
+        k = mimcHash r1 r2
     cidUseMixer <- activateRequest UseMixer (Just w)
-    endpointRequest "deposit" cidUseMixer (DepositParams (lovelaceValueOf 200_000_000) k2)
+    endpointRequest "deposit" cidUseMixer (DepositParams (lovelaceValueOf 200_000_000) k)
     -- stopRequest cidUseMixer
 
 withdrawProcedure :: Wallet -> PaymentPubKeyHash -> PaymentPubKeyHash -> Proof -> IO ()
-withdrawProcedure w pkhFrom pkhTo proof = do
+withdrawProcedure w _ _ proof = do
     let r1 = toZp 12451 :: Fr
-        h = mimcHash (toZp 0) r1
-        r1' = toZp 890523 :: Fr
-        r2' = toZp 35656 :: Fr
-        a' = toZp 1
-        k3 = mimcHash zero a'
-        k4 = mimcHash k3 r1'
-        l' = mimcHash k4 r2'
+        r2 = toZp 6788546 :: Fr
+        h  = mimcHash (toZp 0) r1
+        hA = mimcHash (dataToZp $ mockWalletPaymentPubKeyHash w) r2
+        v1 = toZp 890523 :: Fr
+        v2 = toZp 35656 :: Fr
+        v3 = toZp 97346 :: Fr
+        oh = mimcHash v1 v2
+        nh = mimcHash v1 v3
     cidUseMixer <- activateRequest UseMixer (Just w)
     endpointRequest "withdraw" cidUseMixer (WithdrawParams (lovelaceValueOf 200_000_000) (mockWalletPaymentPubKeyHash w)
-     h l' proof)
+     h hA oh nh proof)
     -- stopRequest cidUseMixer

@@ -24,19 +24,21 @@ module Mixer (
     CollectParams(..),
     ClaimParams(..),
     verifierTokenAssetClass,
-    mixerProgram
+    mixerProgram,
+    getDepositLeafs
 ) where
 
 import           Data.Aeson                       (FromJSON, ToJSON)
 import           Data.Map                         (elems)
 import qualified Data.Set                         (toList)
 import           GHC.Generics                     (Generic)
-import           Ledger                           (PubKeyHash, PaymentPubKeyHash)
+import           Ledger                           (PaymentPubKeyHash)
 import           Ledger.Scripts                   (getRedeemer)
 import           Ledger.Typed.Tx                  (TypedScriptTxOut(..))
 import           Ledger.Value                     (Value, geq)
 import           Plutus.ChainIndex                (ChainIndexTx(..), ChainIndexTxOutputs (..))
 import           Plutus.Contract                  (Contract, Promise, type (.\/), Endpoint, endpoint, selectList, throwError, logInfo, txFromTxId)
+import           Plutus.Contract.StateMachine     (SMContractError(..), TransitionResult(..), OnChainState(..), getOnChainState, runStepWith)
 
 import           Plutus.V1.Ledger.Api             (UnsafeFromData (..))
 import           Plutus.V1.Ledger.Tx              (TxOut(..), txInRef, txOutRefId)
@@ -46,7 +48,7 @@ import           Schema                           (ToSchema)
 
 import           AdminKey                         (adminKeyTx)
 import           CheckKey                         (checkKeyTx)
-import           Contracts.StateMachine           (SMContractError(..), TransitionResult(..), OnChainState(..), getOnChainState, runStepWith)
+
 import           Crypto
 import           MixerFactory                     (getMixerByValue)
 import           MixerProofs                      (verifyWithdraw)
@@ -77,7 +79,9 @@ data WithdrawParams = WithdrawParams
         wpValue         :: !Value,
         wpPKH           :: !PaymentPubKeyHash,
         wpKey           :: !Fr,
-        wpLeaf'         :: !Fr,
+        wpKeyA          :: !Fr,
+        wpOldHash       :: !Fr,
+        wpNewHash       :: !Fr,
         wpProof         :: !Proof
     }
     deriving stock (Show, Generic)
@@ -85,11 +89,11 @@ data WithdrawParams = WithdrawParams
 
 -- "withdraw" endpoint implementation
 withdraw :: Promise () MixerSchema SMContractError MixerState
-withdraw = endpoint @"withdraw" @WithdrawParams $ \(WithdrawParams v pkh key leaf proof) -> do
+withdraw = endpoint @"withdraw" @WithdrawParams $ \(WithdrawParams v pkh key keyA oh nh proof) -> do
     s <- getMixerState v
-    let pubParams = [one, zero, zero, zero, zero, last $ coPath s, dataToZp pkh, key, leaf, toZp $ depositCounter s]
+    let pubParams = [one, zero, zero, zero, zero, zero, last $ coPath s, dataToZp pkh, key, keyA, toZp $ depositCounter s, oh, nh]
     if verifyWithdraw pubParams proof
-        then updateMixerState v (Withdraw pkh key leaf proof)
+        then updateMixerState v (Withdraw pkh key proof)
         else do
             logInfo $ ChooserError "Supplied proof is not correct"
             return s
@@ -110,8 +114,8 @@ data CollectParams = CollectParams
 
 -- "collect rewards" endpoint implementation
 collect :: Promise () MixerSchema SMContractError MixerState
-collect = endpoint @"collect" @CollectParams $ \(CollectParams v pkh _ proof oh nh) -> do
-    updateMixerState v (Withdraw pkh oh nh proof)
+collect = endpoint @"collect" @CollectParams $ \(CollectParams v pkh _ proof oh _) -> do
+    updateMixerState v (Withdraw pkh oh proof)
 
 -- Parameters for the "claim rewards" endpoint
 data ClaimParams = ClaimParams
@@ -127,8 +131,8 @@ data ClaimParams = ClaimParams
 
 -- "claim rewards" endpoint implementation
 claim :: Promise () MixerSchema SMContractError MixerState
-claim = endpoint @"claim" @ClaimParams $ \(ClaimParams v pkh _ oh nh) -> do
-    updateMixerState v (Withdraw pkh oh nh (Proof O O O))
+claim = endpoint @"claim" @ClaimParams $ \(ClaimParams v pkh _ oh _) -> do
+    updateMixerState v (Withdraw pkh oh (Proof O O O))
 
 type MixerSchema = Endpoint "deposit" DepositParams .\/ Endpoint "withdraw" WithdrawParams
         .\/ Endpoint "collect" CollectParams .\/ Endpoint "claim" ClaimParams
@@ -143,7 +147,7 @@ updateMixerState :: Value -> MixerInput -> Contract w MixerSchema SMContractErro
 updateMixerState v input = do
     mixer <- getMixerByValue v
     (lookups, cons) <- case input of
-            Withdraw _ h _ _ -> do
+            Withdraw _ h _ -> do
                 (lookups1, cons1) <- checkKeyTx (mixerTokenValue mixer) (withdrawToken mixer) h
                 (lookups2, cons2) <- adminKeyTx -- TEMPORARY: one server implementation
                 pure (lookups1 <> lookups2, cons1 <> cons2)
@@ -173,7 +177,7 @@ getDepositLeafs v = do
         Just (OnChainState o _ tx, _) -> padToPowerOfTwo (length (coPath $ tyTxOutData o) - 1) . snd <$> getDepositLeafs' mixer (Just tx, [])
 
 getDepositLeafs' :: Mixer -> (Maybe ChainIndexTx, [Fr]) -> Contract w MixerSchema SMContractError (Maybe ChainIndexTx, [Fr])
-getDepositLeafs' mixer (Nothing, leafs) = return (Nothing, leafs)
+getDepositLeafs' _     (Nothing, leafs) = return (Nothing, leafs)
 getDepositLeafs' mixer (Just tx, leafs) = do
     let leaf = getDepositFromChainIndexTx tx
     tx' <- getPreviousChainIndexTx mixer tx

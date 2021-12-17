@@ -24,6 +24,7 @@ cabal.project.local~
 result*
 .envrc
 .vim
-testnet/
-plutus-apps/
-
+QAPs/
+testnet/db/
+testnet/chain-index/
+QAP-compilation/circomlib/

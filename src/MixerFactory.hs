@@ -25,26 +25,26 @@ module MixerFactory (
 
 import           Data.Aeson                       (FromJSON, ToJSON)
 import           GHC.Generics                     (Generic)
-import           Ledger                           (Datum(..), Validator, Address, Value, AssetClass, ScriptContext, scriptAddress, minAdaTxOut)
+import           Ledger                           (Datum(..), Validator, Address, Value, AssetClass, ScriptContext, scriptAddress)
 import           Ledger.Constraints.OffChain      (otherScript)
 import           Ledger.Constraints.TxConstraints (mustPayToOtherScript)
 import           Ledger.Tokens                    (token)
 import           Ledger.Typed.Scripts             (TypedValidator, mkTypedValidator, validatorScript, wrapValidator)
 import           Ledger.Typed.Tx                  (TypedScriptTxOut(tyTxOutData))
-import           Plutus.Contract                  (Contract, Promise, Endpoint, endpoint, selectList, throwError, logInfo, mapError)
+import           Plutus.Contract                  (Contract, Promise, Endpoint, endpoint, selectList, throwError, mapError)
+import           Plutus.Contract.StateMachine
 import           PlutusTx.IsData.Class            (ToData(..))
-import           Plutus.V1.Ledger.Ada             (toValue, lovelaceValueOf)
+import           Plutus.V1.Ledger.Ada             (lovelaceValueOf)
 import           Plutus.V1.Ledger.Value           (AssetClass(..), assetClassValue)
 import qualified PlutusTx
 import           PlutusTx.AssocMap                (Map, singleton, empty, insert, lookup)
 import           PlutusTx.Prelude                 hiding (mempty, filter, check)
-import           Prelude                          (Monoid(..), Show (..), (^), String)
+import           Prelude                          (Monoid(..), Show (..), (^))
 import           Schema                           (ToSchema)
 
 import           AdminKey
 import           CheckKey                         (CheckKeyState(..), checkKeyValidatorHash, checkKeyValidator)
 import           Contracts.Currency               (SimpleMPS (..), CurrencyError (..), currencySymbol, mintContract)
-import           Contracts.StateMachine
 import           Crypto.BLS12381                  (R(..))
 import           Crypto.Zp                        (fieldPrime, toZp)
 import           MixerStateMachine
@@ -83,7 +83,7 @@ PlutusTx.makeLift ''StartParams
 {-# INLINABLE transition #-}
 transition :: State MixerFactoryState -> MixerFactoryInput -> Maybe (TxConstraints Void Void, State MixerFactoryState)
 transition s i = case (stateData s, i) of
-    (MFState _, MFInput (MFState s')) -> Just (Prelude.mempty, State (MFState s') zero)
+    (MFState _, MFInput (MFState s')) -> Just (Prelude.mempty, State (MFState s') (lovelaceValueOf 2_000_000))
 
 {-# INLINABLE final #-}
 final :: MixerFactoryState -> Bool
@@ -141,7 +141,6 @@ type MixerFactorySchema = Endpoint "start" StartParams
 
 start :: Promise () MixerFactorySchema SMContractError MixerFactoryState
 start = endpoint @"start" @StartParams $ \(StartParams v d) -> do
-    logInfo @String "Start minting withdraw tokens"
     withdrawCurrency <- mapError (\(CurContractError err) -> SMCContractError err) $ mintContract $ SimpleMPS "Cardano Mixer Withdraw Token" (2^d+1)
     tt <- getThreadToken
     let ac      = AssetClass (currencySymbol withdrawCurrency, "Cardano Mixer Withdraw Token")
@@ -153,11 +152,7 @@ start = endpoint @"start" @StartParams $ \(StartParams v d) -> do
         lookups = otherScript $ checkKeyValidator ttVal
         ckState = CheckKeyState zero (toZp (fieldPrime R - 1))
         cons    = mustPayToOtherScript (checkKeyValidatorHash ttVal) (Datum $ toBuiltinData ckState) (token ac <> lovelaceValueOf 2_000_000)
-        -- cons    = mustPayToOtherScript (checkKeyValidatorHash ttVal) (Datum $ toBuiltinData ckState) (lovelaceValueOf 2_000_000)
-    logInfo @String "Initializing  Mixer..."
-    logInfo @String $ show tt
     _ <- runInitialiseWith lookups cons client (MixerState cp c) (assetClassValue ac (2^d) <> lovelaceValueOf 2_000_000)    -- initialise a new mixer
-    logInfo @String "Initializing  Mixer Factory..."
     updateMixerFactoryState (v, tt, ac)         -- now we post thread token to the blockchain
 
 
@@ -188,7 +183,7 @@ updateMixerFactoryState (v, t, ac) = do
     (lookups, constraints) <- adminKeyTx
     MFState state <- getMixerFactoryState
     if null state
-        then runInitialiseWith lookups constraints mixerFactoryClient (MFState $ singleton v (t, ac)) (toValue minAdaTxOut)
+        then runInitialiseWith lookups constraints mixerFactoryClient (MFState $ singleton v (t, ac)) (lovelaceValueOf 2_000_000)
         else do
             -- TODO: What if we insert a new mixer with the same value?
             tResult <- runStepWith lookups constraints mixerFactoryClient (MFInput $ MFState $ insert v (t, ac) state)

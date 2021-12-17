@@ -15,12 +15,9 @@ import           PlutusTx.Prelude
 
 import           Crypto
 
-r1csFile :: String
-r1csFile = "circuit-mixer.json"
--- r1csFile = "circuit-test.json"
 
 main :: IO ()
 main = do
-    r1cs <- loadR1CSFile r1csFile
-    let sa = SetupArguments 9 34 21213 r1cs
+    (r1cs, wires) <- loadR1CSFile fileMerkleWithdrawQAP
+    let sa = SetupArguments r1cs wires
     void $ generateCRS sa

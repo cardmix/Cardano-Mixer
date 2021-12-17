@@ -33,21 +33,23 @@ module MixerStateMachine (
     verifierTokenAssetClass
 ) where
 
-import           Ledger                            hiding (singleton, validatorHash)
+import           Ledger                                   hiding (singleton, validatorHash)
 import           Ledger.Constraints.TxConstraints
-import           Ledger.Tokens                     (token)
-import           Ledger.Typed.Scripts              (TypedValidator, mkTypedValidator, validatorScript, validatorHash, wrapValidator)
-import           Ledger.Value                      (AssetClass(..), CurrencySymbol(..), TokenName(..))
+import           Ledger.Tokens                            (token)
+import           Ledger.Typed.Scripts                     (TypedValidator, mkTypedValidator, validatorScript, validatorHash, wrapValidator)
+import           Ledger.Value                             (AssetClass(..), CurrencySymbol(..), TokenName(..))
+import           Plutus.Contract.StateMachine
+import           Plutus.Contract.StateMachine.ThreadToken (threadTokenValue, ThreadToken (ttCurrencySymbol))
 import           PlutusTx
-import           PlutusTx.Prelude                  hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, check)
-import           Prelude                           (Show (..))
+import           PlutusTx.Prelude                         hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, check)
+import           Prelude                                  (Show (..))
 
-import           AdminKey                          (adminKeyRequired)
-import           CheckKey                          (checkKeyRequired)
-import           Contracts.StateMachine
-import           Contracts.StateMachine.ThreadToken (threadTokenValue)
+import           AdminKey                                 (adminKeyRequired)
+import           CheckKey                                 (checkKeyRequired)
+
 import           Crypto
-import           Utility                           (mapError', init)
+import           Utility                                  (mapError', init)
+
 
 ----------------------- Data types, instances, and constants -----------------------------
 
@@ -86,7 +88,7 @@ data MixerState = MixerState
 
 PlutusTx.unstableMakeIsData ''MixerState
 
-data MixerInput = Deposit Fr | Withdraw PaymentPubKeyHash Fr Fr Proof
+data MixerInput = Deposit Fr | Withdraw PaymentPubKeyHash Fr Proof
     deriving Show
 
 PlutusTx.unstableMakeIsData ''MixerInput
@@ -98,7 +100,7 @@ transition :: Mixer -> State MixerState -> MixerInput -> Maybe (TxConstraints Vo
 transition mixer state input = case (stateValue state, stateData state, input) of
     (v, MixerState cp c, Deposit leaf)                       ->
         Just (mempty, State (MixerState (addMerkleLeaf leaf (c+1) (init cp)) (c+1)) (v + mValue mixer))
-    (v, MixerState cp c, Withdraw pkh _ _ _) ->
+    (v, MixerState cp c, Withdraw pkh _ _) ->
         let txCons = mustPayToPubKey pkh (mValue mixer)
         in Just (txCons, State (MixerState cp c) (v - mValue mixer - withdrawToken mixer))
 
