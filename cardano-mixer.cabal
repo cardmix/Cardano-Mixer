@@ -63,6 +63,7 @@ library
       Requests
       Utility
       Configuration.PABConfig
+      Configuration.QAPConfig
       Crypto
       Crypto.ZKSNARK
       Crypto.R1CS
@@ -135,10 +136,7 @@ executable cardano-mixer-pab
     plutus-tx                              -any,
     plutus-use-cases                       -any,
     prettyprinter                          -any,    
-    text                                   -any,
-
-    lens,
-    playground-common
+    text                                   -any
     
 executable cardano-mixer-client
   import: lang
@@ -166,8 +164,6 @@ executable cardano-mixer-client
     req                               ^>= 3.9.0,
     text                                   -any,
     uuid                                   -any,
-
-    text-class
     
     
 executable cardano-mixer-qap

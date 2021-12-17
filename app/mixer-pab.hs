@@ -35,14 +35,15 @@ import           Plutus.V1.Ledger.Ada                (lovelaceValueOf)
 import           Plutus.Trace                        (ScriptsConfig (..), Command (Scripts, Transactions), writeScriptsTo)
 import           Plutus.Trace.Emulator
 import           System.Environment                  (getArgs)
+import           Wallet.Emulator.Types               (mockWalletPaymentPubKeyHash)
 
 import           AdminKey                            (adminKeyTokenName)
-import           Configuration.PABConfig             (pabWallet)
+import           Configuration.PABConfig             (pabWallet, pabTestValues)
 import           Contracts.Currency                  (SimpleMPS (..), mintCurrency)
-import           Crypto                              (Fr, toZp, mimcHash)
-import           Mixer                               (DepositParams(..), mixerProgram)
+import           Mixer                               (DepositParams(..), WithdrawParams (..), mixerProgram)
 import           MixerFactory                        (StartParams (..), mixerFactoryProgram)
 import           PAB
+
 
 
 main :: IO ()
@@ -80,22 +81,26 @@ pabSimulator = void $ Simulator.runSimulationWith handlers $ do
 
 pabEmulator :: EmulatorTrace ()
 pabEmulator = do
+    let (leaf, proof, key, keyA, oh, nh) = pabTestValues
+
     c1 <- activateContractWallet pabWallet (void mintCurrency)
     callEndpoint @"Create native token" c1 (SimpleMPS adminKeyTokenName 1)
 
-    _ <- waitNSlots 1
+    _ <- waitNSlots 10
 
     c2 <- activateContractWallet pabWallet (void mixerFactoryProgram)
-    callEndpoint @"start" c2 (StartParams (lovelaceValueOf 200_000_000) 10)
+    callEndpoint @"start" c2 (StartParams (lovelaceValueOf 50_000_000) 10)
 
-    _ <- waitNSlots 1
+    _ <- waitNSlots 10
 
-    let r1 = toZp 12451 :: Fr
-        r2 = toZp 6788546 :: Fr
-        k = mimcHash r1 r2
     c3 <- activateContractWallet pabWallet (void mixerProgram)
-    callEndpoint @"deposit" c3 (DepositParams (lovelaceValueOf 200_000_000) k)
+    callEndpoint @"deposit" c3 (DepositParams (lovelaceValueOf 50_000_000) leaf)
 
-    _ <- waitNSlots 1
+    _ <- waitNSlots 10
+
+    c4 <- activateContractWallet pabWallet (void mixerProgram)
+    callEndpoint @"withdraw" c4 (WithdrawParams (lovelaceValueOf 50_000_000) (mockWalletPaymentPubKeyHash pabWallet) key keyA oh nh proof)
+
+    _ <- waitNSlots 10
 
     logInfo @String "Finished."

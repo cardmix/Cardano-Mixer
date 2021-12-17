@@ -22,19 +22,18 @@ import           Data.Aeson                       (decode)
 import           Data.ByteString.Lazy             (readFile)
 import           Data.Map                         (fromList)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
-import           Prelude                          (String, IO, (<$>))
+import           Prelude                          (IO, (<$>))
 
+import           Configuration.QAPConfig          (fileWithdrawR1CS, fileCRS)
 import           Crypto
 
------------------------------------- Withdraw Proof ---------------------------------------------------
 
-fileWithdrawR1CS :: String
-fileWithdrawR1CS = "QAP-compilation/cardano-mixer/MerkleWithdraw.json"
+------------------------------------ Withdraw Proof ---------------------------------------------------
 
 generateWithdrawProof :: (Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, [Fr], [Fr], Fr, Fr, Fr) -> IO Proof
 generateWithdrawProof (root, a, key, keyA, c, oh, nh, r1, r2, cp, l, v1, v2, v3) = do
     (r1cs, wires) <- loadR1CSFile fileWithdrawR1CS
-    crs <- fromMaybe emptyCRS . decode <$> readFile (folderQAPs ++ folderCRS ++ fileCRS)
+    crs <- fromMaybe emptyCRS . decode <$> readFile fileCRS
     let sa = SetupArguments r1cs wires
     -- constructing witness
     let w  = fromList $ zip ((0 :: Integer) : [6..37])

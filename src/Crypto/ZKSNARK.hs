@@ -30,47 +30,13 @@ import qualified Prelude                           (mconcat, mapM)
 import           Test.QuickCheck                   (Arbitrary(..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary)
 
+import           Configuration.QAPConfig
 import           Crypto.BLS12381                   (Fr, T1, T2, pairing, generateFr)
 import           Crypto.Curve                      (CurvePoint (..), EllipticCurve(..), mul)
 import           Crypto.DFT
 import           Crypto.Extension                  (pow)
 import           Crypto.R1CS                       (R1CS, R1C(..), Wires(..), Assignment, getR1CSPolynomials)
 import           Utility                           (replicate, numBatches, selectBatch)
-
------------------------- File constants ------------------------------
-
-folderQAPs :: FilePath
-folderQAPs = "QAPs/"
-
-fileQAPPub :: FilePath
-fileQAPPub = "qap-public"
-
-fileQAPPriv :: FilePath
-fileQAPPriv = "qap-private"
-
-fileQAPTarget :: FilePath
-fileQAPTarget = "qap-target"
-
-folderCRS :: FilePath
-folderCRS = "CRS/"
-
-filePublic :: FilePath
-filePublic = "public"
-
-filePrivate :: FilePath
-filePrivate = "private"
-
-fileQAPData :: FilePath
-fileQAPData = "qap-data"
-
-fileCRS :: FilePath
-fileCRS = "crs.json"
-
-fileReducedCRS :: FilePath
-fileReducedCRS = "reduced-crs.json"
-
-fileMerkleWithdrawQAP :: FilePath
-fileMerkleWithdrawQAP = "QAP-compilation/cardano-mixer/MerkleWithdraw.json"
 
 ----------------------- ZKSNARK data types ---------------------------
 
@@ -162,8 +128,8 @@ generateCRS sa = do
       -- qapData <- loadQAPData      
       let crs    = setup secret (setupR1CS sa) qapData
           redCRS = reduceCRS crs
-      writeFile (folderQAPs ++ folderCRS ++ fileCRS) (encode crs)
-      writeFile (folderQAPs ++ folderCRS ++ fileReducedCRS) (encode redCRS)
+      writeFile fileCRS (encode crs)
+      writeFile fileReducedCRS (encode redCRS)
       putStrLn $ crsToHaskell redCRS
 
 generateProofSecret :: IO ZKProofSecret
@@ -242,10 +208,8 @@ data QAPData = QAPData [Fr] [Fr] DFT
 compileQAP :: SetupArguments -> IO ()
 compileQAP (SetupArguments r1cs (Wires l _ m')) = do
     let batchSize  = 100
-        n = length r1cs
-    Prelude.mconcat $ map (\j -> writeFile (folderQAPs ++ fileQAPPub ++ show j) (encode $ qap $ selectBatch batchSize 0 l j)) [0 .. numBatches batchSize 0 l - 1]
-    Prelude.mconcat $ map (\j -> writeFile (folderQAPs ++ fileQAPPriv ++ show j) (encode $ qap $ selectBatch batchSize (l+1) m' j)) [0 .. numBatches batchSize (l+1) m' - 1]
-    writeFile (folderQAPs ++ fileQAPTarget) (encode $ targetPolyDFT n)
+    Prelude.mconcat $ map (\j -> writeFile (fileQAPPub ++ show j) (encode $ qap $ selectBatch batchSize 0 l j)) [0 .. numBatches batchSize 0 l - 1]
+    Prelude.mconcat $ map (\j -> writeFile (fileQAPPriv ++ show j) (encode $ qap $ selectBatch batchSize (l+1) m' j)) [0 .. numBatches batchSize (l+1) m' - 1]
   where
     qap :: (Integer, Integer) -> QAP
     qap (j1, j2)
@@ -256,16 +220,16 @@ compileQAP (SetupArguments r1cs (Wires l _ m')) = do
 
 -- Function that computes the public and private exponents as well as loads the target polynomial
 computeQAPData :: ZKSetupSecret -> SetupArguments -> IO QAPData
-computeQAPData (ZKSetupSecret a b g d x) (SetupArguments _ (Wires l _ m')) = do
+computeQAPData (ZKSetupSecret a b g d x) (SetupArguments r1cs (Wires l _ m')) = do
     let batchSize  = 100
-    mapM_ (f g (folderQAPs ++ fileQAPPub) (folderQAPs ++ folderCRS ++ filePublic))
+        n = length r1cs
+    mapM_ (f g fileQAPPub filePublic)
      ([0 .. numBatches batchSize 0 l - 1] :: [Integer])
-    mapM_ (f d (folderQAPs ++ fileQAPPriv) (folderQAPs ++ folderCRS ++ filePrivate))
+    mapM_ (f d fileQAPPriv filePrivate)
      ([0 .. numBatches batchSize (l+1) m' - 1] :: [Integer])
-    pubExp <- concat <$> Prelude.mapM (\i -> fromMaybe [] . decode <$> readFile (folderQAPs ++ folderCRS ++ filePublic ++ show i)) ([0 .. numBatches batchSize 0 l - 1] :: [Integer])
-    privExp <- concat <$> Prelude.mapM (\i -> fromMaybe [] . decode <$> readFile (folderQAPs ++ folderCRS ++ filePrivate ++ show i)) ([0 .. numBatches batchSize (l+1) m' - 1] :: [Integer])
-    target <- fromMaybe (toDFT []) . decode <$> readFile (folderQAPs ++ fileQAPTarget)
-    return $ QAPData pubExp privExp target
+    pubExp <- concat <$> Prelude.mapM (\i -> fromMaybe [] . decode <$> readFile (filePublic ++ show i)) ([0 .. numBatches batchSize 0 l - 1] :: [Integer])
+    privExp <- concat <$> Prelude.mapM (\i -> fromMaybe [] . decode <$> readFile (filePrivate ++ show i)) ([0 .. numBatches batchSize (l+1) m' - 1] :: [Integer])
+    return $ QAPData pubExp privExp (targetPolyDFT n)
   where
         f :: Fr -> FilePath -> FilePath -> Integer -> IO ()
         f c fRead fWrite i = do

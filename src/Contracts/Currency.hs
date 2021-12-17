@@ -37,7 +37,6 @@ module Contracts.Currency(
 
 import           Control.Lens
 import           Data.Aeson                      (FromJSON, ToJSON)
-import           Data.String                     (String)
 import           Data.Map                        (singleton)
 import           Data.Semigroup                  (Last (..))
 import           GHC.Generics                    (Generic)
@@ -54,7 +53,7 @@ import           Plutus.V1.Ledger.Ada            (lovelaceValueOf)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap               as AssocMap
 import           PlutusTx.Prelude                hiding (Monoid (..), Semigroup (..))
-import           Prelude                         (Semigroup (..), Show (show))
+import           Prelude                         (Semigroup (..))
 import qualified Prelude                         as Haskell
 import           Schema                          (ToSchema)
 
@@ -167,10 +166,7 @@ mintContract SimpleMPS{tokenName, amount} = mapError (review _CurrencyError) $ d
         mintTx      = Constraints.mustSpendPubKeyOutput txOutRef
                         <> Constraints.mustMintValue (mintedValue theCurrency)
                         <> collateralConstraints pkh [lovelaceValueOf 10_000_000]
-    logInfo @String $ show lookups
-    logInfo @String $ show mintTx
     tx <- submitTxConstraintsWith @Scripts.Any lookups mintTx
-    -- tx <- untilRight $ submitTxConstraintsWith @Scripts.Any lookups mintTx
     _ <- awaitTxConfirmed (getCardanoTxId tx)
     pure theCurrency
 

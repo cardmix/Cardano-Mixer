@@ -42,13 +42,6 @@ instance Pretty MixerContracts where
     pretty = viaShow
 
 instance HasPSTypes MixerContracts where
-    -- psTypes =
-    --     [ equal . genericShow . argonaut $ mkSumType @MixerContracts
-    --     -- These types come from the Uniswap contract and need to be available in PS
-    --     , equal . genericShow . argonaut $ mkSumType @Uniswap
-    --     , equal . genericShow . argonaut $ mkSumType @(Coin A)
-    --     , order . equal . genericShow $ argonaut $ mkSumType @U
-    --     ]
 
 -- TODO: Proof data type does not have ToSchema
 instance HasDefinitions MixerContracts where
@@ -66,3 +59,4 @@ handlers :: Simulator.SimulatorEffectHandlers (Builtin MixerContracts)
 handlers =
     Simulator.mkSimulatorHandlers @(Builtin MixerContracts) def def
     $ interpret (contractHandler handleBuiltin)
+
