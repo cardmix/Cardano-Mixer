@@ -110,8 +110,9 @@ final _ _ = False
 
 {-# INLINABLE check #-}
 check :: Mixer -> MixerState -> MixerInput -> ScriptContext -> Bool
-check _     _                 (Deposit _)                             _ = True
-check mixer state input ctx = 
+check _     _     (Deposit _)       _   = True
+-- check _     state input@Deposit  {} ctx = adminKeyRequired state input ctx  -- TEMPORARY: one-server implementation
+check mixer state input@Withdraw {} ctx =
     adminKeyRequired state input ctx && -- TEMPORARY: one-server implementation
       checkKeyRequired (withdrawToken mixer) state input ctx
 

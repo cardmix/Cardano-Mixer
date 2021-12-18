@@ -50,8 +50,8 @@ main :: IO ()
 main = do
     args <- getArgs
     case args of
-        ["emulator", "transactions"] -> void $ writeScriptsTo (ScriptsConfig "testnet" (Transactions (unNetworkIdWrapper testnetNetworkId) "testnet/protocol-parameters.json") ) "trace" pabEmulator def
-        ["emulator", "scripts"]      -> void $ writeScriptsTo (ScriptsConfig "testnet" (Scripts FullyAppliedValidators) ) "trace" pabEmulator def
+        ["emulator", "transactions"] -> void $ writeScriptsTo (ScriptsConfig "emulator" (Transactions (unNetworkIdWrapper testnetNetworkId) "testnet/protocol-parameters.json") ) "transaction" pabEmulator def
+        ["emulator", "scripts"]      -> void $ writeScriptsTo (ScriptsConfig "emulator" (Scripts FullyAppliedValidators) ) "script" pabEmulator def
         ["emulator", "trace"]        -> runEmulatorTraceIO pabEmulator
         ["simulator"] -> pabSimulator
         _             -> pabTestNet
@@ -82,9 +82,10 @@ pabSimulator = void $ Simulator.runSimulationWith handlers $ do
 pabEmulator :: EmulatorTrace ()
 pabEmulator = do
     let (leaf, proof, key, keyA, oh, nh) = pabTestValues
+        pkh = mockWalletPaymentPubKeyHash pabWallet
 
     c1 <- activateContractWallet pabWallet (void mintCurrency)
-    callEndpoint @"Create native token" c1 (SimpleMPS adminKeyTokenName 1)
+    callEndpoint @"Create native token" c1 (SimpleMPS adminKeyTokenName 1 pkh)
 
     _ <- waitNSlots 10
 
@@ -99,7 +100,7 @@ pabEmulator = do
     _ <- waitNSlots 10
 
     c4 <- activateContractWallet pabWallet (void mixerProgram)
-    callEndpoint @"withdraw" c4 (WithdrawParams (lovelaceValueOf 50_000_000) (mockWalletPaymentPubKeyHash pabWallet) key keyA oh nh proof)
+    callEndpoint @"withdraw" c4 (WithdrawParams (lovelaceValueOf 50_000_000) pkh key keyA oh nh proof)
 
     _ <- waitNSlots 10
 

@@ -27,11 +27,13 @@ import           Ledger.Constraints.TxConstraints  (TxConstraints, mustPayToOthe
 import           Ledger.Typed.Scripts.Validators
 import           Ledger.Value                      (TokenName(..), geq)
 import           Plutus.Contract                   (Contract, AsContractError, utxosAt)
+import           Plutus.V1.Ledger.Ada              (toValue)
 import           PlutusTx
 import           PlutusTx.Prelude                  hiding (Semigroup(..), unless, mapMaybe, find, toList, fromInteger, check, null)
 import           Prelude                           (Show (..), (<>))
 
 import           Crypto
+
 
 ----------------------- Data types, instances, and constants -----------------------------
 
@@ -135,8 +137,8 @@ checkKeyTx mt ct key = do
         (cKey, nKey) = if null utxos'' then (zero, zero) else snd $ checkKeyInequality key $ head $ elems utxos''
         lookups = unspentOutputs utxos'' <> otherScript (checkKeyValidator mt)
         cons    = mustSpendScriptOutput (head $ keys utxos'') (Redeemer $ toBuiltinData ()) <>
-                  mustPayToOtherScript (checkKeyValidatorHash mt) (Datum $ toBuiltinData (CheckKeyState cKey key)) ct <>
-                  mustPayToOtherScript (checkKeyValidatorHash mt) (Datum $ toBuiltinData (CheckKeyState key nKey)) ct
+                  mustPayToOtherScript (checkKeyValidatorHash mt) (Datum $ toBuiltinData (CheckKeyState cKey key)) (ct <> toValue minAdaTxOut) <>
+                  mustPayToOtherScript (checkKeyValidatorHash mt) (Datum $ toBuiltinData (CheckKeyState key nKey)) (ct <> toValue minAdaTxOut)
     return (lookups, cons)
 
 checkKeyInequality :: Fr -> ChainIndexTxOut -> (Bool, (Fr, Fr))

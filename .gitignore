@@ -28,3 +28,4 @@ QAPs/
 testnet/db/
 testnet/chain-index/
 QAP-compilation/circomlib/
+emulator/

@@ -37,7 +37,9 @@ import           Plutus.ChainIndex.Tx             (txOutsWithRef)
 import           Plutus.Contract                  (Contract)
 import           Plutus.Contract.Request          (ownPaymentPubKeyHash, utxosAt)
 import           Plutus.Contract.StateMachine
+import           Plutus.V1.Ledger.Ada             (toValue, lovelaceValueOf)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
+import           Prelude                          ((<>))
 import           Wallet.Types                     (AsContractError)
 
 import           Configuration.PABConfig          (adminKeyPolicyId)
@@ -79,7 +81,7 @@ adminKeyTx = do
     -- TODO implement the version of this when adminKey is locked in the script
     pkh <- ownPaymentPubKeyHash
     utxos <- utxosAt (pubKeyHashAddress pkh Nothing)
-    return (unspentOutputs utxos, mustPayToPubKey pkh adminKey)
+    return (unspentOutputs utxos, mustPayToPubKey pkh (adminKey <> toValue minAdaTxOut <> lovelaceValueOf 1))
 
 ----------------------------------- State Machine support ------------------------------------
 

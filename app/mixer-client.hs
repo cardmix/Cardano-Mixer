@@ -31,7 +31,6 @@ import           PAB
 import           Requests
 
 
-
 main :: IO ()
 main = do
     print pabWallet
