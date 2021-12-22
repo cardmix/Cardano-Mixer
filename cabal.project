@@ -18,7 +18,7 @@ source-repository-package
     plutus-pab
     plutus-use-cases
     quickcheck-dynamic    
-  tag: eba0a570f72502ac650e642011171bfdcca60e89
+  tag: 808ac799ad13af3d423a9fed3fe57e0967a7c316
 
 -- The following sections are copied from the 'plutus' repository cabal.project at the revision
 -- given above.

@@ -17,7 +17,6 @@ module Main
     ) where
 
 import           Ledger.Ada                                   (lovelaceValueOf)
-import           Plutus.Contracts.Currency                    (SimpleMPS(..))
 import           Prelude                                      hiding (readFile)
 import           System.Environment                           (getArgs)
 import           Wallet.Emulator.Types                        (mockWalletPaymentPubKeyHash)
@@ -25,6 +24,7 @@ import           Wallet.Emulator.Wallet                       (Wallet (..))
 
 import           AdminKey                                     (adminKeyTokenName)
 import           Configuration.PABConfig                      (pabWallet, pabTestValues)
+import           Contracts.Currency                           (SimpleMPS(..))
 import           Mixer                                        (DepositParams(..), WithdrawParams(..))
 import           MixerFactory                                 (StartParams(..))
 import           PAB
@@ -47,7 +47,7 @@ main = do
 mintAdminKeyProcedure :: Wallet -> IO ()
 mintAdminKeyProcedure w = do
     cidAdmin <- activateRequest MintAdminKey (Just w)
-    endpointRequest "Create native token" cidAdmin (SimpleMPS adminKeyTokenName 1)
+    endpointRequest "Create native token" cidAdmin (SimpleMPS adminKeyTokenName 1 (mockWalletPaymentPubKeyHash pabWallet))
 
 ----------------------------- Start mixer logic ------------------------------
 
