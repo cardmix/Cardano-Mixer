@@ -23,12 +23,12 @@ import           Wallet.Emulator.Types                        (mockWalletPayment
 import           Wallet.Emulator.Wallet                       (Wallet (..))
 
 import           AdminKey                                     (adminKeyTokenName)
-import           Configuration.PABConfig                      (pabWallet, pabTestValues)
+import           Configuration.PABConfig                      (pabWallet, pabTestValues, pabWalletPKH)
 import           Contracts.Currency                           (SimpleMPS(..))
-import           Mixer                                        (DepositParams(..), WithdrawParams(..))
-import           MixerFactory                                 (StartParams(..))
+import           MixerScript
 import           PAB
 import           Requests
+
 
 
 main :: IO ()
@@ -37,46 +37,32 @@ main = do
     args <- getArgs
     case args of
         ["admin"]    -> mintAdminKeyProcedure pabWallet   -- for testing purposes
-        ["start", s] -> startMixerProcedure pabWallet (startParams !! (read s -1))
         ["deposit"]  -> depositProcedure
         ["withdraw"] -> withdrawProcedure
         _            -> print ("Unknown command" :: String)
-
------------------------ Create mixer dApp logic ------------------------------
-
-mintAdminKeyProcedure :: Wallet -> IO ()
-mintAdminKeyProcedure w = do
-    cidAdmin <- activateRequest MintAdminKey (Just w)
-    endpointRequest "Create native token" cidAdmin (SimpleMPS adminKeyTokenName 1 (mockWalletPaymentPubKeyHash pabWallet))
-
------------------------------ Start mixer logic ------------------------------
-
-startParams :: [StartParams]
-startParams = map (`StartParams` 10) lst
-    where lst = [lovelaceValueOf 200_000_000, lovelaceValueOf 1000_000_000, lovelaceValueOf 10000_000_000]
-
-startMixerProcedure :: Wallet -> StartParams -> IO ()
-startMixerProcedure w p = do
-    cidStart <- activateRequest Start (Just w)
-    endpointRequest "start" cidStart p
 
 --------------------------------- Use mixer logic --------------------------------
 
 depositProcedure :: IO ()
 depositProcedure = do
-    let (leaf, _, _, _, _, _) = pabTestValues
+    (leaf, _, _, _, _, _) <- pabTestValues
     cidUseMixer <- activateRequest UseMixer (Just pabWallet)
     endpointRequest "deposit" cidUseMixer (DepositParams (lovelaceValueOf 200_000_000) leaf)
-    -- stopRequest cidUseMixer
 
 withdrawProcedure :: IO ()
 withdrawProcedure = do
-    let (_, proof, key, keyA, oh, nh) = pabTestValues
+    (_, proof, key, keyA, oh, nh) <- pabTestValues
+    print proof
+    let params = WithdrawParams (lovelaceValueOf 200_000_000) pabWalletPKH key keyA oh nh proof
     cidUseMixer <- activateRequest UseMixer (Just pabWallet)
-    endpointRequest "withdraw" cidUseMixer (WithdrawParams (lovelaceValueOf 200_000_000) (mockWalletPaymentPubKeyHash pabWallet)
-     key keyA oh nh proof)
-    -- stopRequest cidUseMixer
+    endpointRequest "withdraw" cidUseMixer params
 
+----------------------- Create mixer admin key -----------------------------------
+
+mintAdminKeyProcedure :: Wallet -> IO ()
+mintAdminKeyProcedure w = do
+    cidAdmin <- activateRequest MintAdminKey (Just w)
+    endpointRequest "Create native token" cidAdmin (SimpleMPS adminKeyTokenName 1 (mockWalletPaymentPubKeyHash pabWallet))
 
 ---------------------- Withdraw test ----------------------------------
 

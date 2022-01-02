@@ -30,11 +30,10 @@ import qualified Plutus.PAB.Simulator                as Simulator
 import           Prettyprinter                       (Pretty(..), viaShow)
 
 import           Contracts.Currency                  (CurrencySchema, mintCurrency)
-import           Mixer                               (mixerProgram)
-import           MixerFactory                        (mixerFactoryProgram, MixerFactorySchema)
+import           MixerScript                         (mixerProgram)
 
 
-data MixerContracts = MintAdminKey | Start | UseMixer
+data MixerContracts = MintAdminKey | UseMixer
     deriving (Eq, Ord, Show, Generic, FromJSON, ToJSON)
     deriving anyclass (Data.OpenApi.ToSchema)
 
@@ -45,14 +44,12 @@ instance HasPSTypes MixerContracts where
 
 -- TODO: Proof data type does not have ToSchema
 instance HasDefinitions MixerContracts where
-    getDefinitions = [MintAdminKey, Start, UseMixer]
+    getDefinitions = [MintAdminKey, UseMixer]
     getSchema = \case
         MintAdminKey     -> endpointsToSchemas  @CurrencySchema
-        Start            -> endpointsToSchemas  @MixerFactorySchema
         UseMixer         -> [] --endpointsToSchemas  @MixerSchema
     getContract = \case
         MintAdminKey -> SomeBuiltin mintCurrency
-        Start        -> SomeBuiltin mixerFactoryProgram
         UseMixer     -> SomeBuiltin mixerProgram
 
 handlers :: Simulator.SimulatorEffectHandlers (Builtin MixerContracts)

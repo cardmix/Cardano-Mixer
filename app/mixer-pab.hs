@@ -35,13 +35,10 @@ import           Plutus.V1.Ledger.Ada                (lovelaceValueOf)
 import           Plutus.Trace                        (ScriptsConfig (..), Command (Scripts, Transactions), writeScriptsTo)
 import           Plutus.Trace.Emulator
 import           System.Environment                  (getArgs)
-import           Wallet.Emulator.Types               (mockWalletPaymentPubKeyHash)
 
-import           AdminKey                            (adminKeyTokenName)
-import           Configuration.PABConfig             (pabWallet, pabTestValues)
-import           Contracts.Currency                  (SimpleMPS (..), mintCurrency)
-import           Mixer                               (DepositParams(..), WithdrawParams (..), mixerProgram)
-import           MixerFactory                        (StartParams (..), mixerFactoryProgram)
+import           Configuration.PABConfig             (pabWallet, pabTestValues, pabWalletPKH)
+import           Crypto
+import           MixerScript
 import           PAB
 
 
@@ -49,10 +46,13 @@ import           PAB
 main :: IO ()
 main = do
     args <- getArgs
+    vals <- pabTestValues
     case args of
-        ["emulator", "transactions"] -> void $ writeScriptsTo (ScriptsConfig "emulator" (Transactions (unNetworkIdWrapper testnetNetworkId) "testnet/protocol-parameters.json") ) "transaction" pabEmulator def
-        ["emulator", "scripts"]      -> void $ writeScriptsTo (ScriptsConfig "emulator" (Scripts FullyAppliedValidators) ) "script" pabEmulator def
-        ["emulator", "trace"]        -> runEmulatorTraceIO pabEmulator
+        ["emulator", "transactions"] -> void $ writeScriptsTo (ScriptsConfig "emulator" (Transactions (unNetworkIdWrapper testnetNetworkId)
+                                             "testnet/protocol-parameters.json") ) "transaction" (pabEmulator vals) def
+        ["emulator", "scripts"]      -> void $ writeScriptsTo (ScriptsConfig "emulator" (Scripts FullyAppliedValidators))
+                                             "script" (pabEmulator vals) def
+        ["emulator", "trace"]        -> runEmulatorTraceIO (pabEmulator vals)
         ["simulator"] -> pabSimulator
         _             -> pabTestNet
 
@@ -79,28 +79,15 @@ pabSimulator = void $ Simulator.runSimulationWith handlers $ do
 
 --------------------------------------- Emulator  trace -----------------------------------------------
 
-pabEmulator :: EmulatorTrace ()
-pabEmulator = do
-    let (leaf, proof, key, keyA, oh, nh) = pabTestValues
-        pkh = mockWalletPaymentPubKeyHash pabWallet
-
-    c1 <- activateContractWallet pabWallet (void mintCurrency)
-    callEndpoint @"Create native token" c1 (SimpleMPS adminKeyTokenName 1 pkh)
+pabEmulator :: (Fr, Proof, Fr, Fr, Fr, Fr) -> EmulatorTrace ()
+pabEmulator (leaf, proof, key, keyA, oh, nh) = do
+    c1 <- activateContractWallet pabWallet (void mixerProgram)
+    callEndpoint @"deposit" c1 (DepositParams (lovelaceValueOf 10_000_000) leaf)
 
     _ <- waitNSlots 10
 
-    c2 <- activateContractWallet pabWallet (void mixerFactoryProgram)
-    callEndpoint @"start" c2 (StartParams (lovelaceValueOf 50_000_000) 10)
-
-    _ <- waitNSlots 10
-
-    c3 <- activateContractWallet pabWallet (void mixerProgram)
-    callEndpoint @"deposit" c3 (DepositParams (lovelaceValueOf 50_000_000) leaf)
-
-    _ <- waitNSlots 10
-
-    c4 <- activateContractWallet pabWallet (void mixerProgram)
-    callEndpoint @"withdraw" c4 (WithdrawParams (lovelaceValueOf 50_000_000) pkh key keyA oh nh proof)
+    c2 <- activateContractWallet pabWallet (void mixerProgram)
+    callEndpoint @"withdraw" c2 (WithdrawParams (lovelaceValueOf 10_000_000) pabWalletPKH key keyA oh nh proof)
 
     _ <- waitNSlots 10
 
