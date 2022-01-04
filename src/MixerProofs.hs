@@ -16,7 +16,7 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
 
-module MixerProofs (generateWithdrawProof, verifyWithdraw) where
+module MixerProofs (generateWithdrawProof, generateSimulatedWithdrawProof, verifyWithdraw) where
 
 import           Data.Aeson                       (decode)
 import           Data.ByteString.Lazy             (readFile)
@@ -41,6 +41,12 @@ generateWithdrawProof (root, a, key, keyA, c, oh, nh, r1, r2, cp, l, v1, v2, v3)
         sol = solveR1CS r1cs w
         pa = ProveArguments sa crs sol
     generateProof pa
+
+generateSimulatedWithdrawProof :: (Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, [Fr], [Fr], Fr, Fr, Fr) -> IO Proof
+generateSimulatedWithdrawProof (root, a, key, keyA, _, oh, nh, _, _, _, _, _, _, _) = do
+    let subs = [one, zero, zero, zero, zero, zero, root, a, key, keyA, one, oh, nh] :: [Fr]
+    secret <- generateProofSecret
+    return $ simulate withdrawSecret secret withdrawCRS subs
 
 {-# INLINABLE verifyWithdraw #-}
 verifyWithdraw :: [Fr] -> Proof -> Bool
@@ -77,3 +83,12 @@ CP (Zp 3373670086320738147827168415946198727038946548818857490732927227776946588
 ]
     }
     
+withdrawSecret :: ZKSetupSecret
+withdrawSecret = ZKSetupSecret
+  {
+    secretAlpha = zero,
+    secretBeta  = zero,
+    secretGamma = zero,
+    secretDelta = zero,
+    secretX     = zero
+  }

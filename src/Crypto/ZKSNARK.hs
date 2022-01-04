@@ -25,7 +25,7 @@ import           Data.Map                          (Map, toList, findWithDefault
 import           GHC.Generics                      (Generic)
 import           PlutusTx.IsData                   (unstableMakeIsData)
 import           PlutusTx.Prelude                  hiding ((<$>), (<*>), toList, mapM)
-import           Prelude                           (Show (..), IO, (<$>), (<*>), FilePath, init, String, last, putStrLn)
+import           Prelude                           (Show (..), IO, (<$>), (<*>), FilePath, init, String, last, putStrLn, print)
 import qualified Prelude                           (mconcat, mapM)
 import           Test.QuickCheck                   (Arbitrary(..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary)
@@ -130,6 +130,7 @@ generateCRS sa = do
           redCRS = reduceCRS crs
       writeFile fileCRS (encode crs)
       writeFile fileReducedCRS (encode redCRS)
+      print secret
       putStrLn $ crsToHaskell redCRS
 
 generateProofSecret :: IO ZKProofSecret
@@ -178,6 +179,15 @@ prove (ZKProofSecret r s) (ProveArguments (SetupArguments r1cs (Wires l _ _)) cr
     b  = refHb crs <> mconcat (zipWith mul (refHxi crs) v) <> mul (refHd crs) s
     c  = mconcat (zipWith mul (refGpriv crs) ai) <> mconcat (zipWith mul (refGtarget crs) h) <>
          mul a' s <> mul b' r <> mul (refGd crs) (r * s)
+    proof = Proof a b c
+
+simulate :: ZKSetupSecret -> ZKProofSecret -> ReducedReferenceString -> [Fr] -> Proof
+simulate (ZKSetupSecret sa sb sg sd _) (ZKProofSecret r s) crs subs = proof
+  where
+    g = mconcat (zipWith mul (refRedGpub crs) subs)
+    a = mul gen r
+    b = mul gen s
+    c = mul gen (r * s - sa * sb) <> inv (mul g (sg * inv sd))
     proof = Proof a b c
 
 {-# INLINABLE verify #-}
