@@ -31,9 +31,10 @@ import           Prettyprinter                       (Pretty(..), viaShow)
 
 import           Contracts.Currency                  (CurrencySchema, mintCurrency)
 import           MixerScript                         (mixerProgram)
+import MixerState (MixerStateSchema, getMixerState)
 
 
-data MixerContracts = MintAdminKey | UseMixer
+data MixerContracts = MintAdminKey | UseMixer | QueryMixer
     deriving (Eq, Ord, Show, Generic, FromJSON, ToJSON)
     deriving anyclass (Data.OpenApi.ToSchema)
 
@@ -44,13 +45,15 @@ instance HasPSTypes MixerContracts where
 
 -- TODO: Proof data type does not have ToSchema
 instance HasDefinitions MixerContracts where
-    getDefinitions = [MintAdminKey, UseMixer]
+    getDefinitions = [MintAdminKey, UseMixer, QueryMixer]
     getSchema = \case
-        MintAdminKey     -> endpointsToSchemas  @CurrencySchema
+        MintAdminKey     -> endpointsToSchemas @CurrencySchema
         UseMixer         -> [] --endpointsToSchemas  @MixerSchema
+        QueryMixer       -> endpointsToSchemas @MixerStateSchema
     getContract = \case
         MintAdminKey -> SomeBuiltin mintCurrency
         UseMixer     -> SomeBuiltin mixerProgram
+        QueryMixer   -> SomeBuiltin getMixerState
 
 handlers :: Simulator.SimulatorEffectHandlers (Builtin MixerContracts)
 handlers =

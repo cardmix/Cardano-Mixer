@@ -187,7 +187,7 @@ simulate (ZKSetupSecret sa sb sg sd _) (ZKProofSecret r s) crs subs = proof
     g = mconcat (zipWith mul (refRedGpub crs) subs)
     a = mul gen r
     b = mul gen s
-    c = mul gen (r * s - sa * sb) <> inv (mul g (sg * inv sd))
+    c = mul gen ((r * s - sa * sb) * inv sd) <> inv (mul g (sg * inv sd))
     proof = Proof a b c
 
 {-# INLINABLE verify #-}

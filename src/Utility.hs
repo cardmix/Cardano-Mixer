@@ -14,6 +14,7 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
@@ -21,10 +22,15 @@
 
 module Utility where
 
+import           Data.Default                      (def)
 import           Data.List                         (partition, unzip)
 import           Data.Text                         (Text, pack)
-import           Ledger                            (PaymentPubKeyHash, Value)
-import           Plutus.Contract                   (Contract, mapError)
+import           Ledger                            (PaymentPubKeyHash, Value, Address, ChainIndexTxOut, TxOutRef)
+import           Ledger.Tx                         (txOutRefId)
+import           Plutus.ChainIndex                 (ChainIndexTx, Page(..), nextPageQuery)
+import           Plutus.ChainIndex.Api             (TxosResponse(paget))
+import           Plutus.Contract                   (Contract, mapError, AsContractError, txOutFromRef)
+import           Plutus.Contract.Request           (txoRefsAt, txsFromTxIds)
 import           Plutus.Contract.StateMachine      (SMContractError(..))
 import           Ledger.Constraints                (mustPayToPubKey)
 import           Ledger.Constraints.TxConstraints  (TxConstraints)
@@ -115,4 +121,37 @@ collateralConstraints pkh vals = mconcat $ map (mustPayToPubKey pkh) vals
 mapError' :: Contract w s SMContractError a -> Contract w s Text a
 mapError' = mapError $ pack . show
 
+---------------------------- Additional Chain Index queries ------------------------
 
+-- | Get the transactions at an address.
+txosTxTxOutAt ::
+    forall w s e.
+    ( AsContractError e
+    )
+    => Address
+    -> Contract w s e [(ChainIndexTx, ChainIndexTxOut)]
+txosTxTxOutAt addr = do
+  foldTxoRefsAt f [] addr
+  where
+    f acc page = do
+      let txoRefs = pageItems page
+      txOuts <- traverse txOutFromRef txoRefs
+      let txIds = txOutRefId <$> txoRefs
+      txs <- txsFromTxIds txIds
+      pure $ acc <> mapMaybe (\(tx, txo) -> fmap (tx,) txo) (zip txs txOuts)
+
+foldTxoRefsAt ::
+    forall w s e a.
+    ( AsContractError e
+    )
+    => (a -> Page TxOutRef -> Contract w s e a)
+    -> a
+    -> Address
+    -> Contract w s e a
+foldTxoRefsAt f ini addr = go ini (Just def)
+  where
+    go acc Nothing = pure acc
+    go acc (Just pq) = do
+      page <- paget <$> txoRefsAt pq addr
+      newAcc <- f acc page
+      go newAcc (nextPageQuery page)

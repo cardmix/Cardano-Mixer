@@ -19,6 +19,7 @@
 
 module MixerScript (
     Mixer(..),
+    MixerDatum(..),
     mixerValidatorHash,
     mixerAddress,
     mapError',
@@ -43,7 +44,7 @@ import           Ledger.Tokens                            (token)
 import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator, validatorScript, validatorHash, wrapValidator)
 import           Ledger.Value                             (AssetClass(..), CurrencySymbol(..), TokenName(..), geq)
 import           Plutus.Contract                          (Promise, ContractError, Endpoint, type (.\/), Contract,
-                                                            endpoint, selectList, utxosAt, logInfo, mkTxConstraints, submitTxConfirmed)
+                                                            endpoint, selectList, utxosAt, logInfo, mkTxConstraints, submitTxConfirmed, currentTime)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  (Show (..), last, String, (<>))
@@ -77,7 +78,7 @@ verifierTokenAssetClass = AssetClass (verifierTokenCurrency, verifierTokenName)
 verifierNFT :: Value
 verifierNFT = token verifierTokenAssetClass
 
-newtype MixerDatum = MixerDatum Fr
+newtype MixerDatum = MixerDatum { getMixerDatum :: Fr }
   deriving Show
 
 PlutusTx.unstableMakeIsData ''MixerDatum
@@ -140,9 +141,13 @@ data DepositParams = DepositParams
 -- "deposit" endpoint implementation
 deposit :: Promise () MixerSchema ContractError ()
 deposit = endpoint @"deposit" @DepositParams $ \(DepositParams v leaf) -> do
-    let mixer = Mixer v v
-        lookups = typedValidatorLookups $ mixerInst mixer
-        cons    = mustPayToTheScript (MixerDatum leaf) v
+    curTime <- currentTime
+    let mixer    = Mixer v v
+        -- We create transaction that is valid during the next 10 minutes.
+        -- This is needed to order deposits: the upper bound of the valRange is the time of deposit.
+        valRange = interval curTime (curTime +  600000)
+        lookups  = typedValidatorLookups $ mixerInst mixer
+        cons     = mustPayToTheScript (MixerDatum leaf) v <> mustValidateIn valRange
     utx <- mkTxConstraints lookups cons
     submitTxConfirmed utx
 

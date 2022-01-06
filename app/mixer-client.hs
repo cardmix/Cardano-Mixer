@@ -26,9 +26,9 @@ import           AdminKey                                     (adminKeyTokenName
 import           Configuration.PABConfig                      (pabWallet, pabTestValues, pabWalletPKH)
 import           Contracts.Currency                           (SimpleMPS(..))
 import           MixerScript
+import           MixerState                                   (MixerState)
 import           PAB
 import           Requests
-
 
 
 main :: IO ()
@@ -52,10 +52,25 @@ depositProcedure = do
 withdrawProcedure :: IO ()
 withdrawProcedure = do
     (_, proof, key, keyA, oh, nh) <- pabTestValues
-    print proof
+    state <- mixerStateProcedure
+    print $ head $ head state
     let params = WithdrawParams (lovelaceValueOf 200_000_000) pabWalletPKH key keyA oh nh proof
     cidUseMixer <- activateRequest UseMixer (Just pabWallet)
     endpointRequest "withdraw" cidUseMixer params
+
+------------------------------- Query mixer logic --------------------------------
+
+mixerStateProcedure :: IO MixerState
+mixerStateProcedure = do
+    cidQueryMixer <- activateRequest QueryMixer (Just pabWallet)
+    endpointRequest "Get Mixer state" cidQueryMixer (lovelaceValueOf 200_000_000)
+    go cidQueryMixer
+  where go cid = do
+                resp <- statusRequest cid
+                case resp of
+                    Just state -> return state
+                    Nothing    -> go cid
+    
 
 ----------------------- Create mixer admin key -----------------------------------
 
@@ -79,7 +94,7 @@ mintAdminKeyProcedure w = do
 --         nh = mimcHash v1 v3
 --     let d = 10
 --         pkh = mockWalletPaymentPubKeyHash w
-        
+
 --         a   = dataToZp pkh
 --         cp0 = replicate d zero
 --         c0  = 0

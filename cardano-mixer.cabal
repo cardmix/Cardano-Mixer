@@ -53,6 +53,7 @@ library
     import: lang
     exposed-modules:
       MixerStateMachine
+      MixerState
       MixerScript
       Mixer
       MixerFactory      
