@@ -38,15 +38,18 @@ import           System.Environment                  (getArgs)
 
 import           Configuration.PABConfig             (pabWallet, pabTestValues, pabWalletPKH)
 import           Crypto
-import           MixerScript
+import           MixerContract
 import           PAB
+import MixerUserData (generateDepositSecret, generateShieldedAccountSecret)
 
 
 
 main :: IO ()
 main = do
     args <- getArgs
-    vals <- pabTestValues
+    ds   <- generateDepositSecret 1
+    sas  <- generateShieldedAccountSecret
+    vals <- pabTestValues ds sas
     case args of
         ["emulator", "transactions"] -> void $ writeScriptsTo (ScriptsConfig "emulator" (Transactions (unNetworkIdWrapper testnetNetworkId)
                                              "testnet/protocol-parameters.json") ) "transaction" (pabEmulator vals) def

@@ -27,9 +27,9 @@ import           Prelude                          (IO, (<$>))
 import           Configuration.QAPConfig          (fileWithdrawR1CS, fileCRS)
 import           Crypto
 
-
 ------------------------------------ Withdraw Proof ---------------------------------------------------
 
+-- TODO: use data types here
 generateWithdrawProof :: (Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, [Fr], [Fr], Fr, Fr, Fr) -> IO Proof
 generateWithdrawProof (root, a, key, keyA, c, oh, nh, r1, r2, cp, l, v1, v2, v3) = do
     (r1cs, wires) <- loadR1CSFile fileWithdrawR1CS

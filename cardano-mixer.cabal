@@ -53,10 +53,12 @@ library
     import: lang
     exposed-modules:
       MixerStateMachine
+      MixerContract
       MixerState
       MixerScript
       Mixer
-      MixerFactory      
+      MixerFactory
+      MixerUserData
       MixerProofs
       CheckKey
       AdminKey

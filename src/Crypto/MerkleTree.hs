@@ -31,9 +31,11 @@ import           Crypto.Zp                         (Zp, FiniteField(..), toZp)
 getMerkleCoPath :: FiniteField p => [Zp p] -> Integer -> [Zp p]
 getMerkleCoPath lst pos = snd3 $ getMerkleCoPath' (lst, [], pos)
 
+-- TODO: do not allow zero leaf deposits or change empty tree
 {-# INLINABLE getMerkleCoPath' #-}
 getMerkleCoPath' :: FiniteField p => ([Zp p], [Zp p], Integer) -> ([Zp p], [Zp p], Integer)
 getMerkleCoPath' ([] , path, pos) = ([], path, pos)
+getMerkleCoPath' ([root], path, pos) = ([], path ++ [root], pos)
 getMerkleCoPath' (lst, path, pos) = getMerkleCoPath' (f lst, path ++ [lst !! coPos], q)
   where (q, r) = quotRem (pos + 1) 2
         coPos  = if r == 0 then pos else pos-2

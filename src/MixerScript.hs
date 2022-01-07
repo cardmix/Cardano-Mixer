@@ -20,40 +20,30 @@
 module MixerScript (
     Mixer(..),
     MixerDatum(..),
+    MixerRedeemer(..),
+    mixerInst,
+    mixerValidator,
     mixerValidatorHash,
     mixerAddress,
     mapError',
     verifierTokenCurrency,
     verifierTokenName,
-    verifierTokenAssetClass,
-    DepositParams(..),
-    WithdrawParams(..),
-    MixerSchema,
-    mixerProgram
+    verifierTokenAssetClass
 ) where
 
-import           Data.Aeson                               (FromJSON, ToJSON)
-import qualified Data.Map
-import           Data.Map                                 (keys, findMin, fromList)
-import           GHC.Generics                             (Generic)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
-import           Ledger.Constraints.OffChain              (unspentOutputs, typedValidatorLookups, otherScript)
 import           Ledger.Constraints.OnChain               (checkTxConstraint)
 import           Ledger.Constraints.TxConstraints
 import           Ledger.Tokens                            (token)
 import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator, validatorScript, validatorHash, wrapValidator)
-import           Ledger.Value                             (AssetClass(..), CurrencySymbol(..), TokenName(..), geq)
-import           Plutus.Contract                          (Promise, ContractError, Endpoint, type (.\/), Contract,
-                                                            endpoint, selectList, utxosAt, logInfo, mkTxConstraints, submitTxConfirmed, currentTime)
+import           Ledger.Value                             (AssetClass(..), CurrencySymbol(..), TokenName(..))
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
-import           Prelude                                  (Show (..), last, String, (<>))
-import           Schema                                   (ToSchema)
+import           Prelude                                  (Show (..))
 
 
 import           Crypto
-import           MixerProofs                              (verifyWithdraw)
-import           Utility                                  (mapError', replicate)
+import           Utility                                  (mapError')
 
 
 ----------------------- Data types, instances, and constants -----------------------------
@@ -124,70 +114,4 @@ mixerValidatorHash = validatorHash . mixerInst
 -- Validator address
 mixerAddress :: Mixer -> Address
 mixerAddress = scriptAddress . mixerValidator
-
----------------------------------------------------------------------
---------------------------- Off-Chain -------------------------------
----------------------------------------------------------------------
-
--- Parameters for the "deposit" endpoint
-data DepositParams = DepositParams
-    {
-        dpValue          :: !Value,
-        dpLeaf           :: !Fr
-    }
-    deriving stock (Show, Generic)
-    deriving anyclass (FromJSON, ToJSON, ToSchema)
-
--- "deposit" endpoint implementation
-deposit :: Promise () MixerSchema ContractError ()
-deposit = endpoint @"deposit" @DepositParams $ \(DepositParams v leaf) -> do
-    curTime <- currentTime
-    let mixer    = Mixer v v
-        -- We create transaction that is valid during the next 10 minutes.
-        -- This is needed to order deposits: the upper bound of the valRange is the time of deposit.
-        valRange = interval curTime (curTime +  600000)
-        lookups  = typedValidatorLookups $ mixerInst mixer
-        cons     = mustPayToTheScript (MixerDatum leaf) v <> mustValidateIn valRange
-    utx <- mkTxConstraints lookups cons
-    submitTxConfirmed utx
-
--- Parameters for the "withdraw" endpoint
-data WithdrawParams = WithdrawParams
-    {
-        wpValue         :: !Value,
-        wpPKH           :: !PaymentPubKeyHash,
-        wpKey           :: !Fr,
-        wpKeyA          :: !Fr,
-        wpOldHash       :: !Fr,
-        wpNewHash       :: !Fr,
-        wpProof         :: !Proof
-    }
-    deriving stock (Show, Generic)
-    deriving anyclass (FromJSON, ToJSON)
-
--- "withdraw" endpoint implementation
-withdraw :: Promise () MixerSchema ContractError ()
-withdraw = endpoint @"withdraw" @WithdrawParams $ \(WithdrawParams v pkh key keyA oh nh proof) -> do
-    let mixer = Mixer v v
-    utxos <- utxosAt (mixerAddress mixer)
-    let utxo           = Data.Map.filter (\o -> _ciTxOutValue o `geq` mValue mixer) utxos
-        utxo'          = fromList [findMin utxo]
-        txo            = head $ keys  utxo
-    
-    let coPath    = addMerkleLeaf (Zp 6607553988888913206274753584799503904250064978416565150316268919259420287010) 1 (replicate 10 zero)
-        pubParams = [one, zero, zero, zero, zero, zero, last coPath, dataToZp pkh, key, keyA, toZp 1 :: Fr, oh, nh]
-    let lookups   = unspentOutputs utxo' <> typedValidatorLookups (mixerInst mixer) <> otherScript (mixerValidator mixer)
-        cons      = mustPayToPubKey pkh v <> mustSpendScriptOutput txo (Redeemer $ toBuiltinData $ MixerRedeemer pkh key proof)
-    if verifyWithdraw pubParams proof
-        then do
-            utx <- mkTxConstraints lookups cons
-            submitTxConfirmed utx
-        else do
-            logInfo @String "Supplied proof is not correct"
-
-type MixerSchema = Endpoint "deposit" DepositParams .\/ Endpoint "withdraw" WithdrawParams
-
-mixerProgram :: Contract () MixerSchema ContractError MixerDatum
-mixerProgram = do
-    selectList [deposit, withdraw] >> mixerProgram
 

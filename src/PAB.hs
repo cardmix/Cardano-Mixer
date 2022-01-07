@@ -30,8 +30,8 @@ import qualified Plutus.PAB.Simulator                as Simulator
 import           Prettyprinter                       (Pretty(..), viaShow)
 
 import           Contracts.Currency                  (CurrencySchema, mintCurrency)
-import           MixerScript                         (mixerProgram)
-import MixerState (MixerStateSchema, getMixerState)
+import           MixerContract                       (mixerProgram)
+import           MixerState                          (MixerStateSchema, getMixerStatePromise)
 
 
 data MixerContracts = MintAdminKey | UseMixer | QueryMixer
@@ -53,7 +53,7 @@ instance HasDefinitions MixerContracts where
     getContract = \case
         MintAdminKey -> SomeBuiltin mintCurrency
         UseMixer     -> SomeBuiltin mixerProgram
-        QueryMixer   -> SomeBuiltin getMixerState
+        QueryMixer   -> SomeBuiltin getMixerStatePromise
 
 handlers :: Simulator.SimulatorEffectHandlers (Builtin MixerContracts)
 handlers =
