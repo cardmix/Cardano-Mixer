@@ -37,7 +37,7 @@ import           Plutus.ChainIndex.Tx             (txOutsWithRef)
 import           Plutus.Contract                  (Contract)
 import           Plutus.Contract.Request          (ownPaymentPubKeyHash, utxosAt)
 import           Plutus.Contract.StateMachine
-import           Plutus.V1.Ledger.Ada             (toValue, lovelaceValueOf)
+import           Plutus.V1.Ledger.Ada             (toValue)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
 import           Prelude                          ((<>))
 import           Wallet.Types                     (AsContractError)
@@ -75,13 +75,13 @@ adminKeyRequired _ _ ctx = val `geq` adminKey
 
 ------------------- Admin Key transaction Lookups and Constraints ------------------------------
 
--- TxConstraints that Admin Key is spent by transaction
+-- TxConstraints that Admin Key is produced by transaction
 adminKeyTx :: (AsContractError e) => Contract w s e (ScriptLookups a, TxConstraints i o)
 adminKeyTx = do
     -- TODO implement the version of this when adminKey is locked in the script
     pkh <- ownPaymentPubKeyHash
     utxos <- utxosAt (pubKeyHashAddress pkh Nothing)
-    return (unspentOutputs utxos, mustPayToPubKey pkh (adminKey <> toValue minAdaTxOut <> lovelaceValueOf 1))
+    return (unspentOutputs utxos, mustPayToPubKey pkh (adminKey <> toValue minAdaTxOut))
 
 ----------------------------------- State Machine support ------------------------------------
 

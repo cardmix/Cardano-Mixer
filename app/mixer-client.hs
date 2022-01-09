@@ -4,6 +4,7 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE NoImplicitPrelude  #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RankNTypes         #-}
@@ -16,22 +17,26 @@ module Main
         main
     ) where
 
-import           Data.Aeson                                   (encode, decode)
-import           Data.ByteString.Lazy                         (writeFile, readFile)
+import           Control.Concurrent                           (threadDelay)
 import           Ledger.Ada                                   (lovelaceValueOf)
-import           Prelude                                      hiding (readFile, writeFile)
+import           PlutusTx.Prelude                             hiding ((<$>))
+import           Prelude                                      (IO, String, print)
 import           System.Environment                           (getArgs)
 import           Wallet.Emulator.Types                        (mockWalletPaymentPubKeyHash)
 import           Wallet.Emulator.Wallet                       (Wallet (..))
 
 import           AdminKey                                     (adminKeyTokenName)
-import           Configuration.PABConfig                      (pabWallet, pabTestValues, pabWalletPKH)
+import           ClientLog
+import           Configuration.PABConfig                      (pabWallet, pabWalletPKH)
 import           Contracts.Currency                           (SimpleMPS(..))
+import           Crypto                                       (mimcHash)
 import           MixerContract
+import           MixerProofs                                  (generateSimulatedWithdrawProof)
 import           MixerState                                   (MixerState)
 import           MixerUserData
 import           PAB
 import           Requests
+
 
 
 main :: IO ()
@@ -42,30 +47,31 @@ main = do
         ["admin"]    -> mintAdminKeyProcedure pabWallet   -- for testing purposes
         ["deposit"]  -> depositProcedure
         ["withdraw"] -> withdrawProcedure
+        ["retrieve"] -> retrieveTimeLockedProcedure
         _            -> print ("Unknown command" :: String)
 
 --------------------------------- Use mixer logic --------------------------------
 
 depositProcedure :: IO ()
 depositProcedure = do
-    ds   <- generateDepositSecret 1
+    ds   <- generateDepositSecret
     sas  <- generateShieldedAccountSecret
-    writeFile "DepositSecret" (encode ds)
-    writeFile "ShieldedAccountSecret" (encode sas)
-    (leaf, _, _, _, _, _) <- pabTestValues ds sas
+    logSecrets ds sas
+    let leaf = mimcHash (getR1 ds) (getR2 ds)
     cidUseMixer <- activateRequest UseMixer (Just pabWallet)
     endpointRequest "deposit" cidUseMixer (DepositParams (lovelaceValueOf 200_000_000) leaf)
 
 withdrawProcedure :: IO ()
 withdrawProcedure = do
-    Just ds <- decode <$> readFile "DepositSecret"
-    Just sas <- decode <$> readFile "ShieldedAccountSecret"
-    (_, proof, key, keyA, oh, nh) <- pabTestValues ds sas
-    state <- mixerStateProcedure
-    print $ head $ head state
-    let params = WithdrawParams (lovelaceValueOf 200_000_000) pabWalletPKH key keyA oh nh proof
-    cidUseMixer <- activateRequest UseMixer (Just pabWallet)
-    endpointRequest "withdraw" cidUseMixer params
+    secret <- getSecrets
+    case secret of
+      Nothing        -> print @String "Nothing to withdraw."
+      Just (ds, sas) -> do
+        state <- mixerStateProcedure
+        (lastDeposit, subs, proof) <- generateSimulatedWithdrawProof pabWalletPKH ds sas state
+        let params = WithdrawParams (lovelaceValueOf 200_000_000) lastDeposit pabWalletPKH subs proof
+        cidUseMixer <- activateRequest UseMixer (Just pabWallet)
+        endpointRequest "withdraw" cidUseMixer params
 
 ------------------------------- Query mixer logic --------------------------------
 
@@ -78,9 +84,17 @@ mixerStateProcedure = do
                 resp <- statusRequest cid
                 case resp of
                     Just state -> return state
-                    Nothing    -> go cid
-    
+                    Nothing    -> do
+                        threadDelay 1_000_000
+                        go cid
 
+---------------------------------- Relayer logic ---------------------------------
+
+retrieveTimeLockedProcedure :: IO ()
+retrieveTimeLockedProcedure = do
+    cidTimeLocked <- activateRequest RetrieveTimeLocked (Just pabWallet)
+    endpointRequest "retrieve funds" cidTimeLocked ()
+    
 ----------------------- Create mixer admin key -----------------------------------
 
 mintAdminKeyProcedure :: Wallet -> IO ()

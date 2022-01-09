@@ -34,17 +34,18 @@ import           Ledger.Constraints.OffChain              (unspentOutputs, typed
 import           Ledger.Constraints.TxConstraints
 import           Ledger.Value                             (geq)
 import           Plutus.Contract                          (Promise, ContractError, Endpoint, type (.\/), Contract,
-                                                            endpoint, selectList, utxosAt, logInfo, mkTxConstraints, submitTxConfirmed, currentTime)
+                                                            endpoint, selectList, utxosAt, logInfo, mkTxConstraints, submitTxConfirmed, currentTime, ownPaymentPubKeyHash, txOutFromRef)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
-import           Prelude                                  (Show (..), String, (<>), last)
+import           Prelude                                  (Show (..), String, (<>), (<$>))
 import           Schema                                   (ToSchema)
 
 
+import           Contracts.Vesting                        (VestingParams(..), vestingScriptHash)
 import           Crypto
 import           MixerProofs                              (verifyWithdraw)
 import           MixerScript
-import           MixerState                               (MixerState, getMixerState)
+import           MixerState                               (MixerState)
 
 
 
@@ -74,11 +75,9 @@ deposit = endpoint @"deposit" @DepositParams $ \(DepositParams v leaf) -> do
 data WithdrawParams = WithdrawParams
     {
         wpValue         :: !Value,
+        wpDepositNum    :: !(Integer, Integer),
         wpPKH           :: !PaymentPubKeyHash,
-        wpKey           :: !Fr,
-        wpKeyA          :: !Fr,
-        wpOldHash       :: !Fr,
-        wpNewHash       :: !Fr,
+        wpPublicInputs  :: ![Fr],
         wpProof         :: !Proof
     }
     deriving stock (Show, Generic)
@@ -86,19 +85,25 @@ data WithdrawParams = WithdrawParams
 
 -- "withdraw" endpoint implementation
 withdraw :: Promise (Maybe (Last MixerState)) MixerSchema ContractError ()
-withdraw = endpoint @"withdraw" @WithdrawParams $ \(WithdrawParams v pkh key keyA oh nh proof) -> do
+withdraw = endpoint @"withdraw" @WithdrawParams $ \(WithdrawParams v (nTree, nDeposit) pkhW subs proof) -> do
     let mixer = Mixer v v
+    pkhR  <- ownPaymentPubKeyHash
     utxos <- utxosAt (mixerAddress mixer)
+    ct    <- currentTime
     let utxo           = Data.Map.filter (\o -> _ciTxOutValue o `geq` mValue mixer) utxos
         utxo'          = fromList [findMin utxo]
         txo            = head $ keys  utxo
-    
-    state <- getMixerState v
-    let coPath = getMerkleCoPath (head state) 1
-    let root = last coPath
-        pubParams = [one, zero, zero, zero, zero, zero, root, dataToZp pkh, key, keyA, toZp 1 :: Fr, oh, nh]
+    dh <- (fromMaybe (error ()) <$> txOutDatumHash . toTxOut) . fromMaybe (error ()) <$> txOutFromRef txo
+
+    -- TODO: Implement all necessary checks
+    -- state <- getMixerState v
+    -- let Just (MerkleTree _ leafs) = getMerkleTree state (nTree, nDeposit)
+    let pubParams = [one, zero, zero, zero, zero, zero] ++ subs
     let lookups   = unspentOutputs utxo' <> typedValidatorLookups (mixerInst mixer) <> otherScript (mixerValidator mixer)
-        cons      = mustPayToPubKey pkh v <> mustSpendScriptOutput txo (Redeemer $ toBuiltinData $ MixerRedeemer pkh key proof)
+        cons      = mustPayToPubKey pkhW v <> mustValidateIn (to $ ct + POSIXTime 100000) <>
+            mustPayToOtherScript vestingScriptHash (Datum $ toBuiltinData $ VestingParams
+                (ct + POSIXTime 3700000) pkhR (mixerValidatorHash mixer, dh)) (mRelayerToken mixer) <>
+            mustSpendScriptOutput txo (Redeemer $ toBuiltinData $ MixerRedeemer pkhR (nTree, nDeposit) pkhW subs proof)
     if verifyWithdraw pubParams proof
         then do
             utx <- mkTxConstraints lookups cons

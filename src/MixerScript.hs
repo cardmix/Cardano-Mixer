@@ -42,6 +42,8 @@ import           PlutusTx.Prelude                         hiding ((<>), mempty, 
 import           Prelude                                  (Show (..))
 
 
+import           Configuration.PABConfig                  (vestingScriptPermanentHash)
+import           Contracts.Vesting                        (VestingParams(..))
 import           Crypto
 import           Utility                                  (mapError')
 
@@ -73,7 +75,7 @@ newtype MixerDatum = MixerDatum { getMixerDatum :: Fr }
 
 PlutusTx.unstableMakeIsData ''MixerDatum
 
-data MixerRedeemer = MixerRedeemer PaymentPubKeyHash Fr Proof
+data MixerRedeemer = MixerRedeemer PaymentPubKeyHash (Integer, Integer) PaymentPubKeyHash [Fr] Proof
     deriving Show
 
 PlutusTx.unstableMakeIsData ''MixerRedeemer
@@ -87,12 +89,19 @@ instance ValidatorTypes Mixing where
 
 {-# INLINABLE mkMixerValidator #-}
 mkMixerValidator :: Mixer -> MixerDatum -> MixerRedeemer -> ScriptContext -> Bool
-mkMixerValidator mixer _ (MixerRedeemer pkh _ _) ctx = checkTxConstraint ctx txc1
+mkMixerValidator mixer _ (MixerRedeemer pkhR _ pkhW _ _) ctx =
+      checkTxConstraint ctx txc1 &&
+       checkTxConstraint ctx txc2
     where
         -- Must relay to the recipient
-        txc1 = MustPayToPubKeyAddress pkh Nothing Nothing (mValue mixer)
+        txc1 = MustPayToPubKeyAddress pkhW Nothing Nothing (mValue mixer)
         -- Must time lock the relayer token
-        -- txc2 = MustPayToOtherScript ValidatorHash Datum Value
+        date = case ivTo (txInfoValidRange $ scriptContextTxInfo ctx) of
+                UpperBound (Finite d) True -> d
+                _                          -> error ()
+        hourPOSIX = POSIXTime 3600000  -- TODO: Fix the issue with multiple script utxos
+        hashes = ownHashes ctx
+        txc2 = MustPayToOtherScript vestingScriptPermanentHash (Datum $ toBuiltinData $ VestingParams (date + hourPOSIX) pkhR hashes) (mRelayerToken mixer)
 
 -- Validator instance
 mixerInst :: Mixer -> TypedValidator Mixing

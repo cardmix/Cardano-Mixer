@@ -20,7 +20,6 @@ module MixerUserData where
 
 import           Data.Aeson                       (FromJSON, ToJSON)
 import           GHC.Generics                     (Generic)
-import           PlutusTx.Prelude                 hiding ((<*>), Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger)
 import           Prelude                          (IO, (<$>), (<*>), Show)
 
 import           Crypto
@@ -29,14 +28,11 @@ import           Crypto
 data DepositSecret = DepositSecret
     {
         getR1 :: Fr,
-        getR2 :: Fr,
-        getN  :: Integer
+        getR2 :: Fr
     } deriving (Show, Generic, FromJSON, ToJSON)
 
-generateDepositSecret :: Integer -> IO DepositSecret
-generateDepositSecret n = do
-    ds <- DepositSecret <$> generateFr <*> generateFr
-    return $ ds n
+generateDepositSecret :: IO DepositSecret
+generateDepositSecret = DepositSecret <$> generateFr <*> generateFr
 
 data ShieldedAccountSecret = ShieldedAccountSecret
     {

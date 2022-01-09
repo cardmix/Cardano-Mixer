@@ -30,11 +30,12 @@ import qualified Plutus.PAB.Simulator                as Simulator
 import           Prettyprinter                       (Pretty(..), viaShow)
 
 import           Contracts.Currency                  (CurrencySchema, mintCurrency)
+import           Contracts.Vesting                   (VestingSchema, vestingContract)
 import           MixerContract                       (mixerProgram)
 import           MixerState                          (MixerStateSchema, getMixerStatePromise)
 
 
-data MixerContracts = MintAdminKey | UseMixer | QueryMixer
+data MixerContracts = MintAdminKey | UseMixer | QueryMixer | RetrieveTimeLocked
     deriving (Eq, Ord, Show, Generic, FromJSON, ToJSON)
     deriving anyclass (Data.OpenApi.ToSchema)
 
@@ -47,13 +48,15 @@ instance HasPSTypes MixerContracts where
 instance HasDefinitions MixerContracts where
     getDefinitions = [MintAdminKey, UseMixer, QueryMixer]
     getSchema = \case
-        MintAdminKey     -> endpointsToSchemas @CurrencySchema
-        UseMixer         -> [] --endpointsToSchemas  @MixerSchema
-        QueryMixer       -> endpointsToSchemas @MixerStateSchema
+        MintAdminKey       -> endpointsToSchemas @CurrencySchema
+        UseMixer           -> [] --endpointsToSchemas  @MixerSchema
+        QueryMixer         -> endpointsToSchemas @MixerStateSchema
+        RetrieveTimeLocked -> endpointsToSchemas @VestingSchema
     getContract = \case
-        MintAdminKey -> SomeBuiltin mintCurrency
-        UseMixer     -> SomeBuiltin mixerProgram
-        QueryMixer   -> SomeBuiltin getMixerStatePromise
+        MintAdminKey       -> SomeBuiltin mintCurrency
+        UseMixer           -> SomeBuiltin mixerProgram
+        QueryMixer         -> SomeBuiltin getMixerStatePromise
+        RetrieveTimeLocked -> SomeBuiltin vestingContract
 
 handlers :: Simulator.SimulatorEffectHandlers (Builtin MixerContracts)
 handlers =
