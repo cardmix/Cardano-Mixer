@@ -1,4 +1,4 @@
-cabal-version:      2.4
+cabal-version:      3.0
 name:               cardano-mixer
 version:            0.1.0.0
 
@@ -108,6 +108,7 @@ library
       plutus-ledger-api                      -any,
       plutus-ledger-constraints              -any,
       plutus-use-cases                       -any,
+      purescript-bridge                      -any,
       random                                 -any,
       req                                    -any,
       serialise                              -any,
@@ -225,7 +226,52 @@ executable cardano-mixer-zksnark-setup
     text                                   -any
     
     
-    
+executable cardano-mixer-client-psgenerator
+    main-is:          mixer-client-psgenerator.hs
+    hs-source-dirs:   app
+    default-language: Haskell2010
+    default-extensions: ImportQualifiedPost
+    ghc-options:
+        -threaded -rtsopts -with-rtsopts=-N -Wall -Wcompat
+        -Wincomplete-uni-patterns -Wincomplete-record-updates
+        -Wno-missing-import-lists -Wredundant-constraints -O0
+
+    build-depends:
+        aeson                                -any,
+        aeson-pretty                         -any,
+        async                                -any,
+        base                          >=4.9 && <5,
+        bytestring                           -any,
+        cardano-mixer                        -any,
+        containers                           -any,
+        contra-tracer                        -any,
+        data-default                         -any,
+        filepath                             -any,
+        freer-extras                         -any,
+        freer-simple                         -any,
+        iohk-monitoring                      -any,
+        lens                                 -any,
+        lobemo-backend-ekg                   -any,
+        monad-logger                         -any,
+        mtl                                  -any,
+        optparse-applicative                 -any,
+        playground-common                    -any,
+        plutus-contract                      -any,
+        plutus-ledger                        -any,
+        plutus-pab                           -any,
+        plutus-tx                            -any,
+        plutus-use-cases                     -any,
+        prettyprinter                   >=1.1.0.1,
+        purescript-bridge                    -any,
+        row-types                            -any,
+        servant-client                       -any,
+        servant-purescript                   -any,
+        servant-server                       -any,
+        text                                 -any,
+        time-units                           -any,
+        unliftio-core                        -any,
+        uuid                                 -any,
+        yaml                                 -any,
     
     
     

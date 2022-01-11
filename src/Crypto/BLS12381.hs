@@ -23,6 +23,8 @@ module Crypto.BLS12381 where
 
 import           Data.Aeson                        (FromJSON, ToJSON)
 import           GHC.Generics                      (Generic)
+import           Language.PureScript.Bridge        (argonaut, genericShow, mkSumType, order)
+import           Plutus.PAB.Run.PSGenerator        (HasPSTypes(..))
 import           PlutusTx.Prelude                  
 import           Prelude                           (Show, IO)
 import qualified Prelude                           ((<$>))
@@ -251,3 +253,17 @@ lineFunction (CP x y) (CP x1 y1) (CP x2 y2)
     y3' = l' * (x1 - x3') - y1
 lineFunction _ _ _ = (O, mempty)
 
+------------------------------------------------------------------------------
+-------------------------- PureScript bridge ---------------------------------
+------------------------------------------------------------------------------
+
+instance HasPSTypes Fr where
+  psTypes = [
+              genericShow . argonaut $ mkSumType @R,
+              order . genericShow . argonaut $ mkSumType @Fr,
+              genericShow . argonaut $ mkSumType @Q,
+              genericShow . argonaut $ mkSumType @T1,
+              genericShow . argonaut $ mkSumType @T2,
+              genericShow . argonaut $ mkSumType @(CurvePoint T1),
+              genericShow . argonaut $ mkSumType @(CurvePoint T2)
+            ]
