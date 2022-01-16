@@ -2,9 +2,8 @@ module Crypto.Zp where
 
 import Prelude
 
-import Data.BigInt.Argonaut (BigInt, fromBase, fromInt)
+import Data.BigInt.Argonaut (BigInt, fromInt)
 import Data.Group (class Group, ginverse)
-import Data.Maybe (fromMaybe)
 import Data.Tuple (Tuple(..), snd)
 
 class Monoid p <= FiniteField p where
@@ -54,17 +53,3 @@ instance FiniteField p => Eq (Zp p) where
 
 instance FiniteField p => Ord (Zp p) where
   compare (Zp a) (Zp b) = compare (mod a (fieldPrime (mempty :: p))) (mod b (fieldPrime (mempty :: p)))
-
------------------------------------------------------------
-
-data R = R
-type Fr = Zp R
-
-instance Semigroup R where
-  append _ _ = R
-
-instance Monoid R where
-  mempty = R
-
-instance FiniteField R where
-  fieldPrime = const $ fromMaybe zero $ fromBase 16 "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001"
