@@ -24,19 +24,20 @@ module Utility where
 
 import           Data.Default                      (def)
 import           Data.List                         (partition, unzip)
+import           Data.Map                          (Map, empty, fromList)
 import           Data.Text                         (Text, pack)
-import           Ledger                            (PaymentPubKeyHash, Value, Address, ChainIndexTxOut, TxOutRef)
+import           Ledger                            (PaymentPubKeyHash, Value, Address, ChainIndexTxOut, TxOutRef, AssetClass)
 import           Ledger.Tx                         (txOutRefId)
 import           Plutus.ChainIndex                 (ChainIndexTx, Page(..), nextPageQuery)
-import           Plutus.ChainIndex.Api             (TxosResponse(paget))
+import           Plutus.ChainIndex.Api             (TxosResponse(paget), UtxosResponse (page))
 import           Plutus.Contract                   (Contract, mapError, AsContractError, txOutFromRef)
-import           Plutus.Contract.Request           (txoRefsAt, txsFromTxIds)
+import           Plutus.Contract.Request           (txoRefsAt, txsFromTxIds, utxoRefsWithCurrency)
 import           Plutus.Contract.StateMachine      (SMContractError(..))
 import           Ledger.Constraints                (mustPayToPubKey)
 import           Ledger.Constraints.TxConstraints  (TxConstraints)
 import           PlutusTx.Builtins                 (subtractInteger)
-import           PlutusTx.Prelude
-import           Prelude                           (Show(..), Char, String)
+import           PlutusTx.Prelude                  hiding ((<>))
+import           Prelude                           (Show(..), Char, String, (<>))
 
 --------------------------------- Lists -------------------------------------
 
@@ -113,6 +114,9 @@ charToHex 'e' = 14
 charToHex 'f' = 15
 charToHex _   = error ()
 
+byteStringToList :: BuiltinByteString -> [Integer]
+byteStringToList bs = map (indexByteString bs) [0..lengthOfByteString bs-1]
+
 --------------------------- Smart Contracts ---------------------------------
 
 collateralConstraints :: PaymentPubKeyHash -> [Value] -> TxConstraints i o
@@ -133,8 +137,8 @@ txosTxTxOutAt ::
 txosTxTxOutAt addr = do
   foldTxoRefsAt f [] addr
   where
-    f acc page = do
-      let txoRefs = pageItems page
+    f acc pg = do
+      let txoRefs = pageItems pg
       txOuts <- traverse txOutFromRef txoRefs
       let txIds = txOutRefId <$> txoRefs
       txs <- txsFromTxIds txIds
@@ -152,6 +156,42 @@ foldTxoRefsAt f ini addr = go ini (Just def)
   where
     go acc Nothing = pure acc
     go acc (Just pq) = do
-      page <- paget <$> txoRefsAt pq addr
-      newAcc <- f acc page
-      go newAcc (nextPageQuery page)
+      pg <- paget <$> txoRefsAt pq addr
+      newAcc <- f acc pg
+      go newAcc (nextPageQuery pg)
+
+-- | Get the unspent transaction outputs with a given Currency.
+utxosWithCurrency ::
+    forall w s e.
+    ( AsContractError e
+    )
+    => AssetClass
+    -> Contract w s e (Map TxOutRef ChainIndexTxOut)
+utxosWithCurrency ac = do
+  foldUtxoRefsWithCurrency f empty ac
+  where
+    f acc pg = do
+      let utxoRefs = pageItems pg
+      txOuts <- traverse txOutFromRef utxoRefs
+      let utxos = fromList
+                $ mapMaybe (\(ref, txOut) -> fmap (ref,) txOut)
+                $ zip utxoRefs txOuts
+      pure $ acc <> utxos
+
+-- | Fold through each 'Page's of unspent 'TxOutRef's with a given Currency, and
+-- accumulate the result.
+foldUtxoRefsWithCurrency ::
+    forall w s e a.
+    ( AsContractError e
+    )
+    => (a -> Page TxOutRef -> Contract w s e a) -- ^ Accumulator function
+    -> a -- ^ Initial value
+    -> AssetClass -- ^ Address which contain the UTXOs
+    -> Contract w s e a
+foldUtxoRefsWithCurrency f ini ac = go ini (Just def)
+  where
+    go acc Nothing = pure acc
+    go acc (Just pq) = do
+      pg <- page <$> utxoRefsWithCurrency pq ac
+      newAcc <- f acc pg
+      go newAcc (nextPageQuery pg)

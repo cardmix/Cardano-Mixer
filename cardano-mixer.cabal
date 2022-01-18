@@ -52,17 +52,12 @@ common lang
 library
     import: lang
     exposed-modules:
-      MixerStateMachine
       MixerContract
       MixerState
       MixerScript
-      Mixer
-      MixerFactory
       MixerUserData
       MixerProofs
-      CheckKey
       ClientLog
-      AdminKey
       Contracts.Currency
       Contracts.Vesting
       PAB
@@ -70,6 +65,13 @@ library
       Utility
       Configuration.PABConfig
       Configuration.QAPConfig
+      Tokens.AdminToken
+      Tokens.RelayToken
+      Tokens.Common
+      Tokens.MIXStakingToken
+      Tokens.MIXToken
+      Tokens.OracleToken
+      Tokens.CollateralToken
       Crypto
       Crypto.ZKSNARK
       Crypto.R1CS

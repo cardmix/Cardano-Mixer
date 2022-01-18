@@ -25,7 +25,6 @@ import           System.Environment                           (getArgs)
 import           Wallet.Emulator.Types                        (mockWalletPaymentPubKeyHash)
 import           Wallet.Emulator.Wallet                       (Wallet (..))
 
-import           AdminKey                                     (adminKeyTokenName)
 import           ClientLog
 import           Configuration.PABConfig                      (pabWallet, pabWalletPKH)
 import           Contracts.Currency                           (SimpleMPS(..))
@@ -36,6 +35,7 @@ import           MixerState                                   (MixerState)
 import           MixerUserData
 import           PAB
 import           Requests
+import           Tokens.AdminToken (adminTokenName)
 
 
 
@@ -100,7 +100,7 @@ retrieveTimeLockedProcedure = do
 mintAdminKeyProcedure :: Wallet -> IO ()
 mintAdminKeyProcedure w = do
     cidAdmin <- activateRequest MintAdminKey (Just w)
-    endpointRequest "Create native token" cidAdmin (SimpleMPS adminKeyTokenName 1 (mockWalletPaymentPubKeyHash pabWallet))
+    endpointRequest "Create native token" cidAdmin (SimpleMPS adminTokenName 1 (mockWalletPaymentPubKeyHash pabWallet))
 
 
     

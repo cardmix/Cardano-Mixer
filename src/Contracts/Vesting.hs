@@ -37,7 +37,7 @@ import           PlutusTx
 import           PlutusTx.Prelude         hiding ((<>), Eq, Semigroup, fold, mempty)
 import           Schema                   (ToSchema)
 
-import           AdminKey                 (adminKeyRequired)
+import           Tokens.AdminToken        (adminTokenRequired)
 
 
 {- |
@@ -76,7 +76,7 @@ instance ValidatorTypes Vesting where
 {-# INLINABLE validate #-}
 validate :: VestingParams -> () -> ScriptContext -> Bool
 validate (VestingParams d o _) () ctx@ScriptContext{scriptContextTxInfo=txInfo@TxInfo{txInfoValidRange}} =
-    (isUnlocked && isSignedByOwner) || adminKeyRequired () () ctx
+    (isUnlocked && isSignedByOwner) || adminTokenRequired ctx
   where
       validRange      = Interval.from d
       isUnlocked      = validRange `Interval.contains` txInfoValidRange

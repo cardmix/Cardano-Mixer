@@ -42,14 +42,15 @@ import           System.Environment                  (getArgs)
 
 
 import           Configuration.PABConfig             (pabWallet, pabWalletPKH)
-import           Contracts.Vesting                   (vestingScriptAddress, vestingContract)
+import           Contracts.Vesting                   (vestingScriptAddress, vestingContract, vestingScriptHash)
 import           Crypto
 import           MixerContract
 import           MixerProofs                         (generateSimulatedWithdrawProof, verifyWithdraw)
 import           MixerState                          (MerkleTree(..), treeSize)
 import           MixerUserData
 import           PAB
-import           Utility                             (replicate, last)
+import           Utility                             (replicate, last, byteStringToList)
+import Ledger.Scripts (ValidatorHash(ValidatorHash))
 
 
 main :: IO ()
@@ -127,6 +128,9 @@ pabTestValues (DepositSecret r1 r2) (ShieldedAccountSecret v1 v2 v3) = do
               root = last cp
 
           print root
+
+          let ValidatorHash vh = vestingScriptHash
+          print $ byteStringToList vh
 
           t1 <- getCPUTime
           (_, subs, proof) <- generateSimulatedWithdrawProof pabWalletPKH (DepositSecret r1 r2) (ShieldedAccountSecret v1 v2 v3) [MerkleTree 1 $ padToPowerOfTwo treeSize [leaf]]
