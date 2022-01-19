@@ -36,35 +36,36 @@ import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), 
 import           Wallet.Types                     (AsContractError)
 
 import           Tokens.Common
-import           Configuration.PABConfig          (oracleTokenPolicyId)
+import           Configuration.PABConfig          (adminDecisionTokenPolicyId)
 
 
 ------------------------------------ Oracle Token ---------------------------------------------------
 
 {-# INLINABLE oracleTokenName #-}
-oracleTokenName :: TokenName
-oracleTokenName = TokenName "Cardano Mixer Oracle Token"
+oracleTokenName :: TxId -> TokenName
+oracleTokenName tx = TokenName $ getTxId tx
 
 {-# INLINABLE oracleTokenSymbol #-}
 oracleTokenSymbol :: CurrencySymbol
-oracleTokenSymbol = CurrencySymbol $ foldr consByteString emptyByteString oracleTokenPolicyId
+oracleTokenSymbol = CurrencySymbol $ foldr consByteString emptyByteString adminDecisionTokenPolicyId
 
 {-# INLINABLE oracleTokenAssetClass #-}
-oracleTokenAssetClass :: AssetClass
-oracleTokenAssetClass = AssetClass (oracleTokenSymbol, oracleTokenName)
+oracleTokenAssetClass :: TxId -> AssetClass
+oracleTokenAssetClass tx = AssetClass (oracleTokenSymbol, TokenName $ getTxId tx)
 
 {-# INLINABLE oracleToken #-}
-oracleToken :: Value
-oracleToken = token oracleTokenAssetClass
+oracleToken :: TxId -> Value
+oracleToken = token . oracleTokenAssetClass
 
 --------------------------- On-Chain -----------------------------
 
 {-# INLINABLE oracleTokenRequired #-}
 oracleTokenRequired :: ScriptContext -> Bool
-oracleTokenRequired = tokensRequired oracleToken
+oracleTokenRequired ctx = tokensRequired (oracleToken bs) ctx
+    where bs = txInfoId $ scriptContextTxInfo ctx
 
 -------------------------- Off-Chain -----------------------------
 
 -- TxConstraints that Oracle Token is consumed by transaction
-oracleTokenTx :: (AsContractError e) => Contract w s e (ScriptLookups a, TxConstraints i o)
-oracleTokenTx = tokensTx oracleTokenAssetClass 1
+oracleTokenTx :: (AsContractError e) => TxId -> Contract w s e (ScriptLookups a, TxConstraints i o)
+oracleTokenTx tx = tokensTx (oracleTokenAssetClass tx) 1

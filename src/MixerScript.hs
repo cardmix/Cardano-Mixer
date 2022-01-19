@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
 {-# LANGUAGE NumericUnderscores         #-}
 {-# LANGUAGE OverloadedStrings          #-}
@@ -24,19 +25,12 @@ module MixerScript (
     mixerInst,
     mixerValidator,
     mixerValidatorHash,
-    mixerAddress,
-    mapError',
-    verifierTokenCurrency,
-    verifierTokenName,
-    verifierTokenAssetClass
+    mixerAddress
 ) where
 
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
-import           Ledger.Constraints.OnChain               (checkTxConstraint)
-import           Ledger.Constraints.TxConstraints
-import           Ledger.Tokens                            (token)
 import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator, validatorScript, validatorHash, wrapValidator)
-import           Ledger.Value                             (AssetClass(..), CurrencySymbol(..), TokenName(..))
+import           Plutus.V1.Ledger.Credential              (Credential(ScriptCredential))
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  (Show (..))
@@ -45,37 +39,22 @@ import           Prelude                                  (Show (..))
 import           Configuration.PABConfig                  (vestingScriptPermanentHash)
 import           Contracts.Vesting                        (VestingParams(..))
 import           Crypto
-import           Utility                                  (mapError')
-
 
 ----------------------- Data types, instances, and constants -----------------------------
 
 data Mixer = Mixer {
     mValue              :: !Value,            -- Mixing value
-    mRelayerToken       :: !Value             -- Relayer token
+    mRelayerCollateral  :: !Value             -- Relayer collateral
 }
 
 PlutusTx.makeLift ''Mixer
-
--- Mixer verifier token
-verifierTokenCurrency :: CurrencySymbol
-verifierTokenCurrency = CurrencySymbol "9724bb"
-
-verifierTokenName :: TokenName
-verifierTokenName = TokenName "vMIX"
-
-verifierTokenAssetClass :: AssetClass
-verifierTokenAssetClass = AssetClass (verifierTokenCurrency, verifierTokenName)
-
-verifierNFT :: Value
-verifierNFT = token verifierTokenAssetClass
 
 newtype MixerDatum = MixerDatum { getMixerDatum :: Fr }
   deriving Show
 
 PlutusTx.unstableMakeIsData ''MixerDatum
 
-data MixerRedeemer = MixerRedeemer PaymentPubKeyHash (Integer, Integer) PaymentPubKeyHash [Fr] Proof
+data MixerRedeemer = MixerRedeemer PaymentPubKeyHash (Integer, Integer) [Fr] Proof
     deriving Show
 
 PlutusTx.unstableMakeIsData ''MixerRedeemer
@@ -87,21 +66,30 @@ instance ValidatorTypes Mixing where
 
 ------------------------------ Validator --------------------------------
 
+hourPOSIX :: POSIXTime
+hourPOSIX = POSIXTime 3600000
+
 {-# INLINABLE mkMixerValidator #-}
 mkMixerValidator :: Mixer -> MixerDatum -> MixerRedeemer -> ScriptContext -> Bool
-mkMixerValidator mixer _ (MixerRedeemer pkhR _ pkhW _ _) ctx =
-      checkTxConstraint ctx txc1 &&
-       checkTxConstraint ctx txc2
+mkMixerValidator mixer _ (MixerRedeemer pkhR _ _ _) ctx = txout `elem` outs
     where
-        -- Must relay to the recipient
-        txc1 = MustPayToPubKeyAddress pkhW Nothing Nothing (mValue mixer)
-        -- Must time lock the relayer token
-        date = case ivTo (txInfoValidRange $ scriptContextTxInfo ctx) of
-                UpperBound (Finite d) True -> d
+        txinfo = scriptContextTxInfo ctx
+        outs   = txInfoOutputs txinfo
+
+        -- finding current time estimate
+        date = case ivTo (txInfoValidRange txinfo) of
+                UpperBound (Finite t) True -> t
                 _                          -> error ()
-        hourPOSIX = POSIXTime 3600000  -- TODO: Fix the issue with multiple script utxos
+        
+        -- finding this input's datum hash
         (_, dhash) = ownHashes ctx
-        txc2 = MustPayToOtherScript vestingScriptPermanentHash (Datum $ toBuiltinData $ VestingParams (date + hourPOSIX) pkhR dhash) (mRelayerToken mixer)
+
+        -- constructing the desired TxOut
+        addr   = Address (ScriptCredential vestingScriptPermanentHash) Nothing
+        val    = mRelayerCollateral mixer
+        d      = Datum $ toBuiltinData $ VestingParams (date + hourPOSIX) pkhR dhash
+        dh     = fromMaybe (error ()) $ findDatumHash d txinfo -- we need a very specific datum hash in order to reverse invalid transaction
+        txout  = TxOut addr val (Just dh)
 
 -- Validator instance
 mixerInst :: Mixer -> TypedValidator Mixing

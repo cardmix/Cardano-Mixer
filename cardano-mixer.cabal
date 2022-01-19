@@ -58,6 +58,7 @@ library
       MixerUserData
       MixerProofs
       ClientLog
+      Contracts.AdminDecision
       Contracts.Currency
       Contracts.Vesting
       PAB
@@ -71,7 +72,6 @@ library
       Tokens.MIXStakingToken
       Tokens.MIXToken
       Tokens.OracleToken
-      Tokens.CollateralToken
       Crypto
       Crypto.ZKSNARK
       Crypto.R1CS

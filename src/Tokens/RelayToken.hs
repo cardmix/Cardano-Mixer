@@ -21,23 +21,27 @@ module Tokens.RelayToken (
     relayToken,
     relayTokenSymbol,
     relayTokenName,
+    relayTokenNumber,
     relayTokenRequired,
     relayTokenTx
 ) where
 
 import           Ledger                           hiding (singleton, unspentOutputs)
 import           Ledger.Constraints.OffChain      (ScriptLookups)
+import           Ledger.Constraints.TxConstraints (TxConstraints)
 import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..), CurrencySymbol (..))
 import           Plutus.Contract                  (Contract)
-import           Plutus.Contract.StateMachine
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
 import           Wallet.Types                     (AsContractError)
 
 import           Tokens.Common
-import           Configuration.PABConfig          (relayTokenPolicyId)
+import           Configuration.PABConfig          (adminDecisionTokenPolicyId)
 
 ------------------------------------ Relay Token -----------------------------------------------
+
+relayTokenNumber :: Integer
+relayTokenNumber = 60
 
 {-# INLINABLE relayTokenName #-}
 relayTokenName :: Integer -> TokenName
@@ -45,7 +49,7 @@ relayTokenName i = TokenName $ consByteString i emptyByteString
 
 {-# INLINABLE relayTokenSymbol #-}
 relayTokenSymbol :: CurrencySymbol
-relayTokenSymbol = CurrencySymbol $ foldr consByteString emptyByteString relayTokenPolicyId
+relayTokenSymbol = CurrencySymbol $ foldr consByteString emptyByteString adminDecisionTokenPolicyId
 
 {-# INLINABLE relayTokenAssetClass #-}
 relayTokenAssetClass :: Integer -> AssetClass

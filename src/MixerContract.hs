@@ -102,8 +102,8 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \(WithdrawParams v (nTree, nDe
     let lookups   = unspentOutputs utxo' <> typedValidatorLookups (mixerInst mixer) <> otherScript (mixerValidator mixer)
         cons      = mustPayToPubKey pkhW v <> mustValidateIn (to $ ct + POSIXTime 100000) <>
             mustPayToOtherScript vestingScriptHash (Datum $ toBuiltinData $ VestingParams
-                (ct + POSIXTime 3700000) pkhR dh) (mRelayerToken mixer) <>
-            mustSpendScriptOutput txo (Redeemer $ toBuiltinData $ MixerRedeemer pkhR (nTree, nDeposit) pkhW subs proof)
+                (ct + POSIXTime 3700000) pkhR dh) (mRelayerCollateral mixer) <>
+            mustSpendScriptOutput txo (Redeemer $ toBuiltinData $ MixerRedeemer pkhR (nTree, nDeposit) subs proof)
     if verifyWithdraw pubParams proof
         then do
             utx <- mkTxConstraints lookups cons
