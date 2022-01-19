@@ -37,7 +37,7 @@ import           PlutusTx
 import           PlutusTx.Prelude         hiding ((<>), Eq, Semigroup, fold, mempty)
 import           Schema                   (ToSchema)
 
-import           Tokens.AdminToken        (adminTokenRequired)
+import           Tokens.OracleToken       (oracleTokenRequired)
 
 
 {- |
@@ -63,7 +63,7 @@ data VestingParams = VestingParams
     {
         vestingDate   :: POSIXTime,
         vestingOwner  :: PaymentPubKeyHash,
-        vestingHashes :: (ValidatorHash, DatumHash)
+        vestingHash   :: DatumHash
     } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
 
 PlutusTx.unstableMakeIsData ''VestingParams
@@ -76,7 +76,7 @@ instance ValidatorTypes Vesting where
 {-# INLINABLE validate #-}
 validate :: VestingParams -> () -> ScriptContext -> Bool
 validate (VestingParams d o _) () ctx@ScriptContext{scriptContextTxInfo=txInfo@TxInfo{txInfoValidRange}} =
-    (isUnlocked && isSignedByOwner) || adminTokenRequired ctx
+    (isUnlocked && isSignedByOwner) || oracleTokenRequired ctx
   where
       validRange      = Interval.from d
       isUnlocked      = validRange `Interval.contains` txInfoValidRange

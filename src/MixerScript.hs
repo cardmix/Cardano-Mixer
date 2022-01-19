@@ -100,8 +100,8 @@ mkMixerValidator mixer _ (MixerRedeemer pkhR _ pkhW _ _) ctx =
                 UpperBound (Finite d) True -> d
                 _                          -> error ()
         hourPOSIX = POSIXTime 3600000  -- TODO: Fix the issue with multiple script utxos
-        hashes = ownHashes ctx
-        txc2 = MustPayToOtherScript vestingScriptPermanentHash (Datum $ toBuiltinData $ VestingParams (date + hourPOSIX) pkhR hashes) (mRelayerToken mixer)
+        (_, dhash) = ownHashes ctx
+        txc2 = MustPayToOtherScript vestingScriptPermanentHash (Datum $ toBuiltinData $ VestingParams (date + hourPOSIX) pkhR dhash) (mRelayerToken mixer)
 
 -- Validator instance
 mixerInst :: Mixer -> TypedValidator Mixing
