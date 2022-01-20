@@ -59,7 +59,7 @@ depositProcedure = do
     logSecrets ds sas
     let leaf = mimcHash (getR1 ds) (getR2 ds)
     cidUseMixer <- activateRequest UseMixer (Just pabWallet)
-    endpointRequest "deposit" cidUseMixer (DepositParams (lovelaceValueOf 200_000_000) leaf)
+    endpointRequest "deposit" cidUseMixer (DepositParams (lovelaceValueOf 400_000) leaf)
 
 withdrawProcedure :: IO ()
 withdrawProcedure = do
@@ -69,7 +69,7 @@ withdrawProcedure = do
       Just (ds, sas) -> do
         state <- mixerStateProcedure
         (lastDeposit, subs, proof) <- generateSimulatedWithdrawProof pabWalletPKH ds sas state
-        let params = WithdrawParams (lovelaceValueOf 200_000_000) lastDeposit pabWalletPKH subs proof
+        let params = WithdrawParams (lovelaceValueOf 400_000) lastDeposit pabWalletPKH subs proof
         cidUseMixer <- activateRequest UseMixer (Just pabWallet)
         endpointRequest "withdraw" cidUseMixer params
 
@@ -78,7 +78,7 @@ withdrawProcedure = do
 mixerStateProcedure :: IO MixerState
 mixerStateProcedure = do
     cidQueryMixer <- activateRequest QueryMixer (Just pabWallet)
-    endpointRequest "Get Mixer state" cidQueryMixer (lovelaceValueOf 200_000_000)
+    endpointRequest "Get Mixer state" cidQueryMixer (lovelaceValueOf 400_000)
     go cidQueryMixer
   where go cid = do
                 resp <- statusRequest cid

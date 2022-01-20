@@ -25,7 +25,8 @@ module MixerScript (
     mixerInst,
     mixerValidator,
     mixerValidatorHash,
-    mixerAddress
+    mixerAddress,
+    makeMixerFromFees
 ) where
 
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
@@ -44,10 +45,14 @@ import           Crypto
 
 data Mixer = Mixer {
     mValue              :: !Value,            -- Mixing value
-    mRelayerCollateral  :: !Value             -- Relayer collateral
+    mRelayerCollateral  :: !Value,            -- Relayer collateral
+    mTotalFees          :: !Value             -- Total fees that relayer collects
 }
 
 PlutusTx.makeLift ''Mixer
+
+makeMixerFromFees :: Value -> Mixer
+makeMixerFromFees v = Mixer (scale 500 v) (scale 1000 v) v
 
 newtype MixerDatum = MixerDatum { getMixerDatum :: Fr }
   deriving Show

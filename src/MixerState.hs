@@ -56,9 +56,9 @@ type MixerState = [MerkleTree]
 
 getMixerState :: Value -> Contract (Maybe (Last MixerState)) s ContractError MixerState
 getMixerState v = do
-    let mixer = Mixer v v
+    let mixer = makeMixerFromFees v
     txTxos <- txosTxTxOutAt (mixerAddress mixer)
-    let txTxos' = filter (\(_, o) -> _ciTxOutValue o `geq` mValue mixer) txTxos -- TODO: implement proper sort?
+    let txTxos' = filter (\(_, o) -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer)) txTxos -- TODO: implement proper sort?
         leafs   = map (getMixerDatum . unsafeFromBuiltinData . getDatum) $ rights $ map (_ciTxOutDatum . snd) txTxos'
     let state = snd $ constructStateFromList (leafs, [])
     tell $ Just $ Last state

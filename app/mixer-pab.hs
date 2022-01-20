@@ -95,12 +95,12 @@ pabSimulator = void $ Simulator.runSimulationWith handlers $ do
 pabEmulator :: (Fr, [Fr], Proof) -> EmulatorTrace ()
 pabEmulator (leaf, subs, proof) = do
     c1 <- activateContractWallet pabWallet (void mixerProgram)
-    callEndpoint @"deposit" c1 (DepositParams (lovelaceValueOf 10_000_000) leaf)
+    callEndpoint @"deposit" c1 (DepositParams (lovelaceValueOf 20_000) leaf)
 
     _ <- waitNSlots 10
 
     c2 <- activateContractWallet pabWallet (void mixerProgram)
-    callEndpoint @"withdraw" c2 (WithdrawParams (lovelaceValueOf 10_000_000) (0, 1) pabWalletPKH subs proof)
+    callEndpoint @"withdraw" c2 (WithdrawParams (lovelaceValueOf 20_000) (0, 1) pabWalletPKH subs proof)
 
     _ <- waitNSlots 3700
 

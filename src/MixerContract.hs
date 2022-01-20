@@ -62,12 +62,12 @@ data DepositParams = DepositParams
 deposit :: Promise (Maybe (Last MixerState)) MixerSchema ContractError ()
 deposit = endpoint @"deposit" @DepositParams $ \(DepositParams v leaf) -> do
     curTime <- currentTime
-    let mixer    = Mixer v v
+    let mixer    = makeMixerFromFees v
         -- We create transaction that is valid during the next 10 minutes.
         -- This is needed to order deposits: the upper bound of the valRange is the time of deposit.
         valRange = interval curTime (curTime +  600000)
         lookups  = typedValidatorLookups $ mixerInst mixer
-        cons     = mustPayToTheScript (MixerDatum leaf) v <> mustValidateIn valRange
+        cons     = mustPayToTheScript (MixerDatum leaf) (mValue mixer + mTotalFees mixer) <> mustValidateIn valRange
     utx <- mkTxConstraints lookups cons
     submitTxConfirmed utx
 
@@ -86,11 +86,11 @@ data WithdrawParams = WithdrawParams
 -- "withdraw" endpoint implementation
 withdraw :: Promise (Maybe (Last MixerState)) MixerSchema ContractError ()
 withdraw = endpoint @"withdraw" @WithdrawParams $ \(WithdrawParams v (nTree, nDeposit) pkhW subs proof) -> do
-    let mixer = Mixer v v
+    let mixer = makeMixerFromFees v
     pkhR  <- ownPaymentPubKeyHash
     utxos <- utxosAt (mixerAddress mixer)
     ct    <- currentTime
-    let utxo           = Data.Map.filter (\o -> _ciTxOutValue o `geq` mValue mixer) utxos
+    let utxo           = Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer)) utxos
         utxo'          = fromList [findMin utxo]
         txo            = head $ keys  utxo
     dh <- (fromMaybe (error ()) <$> txOutDatumHash . toTxOut) . fromMaybe (error ()) <$> txOutFromRef txo
@@ -100,7 +100,7 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \(WithdrawParams v (nTree, nDe
     -- let Just (MerkleTree _ leafs) = getMerkleTree state (nTree, nDeposit)
     let pubParams = [one, zero, zero, zero, zero, zero] ++ subs
     let lookups   = unspentOutputs utxo' <> typedValidatorLookups (mixerInst mixer) <> otherScript (mixerValidator mixer)
-        cons      = mustPayToPubKey pkhW v <> mustValidateIn (to $ ct + POSIXTime 100000) <>
+        cons      = mustPayToPubKey pkhW (mValue mixer) <> mustValidateIn (to $ ct + POSIXTime 100000) <>
             mustPayToOtherScript vestingScriptHash (Datum $ toBuiltinData $ VestingParams
                 (ct + POSIXTime 3700000) pkhR dh) (mRelayerCollateral mixer) <>
             mustSpendScriptOutput txo (Redeemer $ toBuiltinData $ MixerRedeemer pkhR (nTree, nDeposit) subs proof)
