@@ -3,6 +3,11 @@ index-state: 2021-10-20T00:00:00Z
 
 packages: ./.
 
+source-repository-package
+  type: git
+  location: https://github.com/cardmix/Cardano-Mixer-Lib.git
+  tag: cd0fe55d02e65f2e3f390d05bb298d2585e6f9e0
+
 -- Plutus revision from 2021/11/26
 source-repository-package
   type: git

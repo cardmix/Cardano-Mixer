@@ -30,12 +30,13 @@ import           Configuration.PABConfig                      (pabWallet, pabWal
 import           Contracts.Currency                           (SimpleMPS(..))
 import           Crypto                                       (mimcHash)
 import           MixerContract
+import           MixerContractsDefinition
 import           MixerProofs                                  (generateSimulatedWithdrawProof)
 import           MixerState                                   (MixerState)
 import           MixerUserData
-import           PAB
 import           Requests
 import           Tokens.AdminToken (adminTokenName)
+import Crypto.Conversions (dataToZp)
 
 
 
@@ -68,7 +69,7 @@ withdrawProcedure = do
       Nothing        -> print @String "Nothing to withdraw."
       Just (ds, sas) -> do
         state <- mixerStateProcedure
-        (lastDeposit, subs, proof) <- generateSimulatedWithdrawProof pabWalletPKH ds sas state
+        (lastDeposit, subs, proof) <- generateSimulatedWithdrawProof (dataToZp pabWalletPKH) ds sas state
         let params = WithdrawParams (lovelaceValueOf 400_000) lastDeposit pabWalletPKH subs proof
         cidUseMixer <- activateRequest UseMixer (Just pabWallet)
         endpointRequest "withdraw" cidUseMixer params

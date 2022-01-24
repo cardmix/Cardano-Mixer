@@ -30,7 +30,7 @@ import           Plutus.Contract                  (Contract)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
 import           Wallet.Types                     (AsContractError)
 
-import           Utility                          (utxosWithCurrency)
+import           Utils.Contracts                  (utxosWithCurrency)
 
 --------------------------- On-Chain -----------------------------
 

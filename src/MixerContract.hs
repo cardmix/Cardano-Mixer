@@ -38,8 +38,6 @@ import           Plutus.Contract                          (Promise, ContractErro
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  (Show (..), String, (<>), (<$>))
-import           Schema                                   (ToSchema)
-
 
 import           Contracts.Vesting                        (VestingParams(..), vestingScriptHash)
 import           Crypto
@@ -56,7 +54,7 @@ data DepositParams = DepositParams
         dpLeaf           :: !Fr
     }
     deriving stock (Show, Generic)
-    deriving anyclass (FromJSON, ToJSON, ToSchema)
+    deriving anyclass (FromJSON, ToJSON)
 
 -- "deposit" endpoint implementation
 deposit :: Promise (Maybe (Last MixerState)) MixerSchema ContractError ()

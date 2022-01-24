@@ -17,17 +17,17 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE NumericUnderscores         #-}
 
-module Crypto.Conversions (dataToZp) where
+module Crypto.Conversions  where
 
 import           Ledger.Address                    (PaymentPubKeyHash (..))
 import           Plutus.V1.Ledger.Api
 import           PlutusTx.AssocMap                 (Map, toList)
 import           PlutusTx.Prelude                  hiding (toList)
 
-import           Crypto.Zp                         (Zp, FiniteField(..), toZp)
+import           Crypto.Zp                         (Zp(..), FiniteField(..), toZp)
 import           Crypto.MerkleTree                 (mimcHash)
 
----------------------------- Conversions ----------------------------------------
+----------------------------- DataToZp ------------------------------------------
 
 class FiniteField p => DataToZp a p where
     dataToZp :: a -> Zp p

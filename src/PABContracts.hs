@@ -14,7 +14,7 @@
 {-# LANGUAGE TypeOperators      #-}
 
 
-module PAB where
+module PABContracts where
 
 import           Data.Aeson                          (FromJSON(..), ToJSON(..))
 import           Data.Default                        (Default (..))
@@ -32,34 +32,36 @@ import           Prettyprinter                       (Pretty(..), viaShow)
 import           Contracts.Currency                  (CurrencySchema, mintCurrency)
 import           Contracts.Vesting                   (VestingSchema, vestingContract)
 import           MixerContract                       (mixerProgram)
-import           MixerState                          (MixerStateSchema, getMixerStatePromise)
+import           MixerStateContract                  (MixerStateSchema, getMixerStatePromise)
+import           MixerContractsDefinition            (MixerContractsDefinition(..))
 
+--------------------------------------- PAB Contracts -------------------------------------------
 
-data MixerContracts = MintAdminKey | UseMixer | QueryMixer | RetrieveTimeLocked
+-- We use a wrapper to define backend instances here
+newtype PABContracts = PABContracts MixerContractsDefinition
     deriving (Eq, Ord, Show, Generic, FromJSON, ToJSON)
     deriving anyclass (Data.OpenApi.ToSchema)
 
-instance Pretty MixerContracts where
+instance Pretty PABContracts where
     pretty = viaShow
 
-instance HasPSTypes MixerContracts where
+instance HasPSTypes PABContracts where
 
 -- TODO: Proof data type does not have ToSchema
-instance HasDefinitions MixerContracts where
-    getDefinitions = [MintAdminKey, UseMixer, QueryMixer]
+instance HasDefinitions PABContracts where
+    getDefinitions = map PABContracts [MintAdminKey, UseMixer, QueryMixer, RetrieveTimeLocked]
     getSchema = \case
-        MintAdminKey       -> endpointsToSchemas @CurrencySchema
-        UseMixer           -> [] --endpointsToSchemas  @MixerSchema
-        QueryMixer         -> endpointsToSchemas @MixerStateSchema
-        RetrieveTimeLocked -> endpointsToSchemas @VestingSchema
+        PABContracts MintAdminKey       -> endpointsToSchemas @CurrencySchema
+        PABContracts UseMixer           -> [] --endpointsToSchemas  @MixerSchema
+        PABContracts QueryMixer         -> endpointsToSchemas @MixerStateSchema
+        PABContracts RetrieveTimeLocked -> endpointsToSchemas @VestingSchema
     getContract = \case
-        MintAdminKey       -> SomeBuiltin mintCurrency
-        UseMixer           -> SomeBuiltin mixerProgram
-        QueryMixer         -> SomeBuiltin getMixerStatePromise
-        RetrieveTimeLocked -> SomeBuiltin vestingContract
+        PABContracts MintAdminKey       -> SomeBuiltin mintCurrency
+        PABContracts UseMixer           -> SomeBuiltin mixerProgram
+        PABContracts QueryMixer         -> SomeBuiltin getMixerStatePromise
+        PABContracts RetrieveTimeLocked -> SomeBuiltin vestingContract
 
-handlers :: Simulator.SimulatorEffectHandlers (Builtin MixerContracts)
+handlers :: Simulator.SimulatorEffectHandlers (Builtin PABContracts)
 handlers =
-    Simulator.mkSimulatorHandlers @(Builtin MixerContracts) def def
+    Simulator.mkSimulatorHandlers @(Builtin PABContracts) def def
     $ interpret (contractHandler handleBuiltin)
-

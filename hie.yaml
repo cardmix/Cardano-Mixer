@@ -1,12 +1,12 @@
 cradle:
   cabal:
     - path: "./src"
-      component: "cardano-mixer:lib:cardano-mixer"
+      component: "cardano-mixer-backend:lib:cardano-mixer-backend"
     - path: "./app"
-      component: "cardano-mixer:exe:cardano-mixer-pab"
+      component: "cardano-mixer-backend:exe:cardano-mixer-pab"
     - path: "./app"
-      component: "cardano-mixer:exe:cardano-mixer-client"
+      component: "cardano-mixer-backend:exe:cardano-mixer-client"
     - path: "./app"
-      component: "cardano-mixer:exe:cardano-mixer-zksnark-setup"
+      component: "cardano-mixer-backend:exe:cardano-mixer-zksnark-setup"
     - path: "./app"
-      component: "cardano-mixer:exe:cardano-mixer-qap"
+      component: "cardano-mixer-backend:exe:cardano-mixer-qap"

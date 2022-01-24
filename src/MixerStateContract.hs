@@ -17,32 +17,19 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
 
-module MixerState where
+module MixerStateContract where
 
-import           Data.Aeson                               (ToJSON, FromJSON)
 import           Data.Either                              (rights)
 import           Data.Semigroup                           (Last (..))
-import           GHC.Generics                             (Generic)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           Ledger.Value                             (geq)
 import           Plutus.Contract                          (Promise, ContractError, Endpoint, endpoint, tell, Contract)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
-import           Prelude                                  (Show, (^))
 
-import           Crypto
 import           MixerScript
-import           Utility                                  (txosTxTxOutAt, drop)
-
-
------------------------ Data types, instances, and constants -----------------------------
-
-treeSize :: Integer
-treeSize = 10
-
-data MerkleTree = MerkleTree Integer [Fr]
-    deriving (Show, Generic, ToJSON, FromJSON)
-type MixerState = [MerkleTree]
+import           MixerState
+import           Utils.Contracts                          (txosTxTxOutAt)
 
 ---------------------------------------------------------------------
 --------------------------- Off-Chain -------------------------------
@@ -68,29 +55,3 @@ type MixerStateSchema = Endpoint "Get Mixer state" Value
 
 getMixerStatePromise :: Promise (Maybe (Last MixerState)) MixerStateSchema ContractError MixerState
 getMixerStatePromise = endpoint @"Get Mixer state" @Value getMixerState
-
-------------------------------------------------------------------------
-
-getMerkleLeafNumber :: MixerState -> Fr -> Maybe (Integer, Integer)
-getMerkleLeafNumber state leaf = do
-        k <- nTree state
-        m <- nDep $ state !! k
-        return (k, m + 1)
-    where nDep  (MerkleTree _ tree) = findIndex (leaf ==) tree
-          nTree s                   = findIndex ((/=) Nothing . nDep) s
-
-getMerkleTree :: MixerState -> (Integer, Integer) -> Maybe MerkleTree
-getMerkleTree state (k, m) = do
-    MerkleTree _ tree <- if length state <= k
-                            then Nothing
-                            else Just $ state !! k
-    if 1 > m || m > 2^treeSize
-        then Nothing
-        else Just $ MerkleTree m $ padToPowerOfTwo treeSize $ take m tree
-
-constructStateFromList :: ([Fr], MixerState) -> ([Fr], MixerState)
-constructStateFromList ([], state)  = ([], state)
-constructStateFromList (lst, state) = constructStateFromList (drop (2 ^ treeSize) lst, state ++ [MerkleTree n tree'])
-    where tree  = take (2 ^ treeSize) lst
-          tree' = padToPowerOfTwo treeSize tree
-          n     = length tree

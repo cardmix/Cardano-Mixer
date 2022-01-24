@@ -16,12 +16,12 @@ import           Plutus.PAB.Webserver.Types                   (ContractInstanceC
 import           Wallet.Emulator.Wallet                       (Wallet(..))
 import           Wallet.Types                                 (ContractInstanceId (..))
 
-import           PAB
+import           MixerContractsDefinition
 
 ------------------------------- API Requests -------------------------------------
 
 -- Activate a contract for a given wallet
-activateRequest :: MixerContracts -> Maybe Wallet -> IO UUID
+activateRequest :: MixerContractsDefinition -> Maybe Wallet -> IO UUID
 activateRequest x w = runReq defaultHttpConfig $ do
     v <- req
         POST
@@ -50,7 +50,7 @@ statusRequest uuid = runReq defaultHttpConfig $ do
         GET
         (http "127.0.0.1" /: "api" /: "contract" /: "instance" /: pack (show uuid) /: "status")
         NoReqBody
-        (Proxy :: Proxy (JsonResponse (ContractInstanceClientState MixerContracts)))
+        (Proxy :: Proxy (JsonResponse (ContractInstanceClientState MixerContractsDefinition)))
         (port 9080)
     let x = fromJSON $ observableState $ cicCurrentState $ responseBody v
     case x of

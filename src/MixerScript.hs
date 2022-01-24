@@ -34,7 +34,7 @@ import           Ledger.Typed.Scripts                     (TypedValidator, Valid
 import           Plutus.V1.Ledger.Credential              (Credential(ScriptCredential))
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
-import           Prelude                                  (Show (..))
+import           Prelude                                  (Show (..), (<$>))
 
 
 import           Configuration.PABConfig                  (vestingScriptPermanentHash)
@@ -57,6 +57,10 @@ makeMixerFromFees v = Mixer (scale 500 v) (scale 1000 v) v
 newtype MixerDatum = MixerDatum { getMixerDatum :: Fr }
   deriving Show
 
+PlutusTx.unstableMakeIsData ''Zp
+PlutusTx.unstableMakeIsData ''R
+PlutusTx.unstableMakeIsData ''Q
+PlutusTx.unstableMakeIsData ''Proof
 PlutusTx.unstableMakeIsData ''MixerDatum
 
 data MixerRedeemer = MixerRedeemer PaymentPubKeyHash (Integer, Integer) [Fr] Proof
@@ -117,3 +121,44 @@ mixerValidatorHash = validatorHash . mixerInst
 mixerAddress :: Mixer -> Address
 mixerAddress = scriptAddress . mixerValidator
 
+---------------------------- For PlutusTx ------------------------------
+
+instance ToData t => ToData (Extension t e) where
+    {-# INLINABLE toBuiltinData #-}
+    toBuiltinData (E (P a)) = toBuiltinData a
+
+instance FromData t => FromData (Extension t e) where
+    {-# INLINABLE fromBuiltinData #-}
+    fromBuiltinData i = E . P <$> fromBuiltinData i
+
+instance UnsafeFromData t => UnsafeFromData (Extension t e) where
+    {-# INLINABLE unsafeFromBuiltinData #-}
+    unsafeFromBuiltinData i = E $ P $ unsafeFromBuiltinData i
+
+instance (ToData t) => ToData (Polynomial t) where
+    {-# INLINABLE toBuiltinData #-}
+    toBuiltinData (P a) = toBuiltinData a
+
+instance (FromData t) => FromData (Polynomial t) where
+    {-# INLINABLE fromBuiltinData #-}
+    fromBuiltinData i = P <$> fromBuiltinData i
+
+instance (UnsafeFromData t) => UnsafeFromData (Polynomial t) where
+    {-# INLINABLE unsafeFromBuiltinData #-}
+    unsafeFromBuiltinData i = P $ unsafeFromBuiltinData i
+
+instance (ToData t, Ring t) => ToData (CurvePoint t) where
+    {-# INLINABLE toBuiltinData #-}
+    toBuiltinData O        = toBuiltinData (False, (zero :: t, zero :: t))
+    toBuiltinData (CP x y) = toBuiltinData (True,  (x,    y))
+
+instance FromData t => FromData (CurvePoint t) where
+    {-# INLINABLE fromBuiltinData #-}
+    fromBuiltinData i = case fromBuiltinData i of
+      Just (b, (x, y)) -> if b then Just $ CP x y else Just O
+      Nothing          -> Nothing
+
+instance UnsafeFromData t => UnsafeFromData (CurvePoint t) where
+    {-# INLINABLE unsafeFromBuiltinData #-}
+    unsafeFromBuiltinData i = if b then CP x y else O
+      where (b, (x, y)) = unsafeFromBuiltinData i

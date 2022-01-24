@@ -24,33 +24,39 @@ import           Cardano.Api.NetworkId.Extra         (NetworkIdWrapper (..), tes
 import           Control.Monad                       (void)
 import           Control.Monad.Freer.Extras          (logInfo)
 import           Control.Monad.IO.Class              (MonadIO (..))
-import           Data.Default                        (def)
+import           Data.Default                        (Default(..))
 import           Ledger                              (ValidatorMode(FullyAppliedValidators))
+import           Ledger.Scripts                      (ValidatorHash(ValidatorHash))
 import           Ledger.Value                        (Value(..))
 import           PlutusTx.AssocMap                   (elems)
-import           PlutusTx.Prelude                    hiding ((<$>))
-import           Plutus.PAB.Effects.Contract.Builtin (Builtin, handleBuiltin)
+import           PlutusTx.Prelude                    hiding (Eq, Ord, (<$>))
+import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin(..), BuiltinHandler (..), HasDefinitions(..), endpointsToSchemas, handleBuiltin)
 import           Plutus.PAB.Run                      (runWith)
+import           Plutus.PAB.Run.PSGenerator          (HasPSTypes)
 import qualified Plutus.PAB.Simulator                as Simulator
 import qualified Plutus.PAB.Webserver.Server         as PAB.Server
 import           Plutus.V1.Ledger.Ada                (lovelaceValueOf)
 import           Plutus.Trace                        (ScriptsConfig (..), Command (Scripts, Transactions), writeScriptsTo)
 import           Plutus.Trace.Emulator
-import           Prelude                             (IO, Double, String, (/), (^), fromIntegral, print, show, getLine, (<$>))
+import           Prelude                             (IO, Double, String, Show, Eq, Ord, (/), (^), fromIntegral, print, show, getLine, (<$>), )
+import           Prettyprinter                       (Pretty(..), viaShow)
 import           System.CPUTime                      (getCPUTime)
 import           System.Environment                  (getArgs)
 
 
 import           Configuration.PABConfig             (pabWallet, pabWalletPKH)
-import           Contracts.Vesting                   (vestingScriptAddress, vestingContract, vestingScriptHash)
+import           Contracts.Currency                  (CurrencySchema, mintCurrency)
+import           Contracts.Vesting                   (VestingSchema, vestingScriptAddress, vestingContract, vestingScriptHash)
 import           Crypto
+import           Crypto.Conversions
 import           MixerContract
 import           MixerProofs                         (generateSimulatedWithdrawProof, verifyWithdraw)
 import           MixerState                          (MerkleTree(..), treeSize)
+import           MixerStateContract                  (MixerStateSchema, getMixerStatePromise)
 import           MixerUserData
-import           PAB
-import           Utility                             (replicate, last, byteStringToList)
-import Ledger.Scripts (ValidatorHash(ValidatorHash))
+import           PABContracts                        (PABContracts, handlers)
+import           Utils.Common                        (replicate, last)
+import           Utils.Contracts                     (byteStringToList)
 
 
 main :: IO ()
@@ -70,23 +76,24 @@ main = do
         _             -> pabTestNet
 
 pabTestNet :: IO ()
-pabTestNet = runWith (handleBuiltin @MixerContracts)
+pabTestNet = runWith (handleBuiltin @PABContracts)
+
 
 --------------------------------------- Simulator -----------------------------------------------
 
 pabSimulator :: IO ()
 pabSimulator = void $ Simulator.runSimulationWith handlers $ do
-    Simulator.logString @(Builtin MixerContracts) "Starting Oracle PAB webserver. Press enter to exit."
+    Simulator.logString @(Builtin PABContracts) "Starting Oracle PAB webserver. Press enter to exit."
     shutdown <- PAB.Server.startServerDebug
 
     void $ liftIO getLine
 
-    Simulator.logString @(Builtin MixerContracts) "Balances at the end of the simulation"
+    Simulator.logString @(Builtin PABContracts) "Balances at the end of the simulation"
     b <- Simulator.currentBalances
-    Simulator.logBalances @(Builtin MixerContracts) b
+    Simulator.logBalances @(Builtin PABContracts) b
 
     f <- head . elems . head . elems . getValue <$> Simulator.walletFees pabWallet
-    Simulator.logString @(Builtin MixerContracts) $ "Total fees paid: " ++ show ((fromIntegral f :: Double) / 1_000_000) ++ " ADA"
+    Simulator.logString @(Builtin PABContracts) $ "Total fees paid: " ++ show ((fromIntegral f :: Double) / 1_000_000) ++ " ADA"
 
     shutdown
 
@@ -133,7 +140,7 @@ pabTestValues (DepositSecret r1 r2) (ShieldedAccountSecret v1 v2 v3) = do
           print $ byteStringToList vh
 
           t1 <- getCPUTime
-          (_, subs, proof) <- generateSimulatedWithdrawProof pabWalletPKH (DepositSecret r1 r2) (ShieldedAccountSecret v1 v2 v3) [MerkleTree 1 $ padToPowerOfTwo treeSize [leaf]]
+          (_, subs, proof) <- generateSimulatedWithdrawProof (dataToZp pabWalletPKH) (DepositSecret r1 r2) (ShieldedAccountSecret v1 v2 v3) [MerkleTree 1 $ padToPowerOfTwo treeSize [leaf]]
           t2 <- getCPUTime
           print $ verifyWithdraw [one, zero, zero, zero, zero, zero, root, a, h, hA, one, oh, nh] proof
           t3 <- getCPUTime
