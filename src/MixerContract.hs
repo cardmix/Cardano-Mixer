@@ -24,11 +24,9 @@ module MixerContract (
     mixerProgram
 ) where
 
-import           Data.Aeson                               (FromJSON, ToJSON)
 import qualified Data.Map
 import           Data.Map                                 (keys, findMin, fromList)
 import           Data.Semigroup                           (Last)
-import           GHC.Generics                             (Generic)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           Ledger.Constraints.OffChain              (unspentOutputs, typedValidatorLookups, otherScript)
 import           Ledger.Constraints.TxConstraints
@@ -37,24 +35,14 @@ import           Plutus.Contract                          (Promise, ContractErro
                                                             endpoint, selectList, utxosAt, logInfo, mkTxConstraints, submitTxConfirmed, currentTime, ownPaymentPubKeyHash, txOutFromRef)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
-import           Prelude                                  (Show (..), String, (<>), (<$>))
+import           Prelude                                  (String, (<>), (<$>))
 
 import           Contracts.Vesting                        (VestingParams(..), vestingScriptHash)
-import           Crypto
-import           MixerProofs                              (verifyWithdraw)
+import           RelayRequest
+import           MixerContractTypes
 import           MixerScript
 import           MixerState                               (MixerState)
-
-
-
--- Parameters for the "deposit" endpoint
-data DepositParams = DepositParams
-    {
-        dpValue          :: !Value,
-        dpLeaf           :: !Fr
-    }
-    deriving stock (Show, Generic)
-    deriving anyclass (FromJSON, ToJSON)
+import           MixerStateContract                       (getMixerState)
 
 -- "deposit" endpoint implementation
 deposit :: Promise (Maybe (Last MixerState)) MixerSchema ContractError ()
@@ -69,21 +57,13 @@ deposit = endpoint @"deposit" @DepositParams $ \(DepositParams v leaf) -> do
     utx <- mkTxConstraints lookups cons
     submitTxConfirmed utx
 
--- Parameters for the "withdraw" endpoint
-data WithdrawParams = WithdrawParams
-    {
-        wpValue         :: !Value,
-        wpDepositNum    :: !(Integer, Integer),
-        wpPKH           :: !PaymentPubKeyHash,
-        wpPublicInputs  :: ![Fr],
-        wpProof         :: !Proof
-    }
-    deriving stock (Show, Generic)
-    deriving anyclass (FromJSON, ToJSON)
+
+timeToValidateWithdrawal :: POSIXTime
+timeToValidateWithdrawal = POSIXTime 100000
 
 -- "withdraw" endpoint implementation
 withdraw :: Promise (Maybe (Last MixerState)) MixerSchema ContractError ()
-withdraw = endpoint @"withdraw" @WithdrawParams $ \(WithdrawParams v (nTree, nDeposit) pkhW subs proof) -> do
+withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (nTree, nDeposit) pkhW subs proof) -> do
     let mixer = makeMixerFromFees v
     pkhR  <- ownPaymentPubKeyHash
     utxos <- utxosAt (mixerAddress mixer)
@@ -94,20 +74,19 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \(WithdrawParams v (nTree, nDe
     dh <- (fromMaybe (error ()) <$> txOutDatumHash . toTxOut) . fromMaybe (error ()) <$> txOutFromRef txo
 
     -- TODO: Implement all necessary checks
-    -- state <- getMixerState v
-    -- let Just (MerkleTree _ leafs) = getMerkleTree state (nTree, nDeposit)
-    let pubParams = [one, zero, zero, zero, zero, zero] ++ subs
-    let lookups   = unspentOutputs utxo' <> typedValidatorLookups (mixerInst mixer) <> otherScript (mixerValidator mixer)
-        cons      = mustPayToPubKey pkhW (mValue mixer) <> mustValidateIn (to $ ct + POSIXTime 100000) <>
-            mustPayToOtherScript vestingScriptHash (Datum $ toBuiltinData $ VestingParams
-                (ct + POSIXTime 3700000) pkhR dh) (mRelayerCollateral mixer) <>
-            mustSpendScriptOutput txo (Redeemer $ toBuiltinData $ MixerRedeemer pkhR (nTree, nDeposit) subs proof)
-    if verifyWithdraw pubParams proof
-        then do
-            utx <- mkTxConstraints lookups cons
-            submitTxConfirmed utx
-        else do
-            logInfo @String "Supplied proof is not correct"
+    state <- getMixerState v
+    case checkRelayRequest state params of
+        RelayRequestAccepted -> do
+                let lookups   = unspentOutputs utxo' <> typedValidatorLookups (mixerInst mixer) <> otherScript (mixerValidator mixer)
+                    cons      = mustPayToPubKey pkhW (mValue mixer) <> mustValidateIn (to $ ct + timeToValidateWithdrawal) <>
+                        mustPayToOtherScript vestingScriptHash (Datum $ toBuiltinData $ VestingParams
+                            (ct + hourPOSIX + timeToValidateWithdrawal) pkhR dh) (mRelayerCollateral mixer) <>
+                        mustSpendScriptOutput txo (Redeemer $ toBuiltinData $ MixerRedeemer pkhR (nTree, nDeposit) subs proof)
+                utx <- mkTxConstraints lookups cons
+                submitTxConfirmed utx
+        WrongRootValue         -> logInfo @String "Wrong root value!"
+        WrongWithdrawalAddress -> logInfo @String "Wrong withdrawal address!"
+        WrongProof             -> logInfo @String "Wrong proof!"
 
 type MixerSchema = Endpoint "deposit" DepositParams .\/ Endpoint "withdraw" WithdrawParams
 

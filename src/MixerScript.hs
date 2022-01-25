@@ -26,7 +26,8 @@ module MixerScript (
     mixerValidator,
     mixerValidatorHash,
     mixerAddress,
-    makeMixerFromFees
+    makeMixerFromFees,
+    hourPOSIX
 ) where
 
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)

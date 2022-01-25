@@ -30,29 +30,25 @@ import           Ledger.Scripts                      (ValidatorHash(ValidatorHas
 import           Ledger.Value                        (Value(..))
 import           PlutusTx.AssocMap                   (elems)
 import           PlutusTx.Prelude                    hiding (Eq, Ord, (<$>))
-import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin(..), BuiltinHandler (..), HasDefinitions(..), endpointsToSchemas, handleBuiltin)
+import           Plutus.PAB.Effects.Contract.Builtin (Builtin, handleBuiltin)
 import           Plutus.PAB.Run                      (runWith)
-import           Plutus.PAB.Run.PSGenerator          (HasPSTypes)
 import qualified Plutus.PAB.Simulator                as Simulator
 import qualified Plutus.PAB.Webserver.Server         as PAB.Server
 import           Plutus.V1.Ledger.Ada                (lovelaceValueOf)
 import           Plutus.Trace                        (ScriptsConfig (..), Command (Scripts, Transactions), writeScriptsTo)
 import           Plutus.Trace.Emulator
-import           Prelude                             (IO, Double, String, Show, Eq, Ord, (/), (^), fromIntegral, print, show, getLine, (<$>), )
-import           Prettyprinter                       (Pretty(..), viaShow)
+import           Prelude                             (IO, Double, String, (/), (^), fromIntegral, print, show, getLine, (<$>), )
 import           System.CPUTime                      (getCPUTime)
 import           System.Environment                  (getArgs)
 
 
 import           Configuration.PABConfig             (pabWallet, pabWalletPKH)
-import           Contracts.Currency                  (CurrencySchema, mintCurrency)
-import           Contracts.Vesting                   (VestingSchema, vestingScriptAddress, vestingContract, vestingScriptHash)
+import           Contracts.Vesting                   (vestingScriptAddress, vestingContract, vestingScriptHash)
 import           Crypto
 import           Crypto.Conversions
 import           MixerContract
 import           MixerProofs                         (generateSimulatedWithdrawProof, verifyWithdraw)
 import           MixerState                          (MerkleTree(..), treeSize)
-import           MixerStateContract                  (MixerStateSchema, getMixerStatePromise)
 import           MixerUserData
 import           PABContracts                        (PABContracts, handlers)
 import           Utils.Common                        (replicate, last)

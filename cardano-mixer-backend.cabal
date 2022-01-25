@@ -53,12 +53,14 @@ library
     import: lang
     exposed-modules:
       MixerContract
+      MixerContractTypes
       MixerStateContract
       MixerScript
       Contracts.AdminDecision
       Contracts.Currency
       Contracts.Vesting
       PABContracts
+      RelayRequest
       Requests
       Utils.Contracts
       Configuration.PABConfig
