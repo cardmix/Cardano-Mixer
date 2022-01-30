@@ -26,13 +26,13 @@ module MixerContract (
 
 import qualified Data.Map
 import           Data.Map                                 (keys, findMin, fromList)
-import           Data.Semigroup                           (Last)
+import           Data.Semigroup                           (Last (..))
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
-import           Ledger.Constraints.OffChain              (unspentOutputs, typedValidatorLookups, otherScript)
+import           Ledger.Constraints.OffChain              (unspentOutputs, typedValidatorLookups, otherScript, UnbalancedTx)
 import           Ledger.Constraints.TxConstraints
 import           Ledger.Value                             (geq)
 import           Plutus.Contract                          (Promise, ContractError, Endpoint, type (.\/), Contract,
-                                                            endpoint, selectList, utxosAt, logInfo, mkTxConstraints, submitTxConfirmed, currentTime, ownPaymentPubKeyHash, txOutFromRef)
+                                                            endpoint, selectList, utxosAt, logInfo, mkTxConstraints, submitTxConfirmed, currentTime, ownPaymentPubKeyHash, txOutFromRef, tell)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  (String, (<>), (<$>))
@@ -40,12 +40,13 @@ import           Prelude                                  (String, (<>), (<$>))
 import           Contracts.Vesting                        (VestingParams(..), vestingScriptHash)
 import           RelayRequest
 import           MixerContractTypes
+import           MixerKeysContract                        (getMixerKeys)
 import           MixerScript
-import           MixerState                               (MixerState)
 import           MixerStateContract                       (getMixerState)
 
+
 -- "deposit" endpoint implementation
-deposit :: Promise (Maybe (Last MixerState)) MixerSchema ContractError ()
+deposit :: Promise (Maybe (Last UnbalancedTx)) MixerSchema ContractError ()
 deposit = endpoint @"deposit" @DepositParams $ \(DepositParams v leaf) -> do
     curTime <- currentTime
     let mixer    = makeMixerFromFees v
@@ -55,6 +56,7 @@ deposit = endpoint @"deposit" @DepositParams $ \(DepositParams v leaf) -> do
         lookups  = typedValidatorLookups $ mixerInst mixer
         cons     = mustPayToTheScript (MixerDatum leaf) (mValue mixer + mTotalFees mixer) <> mustValidateIn valRange
     utx <- mkTxConstraints lookups cons
+    tell $ Just $ Last utx
     submitTxConfirmed utx
 
 
@@ -62,7 +64,7 @@ timeToValidateWithdrawal :: POSIXTime
 timeToValidateWithdrawal = POSIXTime 100000
 
 -- "withdraw" endpoint implementation
-withdraw :: Promise (Maybe (Last MixerState)) MixerSchema ContractError ()
+withdraw :: Promise (Maybe (Last UnbalancedTx)) MixerSchema ContractError ()
 withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (nTree, nDeposit) pkhW subs proof) -> do
     let mixer = makeMixerFromFees v
     pkhR  <- ownPaymentPubKeyHash
@@ -70,12 +72,12 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (nTr
     ct    <- currentTime
     let utxo           = Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer)) utxos
         utxo'          = fromList [findMin utxo]
-        txo            = head $ keys  utxo
+        txo            = head $ keys utxo
     dh <- (fromMaybe (error ()) <$> txOutDatumHash . toTxOut) . fromMaybe (error ()) <$> txOutFromRef txo
 
-    -- TODO: Implement all necessary checks
     state <- getMixerState v
-    case checkRelayRequest state params of
+    mKeys <- getMixerKeys v
+    case checkRelayRequest state mKeys params of
         RelayRequestAccepted -> do
                 let lookups   = unspentOutputs utxo' <> typedValidatorLookups (mixerInst mixer) <> otherScript (mixerValidator mixer)
                     cons      = mustPayToPubKey pkhW (mValue mixer) <> mustValidateIn (to $ ct + timeToValidateWithdrawal) <>
@@ -87,10 +89,11 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (nTr
         WrongRootValue         -> logInfo @String "Wrong root value!"
         WrongWithdrawalAddress -> logInfo @String "Wrong withdrawal address!"
         WrongProof             -> logInfo @String "Wrong proof!"
+        DuplicateKey           -> logInfo @String "The key was already used!"
 
 type MixerSchema = Endpoint "deposit" DepositParams .\/ Endpoint "withdraw" WithdrawParams
 
-mixerProgram :: Contract (Maybe (Last MixerState)) MixerSchema ContractError MixerDatum
+mixerProgram :: Contract (Maybe (Last UnbalancedTx)) MixerSchema ContractError MixerDatum
 mixerProgram = do
     selectList [deposit, withdraw] >> mixerProgram
 

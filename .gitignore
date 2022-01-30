@@ -27,5 +27,6 @@ result*
 QAPs/
 testnet/db/
 testnet/chain-index/
+testnet/Deposits/
 QAP-compilation/circomlib/
 emulator/

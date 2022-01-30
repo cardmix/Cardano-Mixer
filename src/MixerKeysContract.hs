@@ -17,19 +17,25 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
 
-module MixerStateContract where
+module MixerKeysContract where
 
-import           Data.Either                              (rights)
+import           Data.Maybe                               (mapMaybe)
 import           Data.Semigroup                           (Last (..))
+import           Data.Set                                 (toList)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           Ledger.Value                             (geq)
+import           Plutus.ChainIndex.Tx                     (ChainIndexTx(..))
 import           Plutus.Contract                          (Promise, ContractError, Endpoint, endpoint, tell, Contract)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
+import           Contracts.Vesting                        (vestingScriptAddress)
+import           Crypto
 import           MixerScript
-import           MixerState
 import           Utils.Contracts                          (txosTxTxOutAt)
+
+
+type MixerKeys = [Fr]
 
 ---------------------------------------------------------------------
 --------------------------- Off-Chain -------------------------------
@@ -41,18 +47,28 @@ import           Utils.Contracts                          (txosTxTxOutAt)
 --             t1 = ivTo $ _citxValidRange tx1
 --             t2 = ivTo $ _citxValidRange tx2
 
-getMixerState :: Value -> Contract w s ContractError MixerState
-getMixerState v = do
+getTxKeys :: Mixer -> ChainIndexTx -> [Fr]
+getTxKeys mixer tx = mapMaybe f $ mapMaybe txInType $ toList $ _citxInputs tx 
+    where f a  = case a of
+                ConsumeScriptAddress val red _ -> 
+                    if scriptAddress val /= mixerAddress mixer
+                        then Nothing 
+                    else let MixerRedeemer _ _ subs _ = unsafeFromBuiltinData $ getRedeemer red
+                         in if length subs >= 3 then Just $ subs !! 2 else Nothing
+                _ -> Nothing
+
+getMixerKeys :: Value -> Contract w s ContractError MixerKeys
+getMixerKeys v = do
     let mixer = makeMixerFromFees v
-    txTxos <- txosTxTxOutAt (mixerAddress mixer)
-    let txTxos' = filter (\(_, o) -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer)) txTxos -- TODO: implement proper sort?
-        leafs   = map (getMixerDatum . unsafeFromBuiltinData . getDatum) $ rights $ map (_ciTxOutDatum . snd) txTxos'
-    let state = snd $ constructStateFromList (leafs, [])
-    return state
+    txTxos <- txosTxTxOutAt vestingScriptAddress
+    let txTxos' = filter (\(_, o) -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer)) txTxos
+        keys    = concatMap (getTxKeys mixer . fst) txTxos'
+    return keys
 
-type MixerStateSchema = Endpoint "Get Mixer state" Value
+type MixerKeysSchema = Endpoint "Get Mixer keys" Value
 
-getMixerStatePromise :: Promise (Maybe (Last MixerState)) MixerStateSchema ContractError ()
-getMixerStatePromise = endpoint @"Get Mixer state" @Value $ \v -> do
-    state <- getMixerState v
-    tell $ Just $ Last state
+getMixerKeysPromise :: Promise (Maybe (Last MixerKeys)) MixerKeysSchema ContractError ()
+getMixerKeysPromise = endpoint @"Get Mixer keys" @Value $ \v -> do
+    mKeys <- getMixerKeys v
+    tell $ Just $ Last mKeys
+

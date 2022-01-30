@@ -54,6 +54,7 @@ library
     exposed-modules:
       MixerContract
       MixerContractTypes
+      MixerKeysContract
       MixerStateContract
       MixerScript
       Contracts.AdminDecision
@@ -84,6 +85,7 @@ library
       freer-extras                           -any,
       freer-simple                           -any,
       flat                                   -any,
+      -- jwt                               >= 0.11.0,
       lens                                   -any,
       mtl                                    -any,
       openapi3                               -any,
@@ -119,9 +121,9 @@ executable cardano-mixer-pab
     aeson                                  -any,
     base                          >= 4.9 && < 5,
     bytestring                             -any,
-    cardano-mixer-common                   -any,
-    cardano-mixer-backend                  -any,
     cardano-api                            -any,
+    cardano-mixer-common                   -any,
+    cardano-mixer-backend                  -any,    
     containers                             -any,
     data-default                           -any,
     freer-extras                           -any,
@@ -147,6 +149,7 @@ executable cardano-mixer-client
     aeson                                  -any,
     base                          >= 4.9 && < 5,
     bytestring                             -any,
+    cardano-api                       >= 1.33.0,
     cardano-mixer-common                   -any,
     cardano-mixer-backend                  -any,
     containers                             -any,
@@ -156,6 +159,36 @@ executable cardano-mixer-client
     plutus-contract                        -any,
     plutus-ledger                          -any,
     plutus-ledger-api                      -any,
+    plutus-ledger-constraints              -any,
+    plutus-pab                             -any,
+    plutus-tx                              -any,
+    plutus-use-cases                       -any,
+    prettyprinter                          -any,
+    regex-tdfa                      ^>= 1.3.1.0,
+    req                               ^>= 3.9.0,
+    text                                   -any,
+    uuid                                   -any,
+
+executable cardano-mixer-pab-client
+  import: lang
+  main-is: mixer-pab-client.hs
+  hs-source-dirs: app
+  ghc-options:
+    -threaded
+  build-depends:
+    aeson                                  -any,
+    base                          >= 4.9 && < 5,
+    bytestring                             -any,
+    cardano-mixer-common                   -any,
+    cardano-mixer-backend                  -any,
+    containers                             -any,
+    data-default                           -any,
+    freer-extras                           -any,
+    freer-simple                           -any,
+    plutus-contract                        -any,
+    plutus-ledger                          -any,
+    plutus-ledger-api                      -any,
+    plutus-ledger-constraints              -any,
     plutus-pab                             -any,
     plutus-tx                              -any,
     plutus-use-cases                       -any,

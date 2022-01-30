@@ -16,7 +16,7 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE TypeSynonymInstances       #-}
+
 
 module MixerScript (
     Mixer(..),
@@ -90,7 +90,7 @@ mkMixerValidator mixer _ (MixerRedeemer pkhR _ _ _) ctx = txout `elem` outs
         date = case ivTo (txInfoValidRange txinfo) of
                 UpperBound (Finite t) True -> t
                 _                          -> error ()
-        
+
         -- finding this input's datum hash
         (_, dhash) = ownHashes ctx
 

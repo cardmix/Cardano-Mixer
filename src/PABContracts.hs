@@ -25,7 +25,6 @@ import           GHC.Generics                        (Generic)
 
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), BuiltinHandler(..), HasDefinitions(..),
                                                         handleBuiltin, endpointsToSchemas)
-import           Plutus.PAB.Run.PSGenerator          (HasPSTypes(..))
 import qualified Plutus.PAB.Simulator                as Simulator
 import           Prettyprinter                       (Pretty(..), viaShow)
 
@@ -44,8 +43,6 @@ newtype PABContracts = PABContracts MixerContractsDefinition
 
 instance Pretty PABContracts where
     pretty = viaShow
-
-instance HasPSTypes PABContracts where
 
 -- TODO: Proof data type does not have ToSchema
 instance HasDefinitions PABContracts where

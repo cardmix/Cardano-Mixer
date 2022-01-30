@@ -1,24 +1,26 @@
 {-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE DeriveAnyClass     #-}
-{-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts   #-}
-{-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE NoImplicitPrelude  #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RankNTypes         #-}
 {-# LANGUAGE TypeApplications   #-}
 {-# LANGUAGE TypeFamilies       #-}
-{-# LANGUAGE TypeOperators      #-}
+
 
 module Main
     (
         main
     ) where
 
+import           Cardano.Api.Shelley                          (AsType (AsShelleyAddress), shelleyPayAddrToPlutusPubKHash, deserialiseFromBech32)
 import           Control.Concurrent                           (threadDelay)
+import           Data.Either                                  (fromRight)
+import           Data.Text                                    (pack)
 import           Ledger.Ada                                   (lovelaceValueOf)
+import           Ledger.Address                               (PaymentPubKeyHash (..))
+import           Ledger.Constraints.OffChain                  (UnbalancedTx(..))
 import           PlutusTx.Prelude                             hiding ((<$>))
 import           Prelude                                      (IO, String, print)
 import           System.Environment                           (getArgs)
@@ -29,15 +31,14 @@ import           ClientLog
 import           Configuration.PABConfig                      (pabWallet, pabWalletPKH)
 import           Contracts.Currency                           (SimpleMPS(..))
 import           Crypto                                       (mimcHash)
+import           Crypto.Conversions                           (dataToZp)
 import           MixerContract
 import           MixerContractsDefinition
 import           MixerProofs                                  (generateSimulatedWithdrawProof)
 import           MixerState                                   (MixerState)
 import           MixerUserData
 import           Requests
-import           Tokens.AdminToken (adminTokenName)
-import Crypto.Conversions (dataToZp)
-
+import           Tokens.AdminToken                            (adminTokenName)
 
 
 main :: IO ()
@@ -45,11 +46,10 @@ main = do
     print pabWallet
     args <- getArgs
     case args of
-        ["admin"]    -> mintAdminKeyProcedure pabWallet   -- for testing purposes
-        ["deposit"]  -> depositProcedure
-        ["withdraw"] -> withdrawProcedure
-        ["retrieve"] -> retrieveTimeLockedProcedure
-        _            -> print ("Unknown command" :: String)
+        ["admin"]         -> mintAdminKeyProcedure pabWallet   -- for testing purposes
+        ["deposit"]       -> depositProcedure
+        ["withdraw", str] -> withdrawProcedure str
+        _                 -> print ("Unknown command" :: String)
 
 --------------------------------- Use mixer logic --------------------------------
 
@@ -59,20 +59,37 @@ depositProcedure = do
     sas  <- generateShieldedAccountSecret
     logSecrets ds sas
     let leaf = mimcHash (getR1 ds) (getR2 ds)
-    cidUseMixer <- activateRequest UseMixer (Just pabWallet)
+    print $ mimcHash zero (getR1 ds)
+    cidUseMixer <- activateRequest UseMixer Nothing
     endpointRequest "deposit" cidUseMixer (DepositParams (lovelaceValueOf 400_000) leaf)
+    s <- go cidUseMixer :: IO UnbalancedTx
+    print s
+    where go cid = do
+                resp <- statusRequest cid
+                case resp of
+                    Just state -> return state
+                    Nothing    -> do
+                        threadDelay 1_000_000
+                        go cid
 
-withdrawProcedure :: IO ()
-withdrawProcedure = do
+withdrawProcedure :: String -> IO ()
+withdrawProcedure str = do
+    let pkh = strToPKH str
     secret <- getSecrets
     case secret of
       Nothing        -> print @String "Nothing to withdraw."
       Just (ds, sas) -> do
         state <- mixerStateProcedure
-        (lastDeposit, subs, proof) <- generateSimulatedWithdrawProof (dataToZp pabWalletPKH) ds sas state
-        let params = WithdrawParams (lovelaceValueOf 400_000) lastDeposit pabWalletPKH subs proof
+        (lastDeposit, subs, proof) <- generateSimulatedWithdrawProof (dataToZp pkh) ds sas state
+        let params = WithdrawParams (lovelaceValueOf 400_000) lastDeposit pkh subs proof
         cidUseMixer <- activateRequest UseMixer (Just pabWallet)
         endpointRequest "withdraw" cidUseMixer params
+
+strToPKH :: String -> PaymentPubKeyHash
+strToPKH str = case str of
+                "" -> pabWalletPKH
+                _  -> maybe (error ()) PaymentPubKeyHash $ shelleyPayAddrToPlutusPubKHash $
+                        fromRight (error ()) $ deserialiseFromBech32 AsShelleyAddress $ pack str
 
 ------------------------------- Query mixer logic --------------------------------
 
@@ -89,13 +106,6 @@ mixerStateProcedure = do
                         threadDelay 1_000_000
                         go cid
 
----------------------------------- Relayer logic ---------------------------------
-
-retrieveTimeLockedProcedure :: IO ()
-retrieveTimeLockedProcedure = do
-    cidTimeLocked <- activateRequest RetrieveTimeLocked (Just pabWallet)
-    endpointRequest "retrieve funds" cidTimeLocked ()
-    
 ----------------------- Create mixer admin key -----------------------------------
 
 mintAdminKeyProcedure :: Wallet -> IO ()
