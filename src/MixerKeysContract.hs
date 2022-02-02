@@ -1,21 +1,15 @@
 {-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
-{-# LANGUAGE NumericUnderscores         #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE OverloadedLists            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE TypeSynonymInstances       #-}
+
+
 
 module MixerKeysContract where
 
@@ -48,11 +42,11 @@ type MixerKeys = [Fr]
 --             t2 = ivTo $ _citxValidRange tx2
 
 getTxKeys :: Mixer -> ChainIndexTx -> [Fr]
-getTxKeys mixer tx = mapMaybe f $ mapMaybe txInType $ toList $ _citxInputs tx 
+getTxKeys mixer tx = mapMaybe f $ mapMaybe txInType $ toList $ _citxInputs tx
     where f a  = case a of
-                ConsumeScriptAddress val red _ -> 
+                ConsumeScriptAddress val red _ ->
                     if scriptAddress val /= mixerAddress mixer
-                        then Nothing 
+                        then Nothing
                     else let MixerRedeemer _ _ subs _ = unsafeFromBuiltinData $ getRedeemer red
                          in if length subs >= 3 then Just $ subs !! 2 else Nothing
                 _ -> Nothing

@@ -60,10 +60,12 @@ library
       Contracts.AdminDecision
       Contracts.Currency
       Contracts.Vesting
+      ConnectToPABContract
       PABContracts
       RelayRequest
-      Requests
+      Utils.Address
       Utils.Contracts
+      Utils.Conversions
       Configuration.PABConfig
       Tokens.AdminToken
       Tokens.RelayToken
@@ -77,15 +79,18 @@ library
       base                          >= 4.9 && < 5,
       aeson                                  -any,
       bytestring                             -any,
+      cardano-api                            -any,
+      cardano-ledger-alonzo                  -any,
+      cardano-ledger-core                    -any,
       cardano-mixer-common                   -any,
       containers                             -any,
       data-default                           -any,
       directory                              -any,
       extra                                  -any,
+      file-embed                             -any,
       freer-extras                           -any,
       freer-simple                           -any,
       flat                                   -any,
-      -- jwt                               >= 0.11.0,
       lens                                   -any,
       mtl                                    -any,
       openapi3                               -any,
@@ -149,7 +154,7 @@ executable cardano-mixer-client
     aeson                                  -any,
     base                          >= 4.9 && < 5,
     bytestring                             -any,
-    cardano-api                       >= 1.33.0,
+    cardano-api                            -any,
     cardano-mixer-common                   -any,
     cardano-mixer-backend                  -any,
     containers                             -any,

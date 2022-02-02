@@ -4,14 +4,10 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE NamedFieldPuns     #-}
-{-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RankNTypes         #-}
-{-# LANGUAGE TemplateHaskell    #-}
 {-# LANGUAGE TypeApplications   #-}
 {-# LANGUAGE TypeFamilies       #-}
-{-# LANGUAGE TypeOperators      #-}
+
 
 
 module PABContracts where
@@ -33,6 +29,8 @@ import           Contracts.Vesting                   (VestingSchema, vestingCont
 import           MixerContract                       (mixerProgram)
 import           MixerStateContract                  (MixerStateSchema, getMixerStatePromise)
 import           MixerContractsDefinition            (MixerContractsDefinition(..))
+import           ConnectToPABContract                (ConnectToPABSchema, connectToPABPromise)
+
 
 --------------------------------------- PAB Contracts -------------------------------------------
 
@@ -46,16 +44,18 @@ instance Pretty PABContracts where
 
 -- TODO: Proof data type does not have ToSchema
 instance HasDefinitions PABContracts where
-    getDefinitions = map PABContracts [MintAdminKey, UseMixer, QueryMixer, RetrieveTimeLocked]
+    getDefinitions = map PABContracts [MintAdminKey, UseMixer, MixerStateQuery, ConnectToPAB, RetrieveTimeLocked]
     getSchema = \case
         PABContracts MintAdminKey       -> endpointsToSchemas @CurrencySchema
         PABContracts UseMixer           -> [] --endpointsToSchemas  @MixerSchema
-        PABContracts QueryMixer         -> endpointsToSchemas @MixerStateSchema
+        PABContracts MixerStateQuery    -> endpointsToSchemas @MixerStateSchema
+        PABContracts ConnectToPAB       -> endpointsToSchemas @ConnectToPABSchema
         PABContracts RetrieveTimeLocked -> endpointsToSchemas @VestingSchema
     getContract = \case
         PABContracts MintAdminKey       -> SomeBuiltin mintCurrency
         PABContracts UseMixer           -> SomeBuiltin mixerProgram
-        PABContracts QueryMixer         -> SomeBuiltin getMixerStatePromise
+        PABContracts MixerStateQuery    -> SomeBuiltin getMixerStatePromise
+        PABContracts ConnectToPAB       -> SomeBuiltin connectToPABPromise
         PABContracts RetrieveTimeLocked -> SomeBuiltin vestingContract
 
 handlers :: Simulator.SimulatorEffectHandlers (Builtin PABContracts)

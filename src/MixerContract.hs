@@ -1,21 +1,16 @@
 {-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
-{-# LANGUAGE NumericUnderscores         #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE OverloadedLists            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE TypeSynonymInstances       #-}
+
 
 module MixerContract (
     DepositParams(..),
@@ -28,7 +23,7 @@ import qualified Data.Map
 import           Data.Map                                 (keys, findMin, fromList)
 import           Data.Semigroup                           (Last (..))
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
-import           Ledger.Constraints.OffChain              (unspentOutputs, typedValidatorLookups, otherScript, UnbalancedTx)
+import           Ledger.Constraints.OffChain              (unspentOutputs, typedValidatorLookups, otherScript)
 import           Ledger.Constraints.TxConstraints
 import           Ledger.Value                             (geq)
 import           Plutus.Contract                          (Promise, ContractError, Endpoint, type (.\/), Contract,
@@ -43,10 +38,11 @@ import           MixerContractTypes
 import           MixerKeysContract                        (getMixerKeys)
 import           MixerScript
 import           MixerStateContract                       (getMixerState)
+import           Utils.Conversions                        (unbalancedTxToCBOR)
 
 
 -- "deposit" endpoint implementation
-deposit :: Promise (Maybe (Last UnbalancedTx)) MixerSchema ContractError ()
+deposit :: Promise (Maybe (Last String)) MixerSchema ContractError ()
 deposit = endpoint @"deposit" @DepositParams $ \(DepositParams v leaf) -> do
     curTime <- currentTime
     let mixer    = makeMixerFromFees v
@@ -56,7 +52,7 @@ deposit = endpoint @"deposit" @DepositParams $ \(DepositParams v leaf) -> do
         lookups  = typedValidatorLookups $ mixerInst mixer
         cons     = mustPayToTheScript (MixerDatum leaf) (mValue mixer + mTotalFees mixer) <> mustValidateIn valRange
     utx <- mkTxConstraints lookups cons
-    tell $ Just $ Last utx
+    tell $ Just $ Last $ unbalancedTxToCBOR utx
     submitTxConfirmed utx
 
 
@@ -64,7 +60,7 @@ timeToValidateWithdrawal :: POSIXTime
 timeToValidateWithdrawal = POSIXTime 100000
 
 -- "withdraw" endpoint implementation
-withdraw :: Promise (Maybe (Last UnbalancedTx)) MixerSchema ContractError ()
+withdraw :: Promise (Maybe (Last String)) MixerSchema ContractError ()
 withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (nTree, nDeposit) pkhW subs proof) -> do
     let mixer = makeMixerFromFees v
     pkhR  <- ownPaymentPubKeyHash
@@ -93,7 +89,7 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (nTr
 
 type MixerSchema = Endpoint "deposit" DepositParams .\/ Endpoint "withdraw" WithdrawParams
 
-mixerProgram :: Contract (Maybe (Last UnbalancedTx)) MixerSchema ContractError MixerDatum
-mixerProgram = do
+mixerProgram :: Contract (Maybe (Last String)) MixerSchema ContractError MixerDatum
+mixerProgram =
     selectList [deposit, withdraw] >> mixerProgram
 

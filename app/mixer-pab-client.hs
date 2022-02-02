@@ -1,16 +1,12 @@
 {-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE DeriveAnyClass     #-}
-{-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts   #-}
-{-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE NoImplicitPrelude  #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RankNTypes         #-}
-{-# LANGUAGE TypeApplications   #-}
 {-# LANGUAGE TypeFamilies       #-}
-{-# LANGUAGE TypeOperators      #-}
+
 
 module Main
     (
@@ -18,17 +14,30 @@ module Main
     ) where
 
 import           Control.Concurrent                           (threadDelay)
+import           Data.Text                                    (Text)
 import           PlutusTx.Prelude                             hiding ((<$>))
-import           Prelude                                      (IO)
+import           Prelude                                      (IO, String, print)
+import           System.Environment                           (getArgs)
+import           Wallet.Emulator                              (mockWalletPaymentPubKeyHash)
 
-import           Configuration.PABConfig                      (pabWallet)
-import           MixerContractsDefinition
+import           Configuration.PABConfig                      (pabWallet, pabWalletIdString)
+import           Contracts.Currency                           (SimpleMPS(SimpleMPS))
+import           MixerContractsDefinition                     (MixerContractsDefinition(..), Wallet(..))
 import           Requests
+import           Tokens.AdminToken                            (adminTokenName)
 
+
+pabIP :: Text
+pabIP = "127.0.0.1"
 
 main :: IO ()
 main = do
-    go
+    args <- getArgs
+    case args of
+        ["retrieve"] -> go
+        ["admin"]    -> mintAdminKeyProcedure $ Wallet pabWalletIdString   -- for testing purposes
+        _            -> print ("Unknown command" :: String)
+
   where
       go = do
           retrieveTimeLockedProcedure
@@ -38,8 +47,13 @@ main = do
 
 retrieveTimeLockedProcedure :: IO ()
 retrieveTimeLockedProcedure = do
-    cidTimeLocked <- activateRequest RetrieveTimeLocked (Just pabWallet)
-    endpointRequest "retrieve funds" cidTimeLocked ()
+    cidTimeLocked <- activateRequest pabIP RetrieveTimeLocked (Just $ Wallet pabWalletIdString)
+    endpointRequest pabIP "retrieve funds" cidTimeLocked ()
 
 
-    
+----------------------- Create mixer admin key -----------------------------------
+
+mintAdminKeyProcedure :: Wallet -> IO ()
+mintAdminKeyProcedure w = do
+    cidAdmin <- activateRequest pabIP MintAdminKey (Just w)
+    endpointRequest pabIP "Create native token" cidAdmin (SimpleMPS adminTokenName 1 (mockWalletPaymentPubKeyHash pabWallet))
