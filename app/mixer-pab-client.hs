@@ -15,8 +15,9 @@ module Main
 
 import           Control.Concurrent                           (threadDelay)
 import           Data.Text                                    (Text)
+import           Plutus.V1.Ledger.Ada                         (lovelaceValueOf)
 import           PlutusTx.Prelude                             hiding ((<$>))
-import           Prelude                                      (IO, String, print)
+import           Prelude                                      (IO, String, print, read)
 import           System.Environment                           (getArgs)
 import           Wallet.Emulator                              (mockWalletPaymentPubKeyHash)
 
@@ -27,6 +28,7 @@ import           Requests
 import           Tokens.AdminToken                            (adminTokenName)
 
 
+
 pabIP :: Text
 pabIP = "127.0.0.1"
 
@@ -35,6 +37,7 @@ main = do
     args <- getArgs
     case args of
         ["retrieve"] -> go
+        ["tickets", str] -> mintRelayTicketsProcedure $ read str
         ["admin"]    -> mintAdminKeyProcedure $ Wallet pabWalletIdString   -- for testing purposes
         _            -> print ("Unknown command" :: String)
 
@@ -44,6 +47,11 @@ main = do
           threadDelay 5_000_000
 
 ---------------------------------- Relayer logic ---------------------------------
+
+mintRelayTicketsProcedure :: Integer -> IO ()
+mintRelayTicketsProcedure n = do
+    cidMintTickets <- activateRequest pabIP MixerRelay (Just $ Wallet pabWalletIdString)
+    endpointRequest pabIP "Mint Relay Tickets" cidMintTickets (lovelaceValueOf 400_000, n)
 
 retrieveTimeLockedProcedure :: IO ()
 retrieveTimeLockedProcedure = do

@@ -27,7 +27,7 @@ import           Control.Monad.IO.Class              (MonadIO (..))
 import           Data.Default                        (Default(..))
 import           Ledger                              (ValidatorMode(FullyAppliedValidators))
 import           Ledger.Scripts                      (ValidatorHash(ValidatorHash))
-import           Ledger.Value                        (Value(..))
+import           Ledger.Value                        (Value(..), CurrencySymbol (unCurrencySymbol))
 import           PlutusTx.AssocMap                   (elems)
 import           PlutusTx.Prelude                    hiding (Eq, Ord, (<$>))
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin, handleBuiltin)
@@ -43,7 +43,7 @@ import           System.Environment                  (getArgs)
 
 
 import           Configuration.PABConfig             (pabWallet, pabWalletPKH)
-import           Contracts.Vesting                   (vestingScriptAddress, vestingContract, vestingScriptHash)
+import           Contracts.Vesting                   (vestingScriptAddress, vestingScriptHash, vestingContract)
 import           Crypto
 import           Crypto.Conversions
 import           MixerContract
@@ -51,12 +51,15 @@ import           MixerProofs                         (generateSimulatedWithdrawP
 import           MixerState                          (MerkleTree(..), treeSize)
 import           MixerUserData
 import           PABContracts                        (PABContracts, handlers)
+import           Tokens.RelayTicketToken             (relayTicketTokenSymbol)
 import           Utils.Common                        (replicate, last)
 import           Utils.Contracts                     (byteStringToList)
+import MixerRelayerContract (mixerRelayerProgram)
 
 
 main :: IO ()
 main = do
+    print $ byteStringToList $ unCurrencySymbol relayTicketTokenSymbol
     print vestingScriptAddress
     args <- getArgs
     ds   <- generateDepositSecret
@@ -97,6 +100,11 @@ pabSimulator = void $ Simulator.runSimulationWith handlers $ do
 
 pabEmulator :: (Fr, [Fr], Proof) -> EmulatorTrace ()
 pabEmulator (leaf, subs, proof) = do
+    c0 <- activateContractWallet pabWallet (void mixerRelayerProgram)
+    callEndpoint @"Mint Relay Tickets" c0 (lovelaceValueOf 20_000, 12)
+
+    _ <- waitNSlots 10
+
     c1 <- activateContractWallet pabWallet (void mixerProgram)
     callEndpoint @"deposit" c1 (DepositParams (lovelaceValueOf 20_000) leaf)
 
@@ -105,7 +113,7 @@ pabEmulator (leaf, subs, proof) = do
     c2 <- activateContractWallet pabWallet (void mixerProgram)
     callEndpoint @"withdraw" c2 (WithdrawParams (lovelaceValueOf 20_000) (0, 1) pabWalletPKH subs proof)
 
-    _ <- waitNSlots 3700
+    _ <- waitNSlots 3710
 
     c3 <- activateContractWallet pabWallet (void vestingContract)
     callEndpoint @"retrieve funds" c3 ()

@@ -55,6 +55,7 @@ library
       MixerContract
       MixerContractTypes
       MixerKeysContract
+      MixerRelayerContract
       MixerStateContract
       MixerScript
       Contracts.AdminDecision
@@ -73,6 +74,7 @@ library
       Tokens.MIXStakingToken
       Tokens.MIXToken
       Tokens.OracleToken
+      Tokens.RelayTicketToken
       Crypto.Conversions
             
     build-depends:

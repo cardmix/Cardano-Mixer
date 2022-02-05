@@ -25,11 +25,13 @@ import qualified Plutus.PAB.Simulator                as Simulator
 import           Prettyprinter                       (Pretty(..), viaShow)
 
 import           Contracts.Currency                  (CurrencySchema, mintCurrency)
-import           Contracts.Vesting                   (VestingSchema, vestingContract)
+import           Contracts.Vesting                   (vestingContract)
 import           MixerContract                       (mixerProgram)
+import           MixerRelayerContract                (MixerRelayerSchema, mixerRelayerProgram)
 import           MixerStateContract                  (MixerStateSchema, getMixerStatePromise)
 import           MixerContractsDefinition            (MixerContractsDefinition(..))
 import           ConnectToPABContract                (ConnectToPABSchema, connectToPABPromise)
+
 
 
 --------------------------------------- PAB Contracts -------------------------------------------
@@ -44,16 +46,18 @@ instance Pretty PABContracts where
 
 -- TODO: Proof data type does not have ToSchema
 instance HasDefinitions PABContracts where
-    getDefinitions = map PABContracts [MintAdminKey, UseMixer, MixerStateQuery, ConnectToPAB, RetrieveTimeLocked]
+    getDefinitions = map PABContracts [MintAdminKey, MixerUse, MixerRelay, MixerStateQuery, ConnectToPAB, RetrieveTimeLocked]
     getSchema = \case
         PABContracts MintAdminKey       -> endpointsToSchemas @CurrencySchema
-        PABContracts UseMixer           -> [] --endpointsToSchemas  @MixerSchema
+        PABContracts MixerUse           -> [] --endpointsToSchemas  @MixerSchema
+        PABContracts MixerRelay         -> endpointsToSchemas @MixerRelayerSchema
         PABContracts MixerStateQuery    -> endpointsToSchemas @MixerStateSchema
         PABContracts ConnectToPAB       -> endpointsToSchemas @ConnectToPABSchema
-        PABContracts RetrieveTimeLocked -> endpointsToSchemas @VestingSchema
+        PABContracts RetrieveTimeLocked -> [] --endpointsToSchemas @VestingSchema
     getContract = \case
         PABContracts MintAdminKey       -> SomeBuiltin mintCurrency
-        PABContracts UseMixer           -> SomeBuiltin mixerProgram
+        PABContracts MixerUse           -> SomeBuiltin mixerProgram
+        PABContracts MixerRelay         -> SomeBuiltin mixerRelayerProgram
         PABContracts MixerStateQuery    -> SomeBuiltin getMixerStatePromise
         PABContracts ConnectToPAB       -> SomeBuiltin connectToPABPromise
         PABContracts RetrieveTimeLocked -> SomeBuiltin vestingContract

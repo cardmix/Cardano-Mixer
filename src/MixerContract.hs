@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE NumericUnderscores #-}
 
 
 module MixerContract (
@@ -20,7 +21,7 @@ module MixerContract (
 ) where
 
 import qualified Data.Map
-import           Data.Map                                 (keys, findMin, fromList)
+import           Data.Map                                 (keys, difference)
 import           Data.Semigroup                           (Last (..))
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           Ledger.Constraints.OffChain              (unspentOutputs, typedValidatorLookups, otherScript)
@@ -28,16 +29,18 @@ import           Ledger.Constraints.TxConstraints
 import           Ledger.Value                             (geq)
 import           Plutus.Contract                          (Promise, ContractError, Endpoint, type (.\/), Contract,
                                                             endpoint, selectList, utxosAt, logInfo, mkTxConstraints, submitTxConfirmed, currentTime, ownPaymentPubKeyHash, txOutFromRef, tell)
+import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  (String, (<>), (<$>))
 
-import           Contracts.Vesting                        (VestingParams(..), vestingScriptHash)
+import           Contracts.Vesting                        (VestingParams(..), vestingScriptHash, VestingData (VestingData))
 import           RelayRequest
 import           MixerContractTypes
 import           MixerKeysContract                        (getMixerKeys)
 import           MixerScript
 import           MixerStateContract                       (getMixerState)
+import           Tokens.RelayTicketToken                  (relayTicketToken)
 import           Utils.Conversions                        (unbalancedTxToCBOR)
 
 
@@ -63,23 +66,27 @@ timeToValidateWithdrawal = POSIXTime 100000
 withdraw :: Promise (Maybe (Last String)) MixerSchema ContractError ()
 withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (nTree, nDeposit) pkhW subs proof) -> do
     let mixer = makeMixerFromFees v
-    pkhR  <- ownPaymentPubKeyHash
-    utxos <- utxosAt (mixerAddress mixer)
-    ct    <- currentTime
-    let utxo           = Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer)) utxos
-        utxo'          = fromList [findMin utxo]
-        txo            = head $ keys utxo
-    dh <- (fromMaybe (error ()) <$> txOutDatumHash . toTxOut) . fromMaybe (error ()) <$> txOutFromRef txo
+    pkhR   <- ownPaymentPubKeyHash
+    utxos  <- utxosAt (mixerAddress mixer)
+    utxos0 <- getRelayTicketUTXOs mixer
+    ct     <- currentTime
+    let utxos'         = difference utxos utxos0
+        utxos''        = Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer)) utxos'
+        utxo1          = head $ keys utxos''
+        utxo2          = head $ keys utxos0
+    dh <- (fromMaybe (error ()) <$> txOutDatumHash . toTxOut) . fromMaybe (error ()) <$> txOutFromRef utxo1
 
     state <- getMixerState v
     mKeys <- getMixerKeys v
     case checkRelayRequest state mKeys params of
         RelayRequestAccepted -> do
-                let lookups   = unspentOutputs utxo' <> typedValidatorLookups (mixerInst mixer) <> otherScript (mixerValidator mixer)
+                let lookups   = unspentOutputs utxos <> typedValidatorLookups (mixerInst mixer) <> otherScript (mixerValidator mixer)
                     cons      = mustPayToPubKey pkhW (mValue mixer) <> mustValidateIn (to $ ct + timeToValidateWithdrawal) <>
                         mustPayToOtherScript vestingScriptHash (Datum $ toBuiltinData $ VestingParams
-                            (ct + hourPOSIX + timeToValidateWithdrawal) pkhR dh) (mRelayerCollateral mixer) <>
-                        mustSpendScriptOutput txo (Redeemer $ toBuiltinData $ MixerRedeemer pkhR (nTree, nDeposit) subs proof)
+                            (ct + hourPOSIX + timeToValidateWithdrawal) pkhR dh (VestingData pkhW (nTree, nDeposit) subs proof)) (mRelayerCollateral mixer) <>
+                        mustSpendScriptOutput utxo1 (Redeemer $ toBuiltinData Withdraw) <>
+                        mustSpendScriptOutput utxo2 (Redeemer $ toBuiltinData PayRelayTicket) <>
+                        mustPayToTheScript (MixerDatum zero) (relayTicketToken + lovelaceValueOf 2_000_000)
                 utx <- mkTxConstraints lookups cons
                 submitTxConfirmed utx
         WrongRootValue         -> logInfo @String "Wrong root value!"

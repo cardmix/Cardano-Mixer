@@ -14,6 +14,9 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
 
+{-# OPTIONS_GHC -Wno-orphans               #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+
 
 module Contracts.Vesting where
 
@@ -35,8 +38,8 @@ import           Prelude                  (Semigroup (..), Eq, Show)
 import           Plutus.Contract
 import           PlutusTx
 import           PlutusTx.Prelude         hiding ((<>), Eq, Semigroup, fold, mempty)
-import           Schema                   (ToSchema)
 
+import           Crypto
 import           Tokens.OracleToken       (oracleTokenRequired)
 
 
@@ -58,13 +61,24 @@ import           Tokens.OracleToken       (oracleTokenRequired)
 
 -}
 
+data VestingData = VestingData PaymentPubKeyHash (Integer, Integer) [Fr] Proof
+    deriving (Show, Generic, ToJSON, FromJSON)
+
+PlutusTx.unstableMakeIsData ''VestingData
+
+PlutusTx.unstableMakeIsData ''Zp
+PlutusTx.unstableMakeIsData ''R
+PlutusTx.unstableMakeIsData ''Q
+PlutusTx.unstableMakeIsData ''Proof
+
 -- | A vesting scheme: vesting tranche and the owner.
 data VestingParams = VestingParams
     {
         vestingDate   :: POSIXTime,
         vestingOwner  :: PaymentPubKeyHash,
-        vestingHash   :: DatumHash
-    } deriving (Show, Generic, ToJSON, FromJSON, ToSchema)
+        vestingHash   :: DatumHash,
+        vestingData   :: VestingData
+    } deriving (Show, Generic, ToJSON, FromJSON)
 
 PlutusTx.unstableMakeIsData ''VestingParams
 
@@ -75,7 +89,7 @@ instance ValidatorTypes Vesting where
 
 {-# INLINABLE validate #-}
 validate :: VestingParams -> () -> ScriptContext -> Bool
-validate (VestingParams d o _) () ctx@ScriptContext{scriptContextTxInfo=txInfo@TxInfo{txInfoValidRange}} =
+validate (VestingParams d o _ _) () ctx@ScriptContext{scriptContextTxInfo=txInfo@TxInfo{txInfoValidRange}} =
     (isUnlocked && isSignedByOwner) || oracleTokenRequired ctx
   where
       validRange      = Interval.from d
@@ -130,8 +144,8 @@ retrieveFunds = mapError (review _VestingError) $ do
             void $ submitTxConstraintsWith lookups cons
   where f o t h = case _ciTxOutDatum o of
           Left  _ -> False
-          Right r -> let p = unsafeFromBuiltinData $ getDatum r
-                     in  vestingDate p <= t && vestingOwner p == h
+          Right r -> let m = fromBuiltinData $ getDatum r :: Maybe VestingParams
+                     in maybe False (\p -> vestingDate p <= t && vestingOwner p == h) m
 
 
 type VestingSchema =
@@ -145,3 +159,46 @@ vestingContract = selectList [vest, retrieve]
         (lookups, cons) <- timelockTx p v
         void $ submitTxConstraintsWith (lookups <> typedValidatorLookups typedValidator) cons
     retrieve = endpoint @"retrieve funds" $ \() -> retrieveFunds
+
+
+---------------------------- For PlutusTx ------------------------------
+
+instance ToData t => ToData (Extension t e) where
+    {-# INLINABLE toBuiltinData #-}
+    toBuiltinData (E (P a)) = toBuiltinData a
+
+instance FromData t => FromData (Extension t e) where
+    {-# INLINABLE fromBuiltinData #-}
+    fromBuiltinData i = E . P <$> fromBuiltinData i
+
+instance UnsafeFromData t => UnsafeFromData (Extension t e) where
+    {-# INLINABLE unsafeFromBuiltinData #-}
+    unsafeFromBuiltinData i = E $ P $ unsafeFromBuiltinData i
+
+instance (ToData t) => ToData (Polynomial t) where
+    {-# INLINABLE toBuiltinData #-}
+    toBuiltinData (P a) = toBuiltinData a
+
+instance (FromData t) => FromData (Polynomial t) where
+    {-# INLINABLE fromBuiltinData #-}
+    fromBuiltinData i = P <$> fromBuiltinData i
+
+instance (UnsafeFromData t) => UnsafeFromData (Polynomial t) where
+    {-# INLINABLE unsafeFromBuiltinData #-}
+    unsafeFromBuiltinData i = P $ unsafeFromBuiltinData i
+
+instance (ToData t, Ring t) => ToData (CurvePoint t) where
+    {-# INLINABLE toBuiltinData #-}
+    toBuiltinData O        = toBuiltinData (False, (zero :: t, zero :: t))
+    toBuiltinData (CP x y) = toBuiltinData (True,  (x,    y))
+
+instance FromData t => FromData (CurvePoint t) where
+    {-# INLINABLE fromBuiltinData #-}
+    fromBuiltinData i = case fromBuiltinData i of
+      Just (b, (x, y)) -> if b then Just $ CP x y else Just O
+      Nothing          -> Nothing
+
+instance UnsafeFromData t => UnsafeFromData (CurvePoint t) where
+    {-# INLINABLE unsafeFromBuiltinData #-}
+    unsafeFromBuiltinData i = if b then CP x y else O
+      where (b, (x, y)) = unsafeFromBuiltinData i

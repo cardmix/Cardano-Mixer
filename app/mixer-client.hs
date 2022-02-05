@@ -53,9 +53,9 @@ depositProcedure = do
     logSecrets ds sas
     let leaf = mimcHash (getR1 ds) (getR2 ds)
     print $ mimcHash zero (getR1 ds)
-    cidUseMixer <- activateRequest pabIP UseMixer (Nothing :: Maybe Wallet)
-    endpointRequest pabIP "deposit" cidUseMixer (DepositParams mixVal leaf)
-    s <- awaitStatusUpdate pabIP cidUseMixer :: IO String
+    cidMixerUse <- activateRequest pabIP MixerUse (Nothing :: Maybe Wallet)
+    endpointRequest pabIP "deposit" cidMixerUse (DepositParams mixVal leaf)
+    s <- awaitStatusUpdate pabIP cidMixerUse :: IO String
     print s
 
 withdrawProcedure :: String -> IO ()
@@ -69,8 +69,8 @@ withdrawProcedure str = do
         state <- mixerStateProcedure
         (lastDeposit, subs, proof) <- generateSimulatedWithdrawProof a ds sas state
         let params = WithdrawParams mixVal lastDeposit pkh subs proof
-        cidUseMixer <- activateRequest pabIP UseMixer (Just w)
-        endpointRequest pabIP "withdraw" cidUseMixer params
+        cidMixerUse <- activateRequest pabIP MixerUse (Just w)
+        endpointRequest pabIP "withdraw" cidMixerUse params
 
 ------------------------------- Query mixer logic --------------------------------
 

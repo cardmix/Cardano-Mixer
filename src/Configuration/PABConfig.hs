@@ -1,5 +1,4 @@
 {-# LANGUAGE NoImplicitPrelude  #-}
-{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings  #-}
 
 module Configuration.PABConfig where
@@ -54,7 +53,7 @@ pabWalletPKHBytes = [0xc6, 0x05, 0x88, 0x8d, 0x3c, 0x40, 0x38, 0x6d, 0x7c, 0x32,
      0xa0, 0xa7, 0xb6, 0x83, 0x60, 0x5c, 0x3e, 0x5d, 0xf9, 0xa7, 0x6a, 0xee]
 
 vestingHashBytes :: [Integer]
-vestingHashBytes = [244,169,43,140,196,43,167,162,159,11,134,36,131,166,120,33,86,39,230,4,193,243,156,18,23,199,177,135]
+vestingHashBytes = [194,187,208,193,156,159,239,240,254,103,211,65,32,203,74,93,143,210,18,236,39,149,143,110,150,128,253,1]
 
 adminTokenPolicyId :: [Integer]
 adminTokenPolicyId = [0x18, 0x03, 0x07, 0xc3, 0x48, 0xf6, 0x48, 0x28, 0xb5, 0x8b, 0xa1, 0x19, 0x45, 0x8f, 0x41, 0xd9,
@@ -83,11 +82,11 @@ pabWalletPKH = PaymentPubKeyHash $ PubKeyHash $ foldr consByteString emptyByteSt
 
 vestingScriptPermanentHash :: ValidatorHash
 vestingScriptPermanentHash = ValidatorHash $ foldr consByteString emptyByteString vestingHashBytes
-           
-           
-           
-           
-           
+
+
+
+
+
 
 
 
