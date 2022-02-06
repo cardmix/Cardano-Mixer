@@ -1,17 +1,15 @@
 {-# LANGUAGE NoImplicitPrelude  #-}
 {-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module Configuration.PABConfig where
 
 import Data.Either                   (rights)
-import Data.FileEmbed                (embedStringFile)
 import Data.Text                     (pack)
 import Ledger                        (PubKeyHash(..))
 import Ledger.Address                (PaymentPubKeyHash(..))
 import Plutus.V1.Ledger.Api          (ValidatorHash (..))
 import PlutusTx.Prelude
-import Prelude                       (String, read)
+import Prelude                       (String)
 import Wallet.Emulator.Wallet        (Wallet(..), fromBase16)
 
 
@@ -23,6 +21,9 @@ import Wallet.Emulator.Wallet        (Wallet(..), fromBase16)
 -- pabWalletPKHBytes :: [Integer]
 -- pabWalletPKHBytes = [0x46, 0x62, 0x9e, 0xfc, 0x9c, 0x5d, 0xdf, 0x1a, 0x78, 0x36, 0x0f, 0x4d, 0xa4, 0xdc, 0x38,
 --      0x72, 0x87, 0xa8, 0x23, 0x8a, 0x57, 0x27, 0xce, 0x7d, 0x02, 0xf6, 0xb6, 0x58]
+
+-- vestingHashBytes :: [Integer]
+-- vestingHashBytes = [194,187,208,193,156,159,239,240,254,103,211,65,32,203,74,93,143,210,18,236,39,149,143,110,150,128,253,1]
 
 -- adminKeyPolicyId :: [Integer]
 -- adminKeyPolicyId = [0x14, 0xca, 0x69, 0xe5, 0x9f, 0x3e, 0xa7, 0xcb, 0x8d, 0x74,
@@ -36,6 +37,9 @@ import Wallet.Emulator.Wallet        (Wallet(..), fromBase16)
 -- pabWalletPKHBytes :: [Integer]
 -- pabWalletPKHBytes = [0xc6, 0x05, 0x88, 0x8d, 0x3c, 0x40, 0x38, 0x6d, 0x7c, 0x32, 0x3a, 0x46, 0x79, 0xc7, 0x67, 0xe5,
 --      0xa0, 0xa7, 0xb6, 0x83, 0x60, 0x5c, 0x3e, 0x5d, 0xf9, 0xa7, 0x6a, 0xee]
+
+-- vestingHashBytes :: [Integer]
+-- vestingHashBytes = [194,187,208,193,156,159,239,240,254,103,211,65,32,203,74,93,143,210,18,236,39,149,143,110,150,128,253,1]
 
 -- -- TODO: add to config
 -- adminTokenPolicyId :: [Integer]
@@ -66,6 +70,9 @@ pabWalletPKHBytes :: [Integer]
 pabWalletPKHBytes = [0xc6, 0x05, 0x88, 0x8d, 0x3c, 0x40, 0x38, 0x6d, 0x7c, 0x32, 0x3a, 0x46, 0x79, 0xc7, 0x67, 0xe5,
      0xa0, 0xa7, 0xb6, 0x83, 0x60, 0x5c, 0x3e, 0x5d, 0xf9, 0xa7, 0x6a, 0xee]
 
+vestingHashBytes :: [Integer]
+vestingHashBytes = [194,187,208,193,156,159,239,240,254,103,211,65,32,203,74,93,143,210,18,236,39,149,143,110,150,128,253,1]
+
 -- TODO: add to config
 adminTokenPolicyId :: [Integer]
 adminTokenPolicyId = [0x18, 0x03, 0x07, 0xc3, 0x48, 0xf6, 0x48, 0x28, 0xb5, 0x8b, 0xa1, 0x19, 0x45, 0x8f, 0x41, 0xd9,
@@ -93,9 +100,6 @@ pabWallet = Wallet $ head $ rights [fromBase16 $ pack pabWalletIdString]
 
 pabWalletPKH :: PaymentPubKeyHash
 pabWalletPKH = PaymentPubKeyHash $ PubKeyHash $ foldr consByteString emptyByteString pabWalletPKHBytes
-
-vestingHashBytes :: [Integer]
-vestingHashBytes = read $(embedStringFile "src/Configuration/Constants/vestingScriptHash")
 
 vestingScriptPermanentHash :: ValidatorHash
 vestingScriptPermanentHash = ValidatorHash $ foldr consByteString emptyByteString vestingHashBytes
