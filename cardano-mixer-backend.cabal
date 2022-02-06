@@ -258,3 +258,31 @@ executable cardano-mixer-zksnark-setup
     prettyprinter                          -any,
     regex-tdfa                      ^>= 1.3.1.0,
     text                                   -any
+
+executable cardano-mixer-config
+  import: lang
+  main-is: mixer-config.hs
+  hs-source-dirs: app
+  ghc-options:
+    -threaded
+  build-depends:
+    aeson                                  -any,
+    base                          >= 4.9 && < 5,
+    bytestring                             -any,
+    cardano-api                            -any,
+    cardano-mixer-common                   -any,
+    cardano-mixer-backend                  -any,
+    containers                             -any,
+    data-default                           -any,
+    freer-extras                           -any,
+    freer-simple                           -any,
+    openapi3                               -any,
+    plutus-contract                        -any,
+    plutus-ledger                          -any,
+    plutus-ledger-api                      -any,
+    plutus-ledger-constraints              -any,
+    plutus-pab                             -any,
+    plutus-tx                              -any,
+    plutus-use-cases                       -any,
+    prettyprinter                          -any,    
+    text                                   -any
