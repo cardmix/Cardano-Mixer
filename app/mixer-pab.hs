@@ -48,13 +48,13 @@ import           Crypto
 import           Crypto.Conversions
 import           MixerContract
 import           MixerProofs                         (generateSimulatedWithdrawProof, verifyWithdraw)
+import           MixerRelayerContract                (mixerRelayerProgram)
 import           MixerState                          (MerkleTree(..), treeSize)
 import           MixerUserData
 import           PABContracts                        (PABContracts, handlers)
 import           Tokens.RelayTicketToken             (relayTicketTokenSymbol)
 import           Utils.Common                        (replicate, last)
 import           Utils.Contracts                     (byteStringToList)
-import MixerRelayerContract (mixerRelayerProgram)
 
 
 main :: IO ()
