@@ -25,13 +25,12 @@ import           Ledger.Typed.Scripts             (wrapMintingPolicy, ValidatorT
 import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..), CurrencySymbol (..))
 import           Plutus.Contract                  (Contract)
+import           Plutus.Contract.Types            (AsContractError)
 import           Plutus.V1.Ledger.Ada             (lovelaceValueOf)
 import           Plutus.V1.Ledger.Value           (geq)
 import           PlutusTx                         (compile, toBuiltinData)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
 import           Prelude                          ((<>))
-import           Wallet.Types                     (AsContractError)
-
 
 import           Configuration.PABConfig          (vestingScriptPermanentHash)
 import           Tokens.Common

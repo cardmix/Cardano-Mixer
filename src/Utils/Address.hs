@@ -6,6 +6,7 @@
 {-# LANGUAGE RankNTypes         #-}
 {-# LANGUAGE TypeFamilies       #-}
 
+
 module Utils.Address where
 
 import           Data.Either                     (fromRight)

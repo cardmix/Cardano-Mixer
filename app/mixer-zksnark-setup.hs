@@ -1,8 +1,6 @@
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
-{-# LANGUAGE NumericUnderscores         #-}
 {-# LANGUAGE OverloadedStrings          #-}
+
 
 module Main
     (

@@ -1,29 +1,21 @@
 {-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
 {-# LANGUAGE OverloadedLists            #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TupleSections              #-}
-{-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE NumericUnderscores         #-}
+
 
 module Utils.Contracts where
 
 import           Data.Default                      (def)
-import           Data.Map                          (Map, empty, fromList)
+import           Data.Map                          (Map, empty, fromList, filterWithKey, keys)
 import           Data.Text                         (Text, pack)
 import           Ledger                            (PaymentPubKeyHash, Value, Address, ChainIndexTxOut, TxOutRef, AssetClass)
 import           Ledger.Tx                         (txOutRefId)
@@ -77,6 +69,13 @@ collateralConstraints pkh vals = mconcat $ map (mustPayToPubKey pkh) vals
 mapError' :: Contract w s SMContractError a -> Contract w s Text a
 mapError' = mapError $ pack . show
 
+---------------------------- Lookups ----------------------------------------
+
+selectUTXO :: Map TxOutRef ChainIndexTxOut -> (TxOutRef, Map TxOutRef ChainIndexTxOut)
+selectUTXO utxos = (key, filterWithKey (\k _ -> k == key) utxos)
+  where key = head $ keys utxos
+
+
 ---------------------------- Additional Chain Index queries ------------------------
 
 -- | Get the transactions at an address.
@@ -86,7 +85,7 @@ txosTxTxOutAt ::
     )
     => Address
     -> Contract w s e [(ChainIndexTx, ChainIndexTxOut)]
-txosTxTxOutAt addr = do
+txosTxTxOutAt addr =
   foldTxoRefsAt f [] addr
   where
     f acc pg = do
@@ -119,7 +118,7 @@ utxosWithCurrency ::
     )
     => AssetClass
     -> Contract w s e (Map TxOutRef ChainIndexTxOut)
-utxosWithCurrency ac = do
+utxosWithCurrency ac =
   foldUtxoRefsWithCurrency f empty ac
   where
     f acc pg = do

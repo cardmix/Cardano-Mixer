@@ -15,15 +15,15 @@ import Wallet.Emulator.Wallet        (Wallet(..), fromBase16)
 
 ----------------------------- Testnet ------------------------------
 
-pabWalletIdString :: String
-pabWalletIdString = "2c922c0b34abf5ab0d7f3f290b9f6c8874a4d300"
+-- pabWalletIdString :: String
+-- pabWalletIdString = "2c922c0b34abf5ab0d7f3f290b9f6c8874a4d300"
 
-pabWalletPKHBytes :: [Integer]
-pabWalletPKHBytes = [0x46, 0x62, 0x9e, 0xfc, 0x9c, 0x5d, 0xdf, 0x1a, 0x78, 0x36, 0x0f, 0x4d, 0xa4, 0xdc, 0x38,
-     0x72, 0x87, 0xa8, 0x23, 0x8a, 0x57, 0x27, 0xce, 0x7d, 0x02, 0xf6, 0xb6, 0x58]
+-- pabWalletPKHBytes :: [Integer]
+-- pabWalletPKHBytes = [0x46, 0x62, 0x9e, 0xfc, 0x9c, 0x5d, 0xdf, 0x1a, 0x78, 0x36, 0x0f, 0x4d, 0xa4, 0xdc, 0x38,
+--      0x72, 0x87, 0xa8, 0x23, 0x8a, 0x57, 0x27, 0xce, 0x7d, 0x02, 0xf6, 0xb6, 0x58]
 
 vestingHashBytes :: [Integer]
-vestingHashBytes = [194,187,208,193,156,159,239,240,254,103,211,65,32,203,74,93,143,210,18,236,39,149,143,110,150,128,253,1]
+vestingHashBytes = [60,67,182,91,28,176,37,176,174,126,68,130,90,164,118,110,101,177,147,52,66,225,88,99,181,207,173,157]
 
 -- TODO: add to config
 adminTokenPolicyId :: [Integer]
@@ -55,7 +55,7 @@ mixStakingTokenPolicyId = [0x18, 0x03, 0x07, 0xc3, 0x48, 0xf6, 0x48, 0x28, 0xb5,
 --      0xa0, 0xa7, 0xb6, 0x83, 0x60, 0x5c, 0x3e, 0x5d, 0xf9, 0xa7, 0x6a, 0xee]
 
 -- vestingHashBytes :: [Integer]
--- vestingHashBytes = [194,187,208,193,156,159,239,240,254,103,211,65,32,203,74,93,143,210,18,236,39,149,143,110,150,128,253,1]
+-- vestingHashBytes = [60,67,182,91,28,176,37,176,174,126,68,130,90,164,118,110,101,177,147,52,66,225,88,99,181,207,173,157]
 
 -- -- TODO: add to config
 -- adminTokenPolicyId :: [Integer]
@@ -79,15 +79,15 @@ mixStakingTokenPolicyId = [0x18, 0x03, 0x07, 0xc3, 0x48, 0xf6, 0x48, 0x28, 0xb5,
 
 ---------------------------- Emulator -----------------------------
 
--- pabWalletIdString :: String
--- pabWalletIdString = "1bc5f27d7b4e20083977418e839e429d00cc87f3"
+pabWalletIdString :: String
+pabWalletIdString = "1bc5f27d7b4e20083977418e839e429d00cc87f3"
 
--- pabWalletPKHBytes :: [Integer]
--- pabWalletPKHBytes = [0xc6, 0x05, 0x88, 0x8d, 0x3c, 0x40, 0x38, 0x6d, 0x7c, 0x32, 0x3a, 0x46, 0x79, 0xc7, 0x67, 0xe5,
---      0xa0, 0xa7, 0xb6, 0x83, 0x60, 0x5c, 0x3e, 0x5d, 0xf9, 0xa7, 0x6a, 0xee]
+pabWalletPKHBytes :: [Integer]
+pabWalletPKHBytes = [0xc6, 0x05, 0x88, 0x8d, 0x3c, 0x40, 0x38, 0x6d, 0x7c, 0x32, 0x3a, 0x46, 0x79, 0xc7, 0x67, 0xe5,
+     0xa0, 0xa7, 0xb6, 0x83, 0x60, 0x5c, 0x3e, 0x5d, 0xf9, 0xa7, 0x6a, 0xee]
 
 -- vestingHashBytes :: [Integer]
--- vestingHashBytes = [194,187,208,193,156,159,239,240,254,103,211,65,32,203,74,93,143,210,18,236,39,149,143,110,150,128,253,1]
+-- vestingHashBytes = [60,67,182,91,28,176,37,176,174,126,68,130,90,164,118,110,101,177,147,52,66,225,88,99,181,207,173,157]
 
 -- -- TODO: add to config
 -- adminTokenPolicyId :: [Integer]

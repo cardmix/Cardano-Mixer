@@ -1,28 +1,21 @@
 {-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
-{-# LANGUAGE NumericUnderscores         #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE OverloadedLists            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE TypeSynonymInstances       #-}
+
 
 module MixerStateContract where
 
 import           Data.Either                              (rights)
 import           Data.Semigroup                           (Last (..))
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
-import           Ledger.Value                             (geq)
 import           Plutus.Contract                          (Promise, ContractError, Endpoint, endpoint, tell, Contract)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
@@ -30,6 +23,9 @@ import           PlutusTx.Prelude                         hiding ((<>), mempty, 
 import           MixerScript
 import           MixerState
 import           Utils.Contracts                          (txosTxTxOutAt)
+import Tokens.DepositToken (depositTokenTargetAddress)
+import Crypto
+import PlutusTx.Prelude (mapMaybe)
 
 ---------------------------------------------------------------------
 --------------------------- Off-Chain -------------------------------
@@ -44,10 +40,12 @@ import           Utils.Contracts                          (txosTxTxOutAt)
 getMixerState :: Value -> Contract w s ContractError MixerState
 getMixerState v = do
     let mixer = makeMixerFromFees v
-    txTxos <- txosTxTxOutAt (mixerAddress mixer)
-    let txTxos' = filter (\(_, o) -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer)) txTxos -- TODO: implement proper sort?
-        leafs   = map (getMixerDatum . unsafeFromBuiltinData . getDatum) $ rights $ map (_ciTxOutDatum . snd) txTxos'
-    let state = snd $ constructStateFromList (leafs, [])
+        val   = mValue mixer + mTotalFees mixer
+    txTxos <- txosTxTxOutAt depositTokenTargetAddress
+    -- TODO: implement proper sort?
+    let mData = mapMaybe ((fromBuiltinData :: BuiltinData -> Maybe ((Address, Value), (Fr, POSIXTime))) . getDatum) $ rights $ map (_ciTxOutDatum . snd) txTxos
+        leafs = map (fst . snd) $ filter (\d -> fst (fst d) == mixerAddress mixer && snd (fst d) == val) mData
+        state = snd $ constructStateFromList (leafs, [])
     return state
 
 type MixerStateSchema = Endpoint "Get Mixer state" Value

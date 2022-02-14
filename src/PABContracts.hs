@@ -9,7 +9,6 @@
 {-# LANGUAGE TypeFamilies       #-}
 
 
-
 module PABContracts where
 
 import           Data.Aeson                          (FromJSON(..), ToJSON(..))
@@ -31,7 +30,6 @@ import           MixerRelayerContract                (MixerRelayerSchema, mixerR
 import           MixerStateContract                  (MixerStateSchema, getMixerStatePromise)
 import           MixerContractsDefinition            (MixerContractsDefinition(..))
 import           ConnectToPABContract                (ConnectToPABSchema, connectToPABPromise)
-
 
 
 --------------------------------------- PAB Contracts -------------------------------------------

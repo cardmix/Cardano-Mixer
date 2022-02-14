@@ -25,12 +25,12 @@ import           Control.Monad            (void)
 import           Data.Aeson               (FromJSON, ToJSON)
 import qualified Data.Map
 import           GHC.Generics             (Generic)
-import           Ledger                   (Address, POSIXTime, PaymentPubKeyHash (..), ValidatorHash)
+import           Ledger                   (Address, POSIXTime, PaymentPubKeyHash (..), ValidatorHash, Redeemer (Redeemer), TxOutRef)
 import           Ledger.Constraints       (ScriptLookups(..), TxConstraints(..), mustBeSignedBy, mustValidateIn, mustPayToOtherScript,
-                                 unspentOutputs, otherScript, typedValidatorLookups)
+                                 unspentOutputs, otherScript, typedValidatorLookups, mustSpendScriptOutput)
 import           Ledger.Contexts          (ScriptContext (..), TxInfo (..), txSignedBy)
 import qualified Ledger.Interval          as Interval
-import           Ledger.Scripts           (Datum(..), DatumHash)
+import           Ledger.Scripts           (Datum(..))
 import           Ledger.Tx                (ChainIndexTxOut(..))
 import           Ledger.Typed.Scripts     
 import           Ledger.Value             (Value)
@@ -41,6 +41,7 @@ import           PlutusTx.Prelude         hiding ((<>), Eq, Semigroup, fold, mem
 
 import           Crypto
 import           Tokens.OracleToken       (oracleTokenRequired)
+import Utils.Contracts (selectUTXO)
 
 
 {- |
@@ -74,10 +75,12 @@ PlutusTx.unstableMakeIsData ''Proof
 -- | A vesting scheme: vesting tranche and the owner.
 data VestingParams = VestingParams
     {
-        vestingDate   :: POSIXTime,
-        vestingOwner  :: PaymentPubKeyHash,
-        vestingHash   :: DatumHash,
-        vestingData   :: VestingData
+        vestingDate      :: POSIXTime,
+        vestingOwner     :: PaymentPubKeyHash,
+        vestingReciever  :: PaymentPubKeyHash,
+        vestingTx        :: TxOutRef,
+        vestingDatumHash :: BuiltinByteString,
+        vestingWHash     :: Fr
     } deriving (Show, Generic, ToJSON, FromJSON)
 
 PlutusTx.unstableMakeIsData ''VestingParams
@@ -89,7 +92,7 @@ instance ValidatorTypes Vesting where
 
 {-# INLINABLE validate #-}
 validate :: VestingParams -> () -> ScriptContext -> Bool
-validate (VestingParams d o _ _) () ctx@ScriptContext{scriptContextTxInfo=txInfo@TxInfo{txInfoValidRange}} =
+validate (VestingParams d o _ _ _ _) () ctx@ScriptContext{scriptContextTxInfo=txInfo@TxInfo{txInfoValidRange}} =
     (isUnlocked && isSignedByOwner) || oracleTokenRequired ctx
   where
       validRange      = Interval.from d
@@ -135,12 +138,12 @@ retrieveFunds = mapError (review _VestingError) $ do
     utxos <- utxosAt vestingScriptAddress
     pkh   <- ownPaymentPubKeyHash
     ct    <- currentTime
-    let utxos' = Data.Map.filter (\txout -> f txout ct pkh) utxos
+    let (utxo1, utxos') = selectUTXO $ Data.Map.filter (\txout -> f txout ct pkh) utxos
     if Data.Map.null utxos'
         then return ()
         else do
-            let lookups = typedValidatorLookups typedValidator <> unspentOutputs utxos'
-                cons    = collectFromScript utxos' () <> mustValidateIn (Interval.from ct) <> mustBeSignedBy pkh
+            let lookups = unspentOutputs utxos' <> typedValidatorLookups typedValidator <> otherScript vestingScript
+                cons    = mustSpendScriptOutput utxo1 (Redeemer $ toBuiltinData ()) <> mustValidateIn (Interval.from (ct-100000)) <> mustBeSignedBy pkh
             void $ submitTxConstraintsWith lookups cons
   where f o t h = case _ciTxOutDatum o of
           Left  _ -> False

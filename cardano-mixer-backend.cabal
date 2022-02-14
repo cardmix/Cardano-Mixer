@@ -69,12 +69,14 @@ library
       Utils.Conversions
       Configuration.PABConfig
       Tokens.AdminToken
+      Tokens.DepositToken
       Tokens.RelayToken
       Tokens.Common
       Tokens.MIXStakingToken
       Tokens.MIXToken
       Tokens.OracleToken
       Tokens.RelayTicketToken
+      Tokens.WithdrawToken
       Crypto.Conversions
             
     build-depends:

@@ -1,21 +1,14 @@
 {-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
-{-# LANGUAGE NumericUnderscores         #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE OverloadedLists            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE TypeSynonymInstances       #-}
+
 
 module RelayRequest where
 
@@ -65,7 +58,7 @@ checkWrongProof :: MixerState -> WithdrawParams -> Bool
 checkWrongProof _ (WithdrawParams _ _ _ subs proof) = not $ verifyWithdraw pubParams proof
     where pubParams = [one, zero, zero, zero, zero, zero] ++ subs
 
-checkDuplicateKey :: MixerKeys -> WithdrawParams -> Bool 
+checkDuplicateKey :: MixerKeys -> WithdrawParams -> Bool
 checkDuplicateKey keys (WithdrawParams _ _ _ subs _)
   | length subs < 3                   = True
   | null $ filter (== subs !! 2) keys = False

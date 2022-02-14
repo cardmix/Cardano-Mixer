@@ -32,8 +32,8 @@ import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..), CurrencySymbol (..))
 import           Plutus.Contract                  (Contract)
 import           Plutus.Contract.StateMachine
+import           Plutus.Contract.Types            (AsContractError)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
-import           Wallet.Types                     (AsContractError)
 
 import           Tokens.Common
 import           Configuration.PABConfig          (mixStakingTokenPolicyId)

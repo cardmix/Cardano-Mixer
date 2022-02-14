@@ -21,9 +21,9 @@ import           Ledger.Constraints.TxConstraints (TxConstraints, mustSpendAtLea
 import           Ledger.Constraints.OffChain      (ScriptLookups, unspentOutputs, mintingPolicy)
 import           Ledger.Value                     (geq, assetClassValue, AssetClass (AssetClass))
 import           Plutus.Contract                  (Contract)
+import           Plutus.Contract.Types            (AsContractError)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
 import           Prelude                          ((<>))
-import           Wallet.Types                     (AsContractError)
 
 import           Utils.Contracts                  (utxosWithCurrency)
 

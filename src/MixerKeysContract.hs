@@ -20,7 +20,7 @@ import           Plutus.Contract                          (Promise, ContractErro
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
-import           Contracts.Vesting                        (vestingScriptAddress, VestingParams (..), VestingData (..))
+import           Contracts.Vesting                        (vestingScriptAddress, VestingParams (..))
 import           Crypto
 import           MixerScript
 import           Utils.Contracts                          (txosTxTxOutAt)
@@ -50,8 +50,9 @@ getTxKeys :: ChainIndexTxOut -> Maybe Fr
 getTxKeys tx = do
         d <- either (const Nothing) Just $ _ciTxOutDatum tx
         p <- fromBuiltinData $ getDatum d :: Maybe VestingParams
-        let VestingData _ _ subs _ = vestingData p
-        if length subs >= 3 then Just $ subs !! 2 else Nothing
+        -- let VestingData _ _ subs _ = vestingData p
+        -- if length subs >= 3 then Just $ subs !! 2 else Nothing
+        return $ vestingWHash p
 
 type MixerKeysSchema = Endpoint "Get Mixer keys" Value
 

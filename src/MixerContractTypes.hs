@@ -10,7 +10,6 @@
 {-# LANGUAGE TypeFamilies               #-}
 
 
-
 module MixerContractTypes where
 
 import           Data.Aeson                               (FromJSON, ToJSON)

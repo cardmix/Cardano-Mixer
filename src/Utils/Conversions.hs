@@ -20,6 +20,7 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE NumericUnderscores         #-}
 
+
 module Utils.Conversions where
 
 import           Cardano.Api.Shelley    (ProtocolParameters, NetworkId(..), NetworkMagic(..), serialiseToCBOR)

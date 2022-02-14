@@ -1,19 +1,12 @@
 {-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE DeriveAnyClass     #-}
-{-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts   #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE NamedFieldPuns     #-}
 {-# LANGUAGE NoImplicitPrelude  #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RankNTypes         #-}
-{-# LANGUAGE TemplateHaskell    #-}
 {-# LANGUAGE TypeApplications   #-}
 {-# LANGUAGE TypeFamilies       #-}
-{-# LANGUAGE TypeOperators      #-}
-
 
 
 module Main
@@ -48,7 +41,6 @@ import           Crypto
 import           Crypto.Conversions
 import           MixerContract
 import           MixerProofs                         (generateSimulatedWithdrawProof, verifyWithdraw)
-import           MixerRelayerContract                (mixerRelayerProgram)
 import           MixerState                          (MerkleTree(..), treeSize)
 import           MixerUserData
 import           PABContracts                        (PABContracts, handlers)
@@ -100,11 +92,6 @@ pabSimulator = void $ Simulator.runSimulationWith handlers $ do
 
 pabEmulator :: (Fr, [Fr], Proof) -> EmulatorTrace ()
 pabEmulator (leaf, subs, proof) = do
-    c0 <- activateContractWallet pabWallet (void mixerRelayerProgram)
-    callEndpoint @"Mint Relay Tickets" c0 (lovelaceValueOf 20_000, 12)
-
-    _ <- waitNSlots 10
-
     c1 <- activateContractWallet pabWallet (void mixerProgram)
     callEndpoint @"deposit" c1 (DepositParams (lovelaceValueOf 20_000) leaf)
 
@@ -113,7 +100,7 @@ pabEmulator (leaf, subs, proof) = do
     c2 <- activateContractWallet pabWallet (void mixerProgram)
     callEndpoint @"withdraw" c2 (WithdrawParams (lovelaceValueOf 20_000) (0, 1) pabWalletPKH subs proof)
 
-    _ <- waitNSlots 3710
+    _ <- waitNSlots 4000
 
     c3 <- activateContractWallet pabWallet (void vestingContract)
     callEndpoint @"retrieve funds" c3 ()
@@ -148,6 +135,6 @@ pabTestValues (DepositSecret r1 r2) (ShieldedAccountSecret v1 v2 v3) = do
           t2 <- getCPUTime
           print $ verifyWithdraw [one, zero, zero, zero, zero, zero, root, a, h, hA, one, oh, nh] proof
           t3 <- getCPUTime
-          print $ (fromIntegral (t2 - t1) :: Double) / (10^(12 :: Integer))
-          print $ (fromIntegral (t3 - t2) :: Double) / (10^(12 :: Integer))
+          print $ (fromIntegral (t2 - t1) :: Double) / 10^(12 :: Integer)
+          print $ (fromIntegral (t3 - t2) :: Double) / 10^(12 :: Integer)
           return (leaf, subs, proof)
