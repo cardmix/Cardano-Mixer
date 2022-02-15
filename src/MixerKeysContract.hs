@@ -12,10 +12,11 @@
 
 module MixerKeysContract where
 
+import           Data.Map                                 (member)
 import           Data.Maybe                               (mapMaybe)
 import           Data.Semigroup                           (Last (..))
-import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
-import           Ledger.Value                             (geq)
+import           Ledger                                   hiding (member, singleton, validatorHash, unspentOutputs)
+import           Plutus.ChainIndex.Tx                     (ChainIndexTx(..))
 import           Plutus.Contract                          (Promise, ContractError, Endpoint, endpoint, tell, Contract)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
@@ -24,6 +25,7 @@ import           Contracts.Vesting                        (vestingScriptAddress,
 import           Crypto
 import           MixerScript
 import           Utils.Contracts                          (txosTxTxOutAt)
+
 
 
 type MixerKeys = [Fr]
@@ -38,11 +40,15 @@ type MixerKeys = [Fr]
 --             t1 = ivTo $ _citxValidRange tx1
 --             t2 = ivTo $ _citxValidRange tx2
 
+-- TODO: Fix possible exploits
 getMixerKeys :: Value -> Contract w s ContractError MixerKeys
 getMixerKeys v = do
     let mixer = makeMixerFromFees v
     txTxos <- txosTxTxOutAt vestingScriptAddress
-    let txTxos' = filter (\(_, o) -> _ciTxOutValue o `geq` mRelayerCollateral mixer) txTxos
+    let f (tx, _) = 
+            let ValidatorHash h = mixerValidatorHash mixer
+            in ScriptHash h `member` _citxScripts tx
+        txTxos' = filter f txTxos
         keys    = mapMaybe (getTxKeys . snd) txTxos'
     return keys
 
@@ -50,8 +56,6 @@ getTxKeys :: ChainIndexTxOut -> Maybe Fr
 getTxKeys tx = do
         d <- either (const Nothing) Just $ _ciTxOutDatum tx
         p <- fromBuiltinData $ getDatum d :: Maybe VestingParams
-        -- let VestingData _ _ subs _ = vestingData p
-        -- if length subs >= 3 then Just $ subs !! 2 else Nothing
         return $ vestingWHash p
 
 type MixerKeysSchema = Endpoint "Get Mixer keys" Value
