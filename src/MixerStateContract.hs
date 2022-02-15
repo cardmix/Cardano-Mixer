@@ -13,19 +13,19 @@
 
 module MixerStateContract where
 
-import           Data.Either                              (rights)
 import           Data.Semigroup                           (Last (..))
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
+import           Ledger.Value                             (geq)
 import           Plutus.Contract                          (Promise, ContractError, Endpoint, endpoint, tell, Contract)
 import           PlutusTx
-import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
+import           PlutusTx.Prelude                         hiding (Semigroup, (<>), (<$>), unless, find, toList, fromInteger, check)
 
+import           Crypto
 import           MixerScript
 import           MixerState
+import           Tokens.DepositToken                      (depositTokenTargetAddress, depositToken)
 import           Utils.Contracts                          (txosTxTxOutAt)
-import Tokens.DepositToken (depositTokenTargetAddress)
-import Crypto
-import PlutusTx.Prelude (mapMaybe)
+
 
 ---------------------------------------------------------------------
 --------------------------- Off-Chain -------------------------------
@@ -43,8 +43,15 @@ getMixerState v = do
         val   = mValue mixer + mTotalFees mixer
     txTxos <- txosTxTxOutAt depositTokenTargetAddress
     -- TODO: implement proper sort?
-    let mData = mapMaybe ((fromBuiltinData :: BuiltinData -> Maybe ((Address, Value), (Fr, POSIXTime))) . getDatum) $ rights $ map (_ciTxOutDatum . snd) txTxos
-        leafs = map (fst . snd) $ filter (\d -> fst (fst d) == mixerAddress mixer && snd (fst d) == val) mData
+    let outs  = map snd txTxos
+    let f o = do
+            d  <- either (const Nothing) Just $ _ciTxOutDatum o
+            ((addr, mv), (leaf, t)) <- fromBuiltinData $ getDatum d :: Maybe ((Address, Value), (Fr, POSIXTime))
+            let tokenCheck = _ciTxOutValue o `geq` depositToken (addr, mv) (leaf, t)
+                addrCheck  = addr == mixerAddress mixer
+                valCheck   = mv   == val
+            if tokenCheck && addrCheck && valCheck then Just leaf else Nothing
+        leafs = mapMaybe f outs
         state = snd $ constructStateFromList (leafs, [])
     return state
 
