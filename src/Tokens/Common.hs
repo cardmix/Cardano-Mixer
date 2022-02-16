@@ -19,11 +19,10 @@ module Tokens.Common (
 import           Ledger                           hiding (singleton, unspentOutputs)
 import           Ledger.Constraints.TxConstraints (TxConstraints, mustSpendAtLeast, mustMintCurrencyWithRedeemer)
 import           Ledger.Constraints.OffChain      (ScriptLookups, unspentOutputs, mintingPolicy)
-import           Ledger.Value                     (geq, assetClassValue, AssetClass (AssetClass))
+import           Ledger.Value                     (geq, assetClassValue)
 import           Plutus.Contract                  (Contract)
 import           Plutus.Contract.Types            (AsContractError)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
-import           Prelude                          ((<>))
 
 import           Utils.Contracts                  (utxosWithCurrency)
 
@@ -53,10 +52,6 @@ tokensTx ac n = do
     utxos <- utxosWithCurrency ac
     return (unspentOutputs utxos, mustSpendAtLeast $ assetClassValue ac n)
 
--- TxConstraints that the tokens are burned in the transaction
-tokensMintTx :: (AsContractError e) => MintingPolicy -> Redeemer -> TokenName -> Integer -> Contract w s e (ScriptLookups a, TxConstraints i o)
-tokensMintTx mp r tn n = do
-    utxos <- utxosWithCurrency ac
-    return (unspentOutputs utxos <> mintingPolicy mp,
-        mustMintCurrencyWithRedeemer (mintingPolicyHash mp) r tn n)
-  where ac = AssetClass (scriptCurrencySymbol mp, tn)
+-- TxConstraints that the tokens are minted in the transaction
+tokensMintTx :: MintingPolicy -> Redeemer -> TokenName -> Integer -> (ScriptLookups a, TxConstraints i o)
+tokensMintTx mp r tn n = (mintingPolicy mp, mustMintCurrencyWithRedeemer (mintingPolicyHash mp) r tn n)

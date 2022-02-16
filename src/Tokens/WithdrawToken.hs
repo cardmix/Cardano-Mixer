@@ -24,8 +24,6 @@ import           Ledger.Constraints.TxConstraints (TxConstraints, mustPayToOther
 import           Ledger.Typed.Scripts             (wrapMintingPolicy)
 import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..))
-import           Plutus.Contract                  (Contract)
-import           Plutus.Contract.Types            (AsContractError)
 import           Plutus.V1.Ledger.Ada             (lovelaceValueOf)
 import           Plutus.V1.Ledger.Value           (geq)
 import           PlutusTx                         (compile, toBuiltinData, applyCode, liftCode)
@@ -98,10 +96,10 @@ curPolicy par = mkMintingPolicyScript $
 
 -------------------------- Off-Chain -----------------------------
 
--- TxConstraints that Relay Token is consumed by transaction
-withdrawTokenMintTx :: (AsContractError e) => (Address, Value) -> (Fr, POSIXTime) -> Contract w s e (ScriptLookups a, TxConstraints i o)
-withdrawTokenMintTx par red@(Zp a, ct@(POSIXTime b)) = do
-    (lookups, cons) <- tokensMintTx (curPolicy par) (Redeemer $ toBuiltinData red) (withdrawTokenName (a, b)) 1
-    return (lookups, cons <> 
+-- TxConstraints that Relay Token is minted and sent by the transaction
+withdrawTokenMintTx :: (Address, Value) -> (Fr, POSIXTime) -> (ScriptLookups a, TxConstraints i o)
+withdrawTokenMintTx par red@(Zp a, ct@(POSIXTime b)) = 
+    let (lookups, cons) = tokensMintTx (curPolicy par) (Redeemer $ toBuiltinData red) (withdrawTokenName (a, b)) 1
+    in (lookups, cons <> 
       mustPayToOtherScript withdrawTokenTargetValidatorHash (Datum $ toBuiltinData (par, red)) (withdrawToken par red + lovelaceValueOf 2_000_000) <>
       mustValidateIn (interval (ct-100_000) (ct+200_000)))

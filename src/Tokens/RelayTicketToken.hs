@@ -24,8 +24,6 @@ import           Ledger.Constraints.TxConstraints (TxConstraints, mustPayToOther
 import           Ledger.Typed.Scripts             (wrapMintingPolicy, ValidatorTypes(..))
 import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..), CurrencySymbol (..))
-import           Plutus.Contract                  (Contract)
-import           Plutus.Contract.Types            (AsContractError)
 import           Plutus.V1.Ledger.Ada             (lovelaceValueOf)
 import           Plutus.V1.Ledger.Value           (geq)
 import           PlutusTx                         (compile, toBuiltinData)
@@ -99,12 +97,12 @@ relayTicketTokenRequired = tokensBurned relayTicketToken
 
 -------------------------- Off-Chain -----------------------------
 
--- TxConstraints that Relay Token is consumed by transaction
-relayTicketTokenMintTx :: (AsContractError e) => Integer -> Contract w s e (ScriptLookups a, TxConstraints i o)
-relayTicketTokenMintTx n = do
-    (lookups, cons) <- tokensMintTx curPolicy (Redeemer $ toBuiltinData (n :: Integer)) relayTicketTokenName n
-    return (lookups, cons <> mustPayToOtherScript vestingScriptPermanentHash (Datum $ toBuiltinData ()) (scale n mixerFee))
+-- TxConstraints that Relay Token is minted and sent by the transaction
+relayTicketTokenMintTx :: Integer -> (ScriptLookups a, TxConstraints i o)
+relayTicketTokenMintTx n = 
+    let (lookups, cons) = tokensMintTx curPolicy (Redeemer $ toBuiltinData (n :: Integer)) relayTicketTokenName n
+    in (lookups, cons <> mustPayToOtherScript vestingScriptPermanentHash (Datum $ toBuiltinData ()) (scale n mixerFee))
 
--- TxConstraints that Relay Token is consumed by transaction
-relayTicketTokenBurnTx :: (AsContractError e) => Contract w s e (ScriptLookups a, TxConstraints i o)
+-- TxConstraints that Relay Token is burned by the transaction
+relayTicketTokenBurnTx :: (ScriptLookups a, TxConstraints i o)
 relayTicketTokenBurnTx = tokensMintTx curPolicy (Redeemer $ toBuiltinData (0 :: Integer)) relayTicketTokenName (-1)

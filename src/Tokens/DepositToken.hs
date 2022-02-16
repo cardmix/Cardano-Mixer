@@ -24,8 +24,6 @@ import           Ledger.Constraints.TxConstraints (TxConstraints, mustPayToOther
 import           Ledger.Typed.Scripts             (wrapMintingPolicy)
 import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..))
-import           Plutus.Contract                  (Contract)
-import           Plutus.Contract.Types            (AsContractError)
 import           Plutus.V1.Ledger.Ada             (lovelaceValueOf)
 import           Plutus.V1.Ledger.Value           (geq)
 import           PlutusTx                         (compile, toBuiltinData, applyCode, liftCode)
@@ -99,10 +97,10 @@ curPolicy par = mkMintingPolicyScript $
 
 -------------------------- Off-Chain -----------------------------
 
--- TxConstraints that Relay Token is consumed by transaction
-depositTokenMintTx :: (AsContractError e) => (Address, Value) -> (Fr, POSIXTime) -> Contract w s e (ScriptLookups a, TxConstraints i o)
-depositTokenMintTx par red@(Zp a, ct@(POSIXTime b)) = do
-    (lookups, cons) <- tokensMintTx (curPolicy par) (Redeemer $ toBuiltinData red) (depositTokenName (a, b)) 1
-    return (lookups, cons <> 
+-- TxConstraints that Deposit Token is minted and sent by the transaction
+depositTokenMintTx :: (Address, Value) -> (Fr, POSIXTime) -> (ScriptLookups a, TxConstraints i o)
+depositTokenMintTx par red@(Zp a, ct@(POSIXTime b)) = 
+    let (lookups, cons) = tokensMintTx (curPolicy par) (Redeemer $ toBuiltinData red) (depositTokenName (a, b)) 1
+    in (lookups, cons <> 
       mustPayToOtherScript depositTokenTargetValidatorHash (Datum $ toBuiltinData (par, red)) (depositToken par red + lovelaceValueOf 2_000_000) <>
       mustValidateIn (interval (ct-100_000) (ct+200_000)))

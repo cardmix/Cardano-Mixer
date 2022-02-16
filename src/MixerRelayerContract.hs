@@ -33,10 +33,10 @@ import           Tokens.RelayTicketToken                  (relayTicketTokenMintT
 -- "deposit" endpoint implementation
 mintRelayTickets :: Promise () MixerRelayerSchema ContractError ()
 mintRelayTickets = endpoint @"Mint Relay Tickets" @(Value, Integer) $ \(v, n) -> do
-    (lookups, cons) <- relayTicketTokenMintTx n
-    let mixer = makeMixerFromFees v
-        lookups' = lookups <> typedValidatorLookups (mixerInst mixer)
-        cons'    = cons <> mustPayToTheScript () (lovelaceValueOf 2_000_000)
+    let mixer           = makeMixerFromFees v
+        (lookups, cons) = relayTicketTokenMintTx n
+        lookups'        = lookups <> typedValidatorLookups (mixerInst mixer)
+        cons'           = cons <> mustPayToTheScript () (lovelaceValueOf 2_000_000)
     utx <- mkTxConstraints lookups' cons'
     logInfo utx
     submitTxConfirmed utx
