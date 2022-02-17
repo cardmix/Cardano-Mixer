@@ -30,6 +30,7 @@ module MixerScript (
 
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator, validatorScript, validatorHash, wrapValidator)
+import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf)
 import           Plutus.V1.Ledger.Credential              (Credential(..))
 import           Plutus.V1.Ledger.Value                   (geq)
 import           PlutusTx
@@ -37,6 +38,7 @@ import           PlutusTx.Prelude                         hiding ((<>), mempty, 
 
 import           Configuration.PABConfig                  (vestingScriptPermanentHash)
 import           Contracts.Vesting                        (VestingParams(..))
+
 
 ----------------------- Data types, instances, and constants -----------------------------
 
@@ -48,8 +50,11 @@ data Mixer = Mixer {
 
 PlutusTx.makeLift ''Mixer
 
+mixerFixedFee :: Value
+mixerFixedFee = lovelaceValueOf 3_000_000
+
 makeMixerFromFees :: Value -> Mixer
-makeMixerFromFees v = Mixer (scale 500 v) (scale 1000 v) v
+makeMixerFromFees v = Mixer (scale 500 v) (scale 1000 v) (v + mixerFixedFee)
 
 type MixerDatum = ()
 type MixerRedeemer = ()

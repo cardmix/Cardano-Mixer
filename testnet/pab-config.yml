@@ -9,7 +9,7 @@ pabWebserverConfig:
   # Optional timeout (in seconds) for calls to endpoints that are not currently
   # available. If this is not set, calls to unavailable endpoints fail
   # immediately.
-  endpointTimeout: 5
+  endpointTimeout: 10
 
 walletServerConfig:
   tag: LocalWalletConfig

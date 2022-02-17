@@ -20,7 +20,7 @@ import           Control.Monad.IO.Class              (MonadIO (..))
 import           Data.Default                        (Default(..))
 import           Ledger                              (ValidatorMode(FullyAppliedValidators))
 import           Ledger.Scripts                      (ValidatorHash(ValidatorHash))
-import           Ledger.Value                        (Value(..), CurrencySymbol (unCurrencySymbol))
+import           Ledger.Value                        (Value(..), CurrencySymbol (..), TokenName (..), singleton)
 import           PlutusTx.AssocMap                   (elems)
 import           PlutusTx.Prelude                    hiding (Eq, Ord, (<$>))
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin, handleBuiltin)
@@ -36,6 +36,7 @@ import           System.Environment                  (getArgs)
 
 
 import           Configuration.PABConfig             (pabWallet, pabWalletPKH)
+import           Contracts.Currency                  (SimpleMPS (..), mintCurrency)
 import           Contracts.Vesting                   (vestingScriptAddress, vestingScriptHash, vestingContract)
 import           Crypto
 import           Crypto.Conversions
@@ -46,12 +47,13 @@ import           MixerUserData
 import           PABContracts                        (PABContracts, handlers)
 import           Tokens.RelayTicketToken             (relayTicketTokenSymbol)
 import           Utils.Common                        (replicate, last)
-import           Utils.Contracts                     (byteStringToList)
+import           Utils.Contracts                     (byteStringToList, buildByteString)
 
 
 main :: IO ()
 main = do
     print $ byteStringToList $ unCurrencySymbol relayTicketTokenSymbol
+    print $ byteStringToList $ buildByteString "ea5a45005df7ecc1f01d82bd0839808fc56bc0e2887691ec2b5ba32a"
     print vestingScriptAddress
     args <- getArgs
     ds   <- generateDepositSecret
@@ -90,15 +92,28 @@ pabSimulator = void $ Simulator.runSimulationWith handlers $ do
 
 --------------------------------------- Emulator  trace -----------------------------------------------
 
+-- pabEmulatorFee :: Value
+-- pabEmulatorFee = lovelaceValueOf 30_000
+
+pabEmulatorMIXFee :: Value
+pabEmulatorMIXFee = singleton (CurrencySymbol $ foldr consByteString emptyByteString
+    [234,90,69,0,93,247,236,193,240,29,130,189,8,57,128,143,197,107,192,226,136,118,145,236,43,91,163,42])
+    (TokenName "tMIX") 10 + lovelaceValueOf 4_000
+
 pabEmulator :: (Fr, [Fr], Proof) -> EmulatorTrace ()
 pabEmulator (leaf, subs, proof) = do
+    c0 <- activateContractWallet pabWallet (void mintCurrency)
+    callEndpoint @"Create native token" c0 (SimpleMPS "tMIX" 100_000_000 pabWalletPKH)
+
+    _ <- waitNSlots 10
+
     c1 <- activateContractWallet pabWallet (void mixerProgram)
-    callEndpoint @"deposit" c1 (DepositParams (lovelaceValueOf 20_000) leaf)
+    callEndpoint @"deposit" c1 (DepositParams pabEmulatorMIXFee leaf)
 
     _ <- waitNSlots 10
 
     c2 <- activateContractWallet pabWallet (void mixerProgram)
-    callEndpoint @"withdraw" c2 (WithdrawParams (lovelaceValueOf 20_000) (0, 1) pabWalletPKH subs proof)
+    callEndpoint @"withdraw" c2 (WithdrawParams pabEmulatorMIXFee (0, 1) pabWalletPKH subs proof)
 
     _ <- waitNSlots 4000
 

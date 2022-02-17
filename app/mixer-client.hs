@@ -33,7 +33,7 @@ pabIP :: Text
 pabIP = "127.0.0.1"
 
 mixVal :: Value
-mixVal = Value $ singleton (CurrencySymbol "") (singleton (TokenName "") 400_000)
+mixVal = Value $ singleton (CurrencySymbol "") (singleton (TokenName "") 200_000)
 
 
 main :: IO ()
