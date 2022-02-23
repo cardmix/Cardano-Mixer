@@ -19,14 +19,12 @@ import           Plutus.V1.Ledger.Ada                         (lovelaceValueOf)
 import           PlutusTx.Prelude                             hiding ((<$>))
 import           Prelude                                      (IO, String, print, read)
 import           System.Environment                           (getArgs)
-import           Wallet.Emulator                              (mockWalletPaymentPubKeyHash)
 
-import           Configuration.PABConfig                      (pabWallet, pabWalletIdString)
+import           Configuration.PABConfig                      (pabWalletIdString)
 import           Contracts.Currency                           (SimpleMPS(SimpleMPS))
 import           MixerContractsDefinition                     (MixerContractsDefinition(..), Wallet(..))
 import           Requests
 import           Tokens.AdminToken                            (adminTokenName)
-
 
 
 pabIP :: Text
@@ -64,4 +62,4 @@ retrieveTimeLockedProcedure = do
 mintAdminKeyProcedure :: Wallet -> IO ()
 mintAdminKeyProcedure w = do
     cidAdmin <- activateRequest pabIP MintAdminKey (Just w)
-    endpointRequest pabIP "Create native token" cidAdmin (SimpleMPS adminTokenName 1 (mockWalletPaymentPubKeyHash pabWallet))
+    endpointRequest pabIP "Create native token" cidAdmin (SimpleMPS adminTokenName 1)

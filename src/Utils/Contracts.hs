@@ -15,16 +15,20 @@
 module Utils.Contracts where
 
 import           Data.Default                      (def)
-import           Data.Map                          (Map, empty, fromList, filterWithKey, keys)
+import           Data.Map                          (Map, empty, fromList, filterWithKey, keys, elems)
+import qualified Data.Map
+import qualified Data.Set
 import           Data.Text                         (Text, pack)
-import           Ledger                            (PaymentPubKeyHash, Value, Address, ChainIndexTxOut, TxOutRef, AssetClass)
-import           Ledger.Tx                         (txOutRefId)
+import           Ledger                            (PaymentPubKeyHash, Value, Address, ChainIndexTxOut(..), TxOutRef, AssetClass, pubKeyHashAddress, interval)
+import           Ledger.Tx                         (Tx(..), TxOut(..), txOutRefId, pubKeyTxIn)
 import           Plutus.ChainIndex                 (ChainIndexTx, Page(..), nextPageQuery)
 import           Plutus.ChainIndex.Api             (TxosResponse(paget), UtxosResponse (page))
-import           Plutus.Contract                   (Contract, mapError, AsContractError, txOutFromRef)
-import           Plutus.Contract.Request           (txoRefsAt, txsFromTxIds, utxoRefsWithCurrency)
+import           Plutus.Contract                   (Contract, AsContractError, mapError, txOutFromRef)
+import           Plutus.Contract.Request           (txoRefsAt, txsFromTxIds, utxoRefsWithCurrency, utxosAt, currentSlot)
 import           Plutus.Contract.StateMachine      (SMContractError(..))
+import           Plutus.V1.Ledger.Value            (geq)
 import           Ledger.Constraints                (mustPayToPubKey)
+import           Ledger.Constraints.OffChain       (UnbalancedTx(..))
 import           Ledger.Constraints.TxConstraints  (TxConstraints)
 import           PlutusTx.Prelude                  hiding ((<>))
 import           Prelude                           (Show(..), Char, String, (<>))
@@ -69,14 +73,44 @@ collateralConstraints pkh vals = mconcat $ map (mustPayToPubKey pkh) vals
 mapError' :: Contract w s SMContractError a -> Contract w s Text a
 mapError' = mapError $ pack . show
 
----------------------------- Lookups ----------------------------------------
+------------------------------------ Lookups ----------------------------------------
 
 selectUTXO :: Map TxOutRef ChainIndexTxOut -> (TxOutRef, Map TxOutRef ChainIndexTxOut)
 selectUTXO utxos = (key, filterWithKey (\k _ -> k == key) utxos)
   where key = head $ keys utxos
 
+selectUTXOWithValue :: Map TxOutRef ChainIndexTxOut -> Value -> (TxOutRef, Value, Map TxOutRef ChainIndexTxOut)
+selectUTXOWithValue utxos val = (key, v, filterWithKey (\k _ -> k == key) utxos')
+  where utxos' = Data.Map.filter (\o -> _ciTxOutValue o `geq` val) utxos
+        key    = head $ keys utxos'
+        v      = _ciTxOutValue $ head $ elems utxos'
 
----------------------------- Additional Chain Index queries ------------------------
+addUTXOUntil :: Map TxOutRef ChainIndexTxOut -> Value -> [Value] -> (Value, Map TxOutRef ChainIndexTxOut)
+addUTXOUntil utxos val fs = (change, utxos')
+  where f k o m = let actualFee = fs !! length (Data.Map.elems m)
+          in if sum (map _ciTxOutValue $ Data.Map.elems m) `geq` (val + actualFee) then m else Data.Map.insert k o m
+        utxos'  = Data.Map.foldrWithKey f empty utxos
+        change  = sum (map _ciTxOutValue $ Data.Map.elems utxos') - (val + fs !! length (Data.Map.elems utxos'))
+
+--------------------------------- Balancing transactions ----------------------------
+
+balanceTxWithExternalWallet :: AsContractError e => UnbalancedTx -> (PaymentPubKeyHash, Value) -> [Value] -> Contract w s e UnbalancedTx
+balanceTxWithExternalWallet utx (pkh, val) vals = do
+    utxos <- utxosAt $ pubKeyHashAddress pkh Nothing
+    cs    <- currentSlot
+    let (change, utxos') = addUTXOUntil utxos val vals -- We assume that val is equal to the difference between outputs and inputs plus the fee
+
+        tx      = unBalancedTxTx utx
+        ins     = txInputs tx `Data.Set.union` Data.Set.fromList (map pubKeyTxIn $ keys utxos')
+        outs    = txOutputs tx ++ [TxOut (pubKeyHashAddress pkh Nothing) change Nothing]
+        tx'     = tx { txInputs = ins, txOutputs = outs}
+        nInputs = length $ Data.Map.elems utxos'
+        actualFee = vals !! nInputs
+        utx'    = utx {unBalancedTxTx = tx' {txFee = actualFee,
+            txValidRange = interval (cs-10) (cs+100), txCollateral = [pubKeyTxIn $ head $ keys utxos']}}
+    return utx'
+
+---------------------------- Additional Chain Index queries -------------------------
 
 -- | Get the transactions at an address.
 txosTxTxOutAt ::
@@ -85,8 +119,7 @@ txosTxTxOutAt ::
     )
     => Address
     -> Contract w s e [(ChainIndexTx, ChainIndexTxOut)]
-txosTxTxOutAt addr =
-  foldTxoRefsAt f [] addr
+txosTxTxOutAt = foldTxoRefsAt f []
   where
     f acc pg = do
       let txoRefs = pageItems pg
@@ -118,8 +151,7 @@ utxosWithCurrency ::
     )
     => AssetClass
     -> Contract w s e (Map TxOutRef ChainIndexTxOut)
-utxosWithCurrency ac =
-  foldUtxoRefsWithCurrency f empty ac
+utxosWithCurrency = foldUtxoRefsWithCurrency f empty
   where
     f acc pg = do
       let utxoRefs = pageItems pg

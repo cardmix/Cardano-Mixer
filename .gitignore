@@ -28,5 +28,6 @@ QAPs/
 testnet/db/
 testnet/chain-index/
 testnet/Deposits/
+testnet/plutus-pab.db
 QAP-compilation/circomlib/
 emulator/

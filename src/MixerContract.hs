@@ -4,13 +4,13 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
+{-# LANGUAGE NumericUnderscores         #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE OverloadedLists            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
-
 
 module MixerContract (
     DepositParams(..),
@@ -19,18 +19,20 @@ module MixerContract (
     mixerProgram
 ) where
 
+import           Control.Monad                            (void)
 import qualified Data.Map
 import           Data.Semigroup                           (Last (..))
 import           Data.Text                                (pack)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
-import           Ledger.Constraints.OffChain              (unspentOutputs, typedValidatorLookups, otherScript)
+import           Ledger.Constraints.OffChain              (unspentOutputs, typedValidatorLookups, otherScript, UnbalancedTx (unBalancedTxTx))
 import           Ledger.Constraints.TxConstraints
 import           Ledger.Value                             (geq)
 import           Plutus.Contract                          (Promise, Endpoint, type (.\/), Contract,
                                                             endpoint, selectList, utxosAt, logInfo, mkTxConstraints,
                                                              submitTxConfirmed, currentTime, ownPaymentPubKeyHash,
-                                                              tell, handleError, throwError)
+                                                              tell, handleError, throwError, submitBalancedTx)
 import           Plutus.Contract.Types                    (ContractError(..))
+import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  (String, (<>), show)
@@ -43,7 +45,7 @@ import           MixerScript
 import           MixerStateContract                       (getMixerState)
 import           Tokens.DepositToken                      (depositTokenMintTx)
 import           Utils.Conversions                        (unbalancedTxToCBOR)
-import           Utils.Contracts                          (selectUTXO)
+import           Utils.Contracts                          (selectUTXO, balanceTxWithExternalWallet)
 
 -- General MixerContract deposit error
 errorDeposit :: ContractError -> Contract (Maybe (Last String)) MixerSchema ContractError ()
@@ -53,16 +55,20 @@ errorDeposit = const $ do
 
 -- "deposit" endpoint implementation
 deposit :: Promise (Maybe (Last String)) MixerSchema ContractError ()
-deposit = endpoint @"deposit" @DepositParams $ \(DepositParams v leaf) -> handleError errorDeposit $ do
+deposit = endpoint @"deposit" @DepositParams $ \(DepositParams pkh v leaf) -> handleError errorDeposit $ do
     let mixer = makeMixerFromFees v
         val   = mValue mixer + mTotalFees mixer
     ct <- currentTime
     let (lookups', cons') = depositTokenMintTx (mixerAddress mixer, val) (leaf, ct)
+        val' = val + lovelaceValueOf 2_000_000
         lookups           = typedValidatorLookups (mixerInst mixer) <> lookups'
         cons              = mustPayToTheScript () val <> cons'
-    utx <- mkTxConstraints lookups cons
-    tell $ Just $ Last $ unbalancedTxToCBOR utx
-    submitTxConfirmed utx
+    utx  <- mkTxConstraints lookups cons
+    utx' <- balanceTxWithExternalWallet utx (pkh, val') (map lovelaceValueOf [800_000, 810_000, 820_000, 830_000, 840_000, 850_000, 860_000, 870_000])
+    let tx_res = Right $ unBalancedTxTx utx'
+    tell $ Just $ Last $ unbalancedTxToCBOR utx'
+    logInfo tx_res
+    void $ submitBalancedTx tx_res
 
 timeToValidateWithdrawal :: POSIXTime
 timeToValidateWithdrawal = POSIXTime 100000

@@ -40,7 +40,7 @@ import           Data.Aeson                      (FromJSON, ToJSON)
 import           Data.Map                        (singleton)
 import           Data.Semigroup                  (Last (..))
 import           GHC.Generics                    (Generic)
-import           Ledger                          (CurrencySymbol, TxId, TxOutRef (..), PaymentPubKeyHash, getCardanoTxId, scriptCurrencySymbol, minAdaTxOut)
+import           Ledger                          (CurrencySymbol, TxId, TxOutRef (..), getCardanoTxId, scriptCurrencySymbol)
 import qualified Ledger.Constraints              as Constraints
 import qualified Ledger.Contexts                 as V
 import           Ledger.Scripts
@@ -49,7 +49,6 @@ import           Ledger.Value                    (TokenName, Value)
 import qualified Ledger.Value                    as Value
 import           Plutus.Contract                 as Contract
 import           Plutus.Contract.Wallet          (getUnspentOutput)
-import           Plutus.V1.Ledger.Ada            (toValue, lovelaceValueOf)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap               as AssocMap
 import           PlutusTx.Prelude                hiding (Monoid (..), Semigroup (..))
@@ -153,7 +152,7 @@ instance AsContractError CurrencyError where
 --   script is used to ensure that no more units of the currency can
 --   be minted afterwards.
 mintContract :: forall w s e. AsCurrencyError e => SimpleMPS -> Contract w s e OneShotCurrency
-mintContract SimpleMPS{tokenName, amount, mintPKH} = mapError (review _CurrencyError) $ do
+mintContract SimpleMPS{tokenName, amount} = mapError (review _CurrencyError) $ do
     txOutRef <- getUnspentOutput
     ciTxOut <- txOutFromRef txOutRef
     let utxos       = maybe Haskell.mempty (Data.Map.singleton txOutRef) ciTxOut
@@ -163,8 +162,6 @@ mintContract SimpleMPS{tokenName, amount, mintPKH} = mapError (review _CurrencyE
                         <> Constraints.unspentOutputs utxos
         mintTx      = Constraints.mustSpendPubKeyOutput txOutRef
                         <> Constraints.mustMintValue (mintedValue theCurrency)
-                        -- we have to add 1 lovelace here because the subsequent getUnspentOutput fails otherwise
-                        <> Constraints.mustPayToPubKey mintPKH (mintedValue theCurrency <> toValue minAdaTxOut <> lovelaceValueOf 1)
     tx <- submitTxConstraintsWith @Scripts.Any lookups mintTx
     _ <- awaitTxConfirmed (getCardanoTxId tx)
     pure theCurrency
@@ -174,8 +171,7 @@ mintContract SimpleMPS{tokenName, amount, mintPKH} = mapError (review _CurrencyE
 data SimpleMPS = SimpleMPS
         {
             tokenName :: TokenName,
-            amount    :: Integer,
-            mintPKH   :: PaymentPubKeyHash
+            amount    :: Integer
         }
         deriving stock (Haskell.Eq, Haskell.Show, Generic)
         deriving anyclass (FromJSON, ToJSON, ToSchema)

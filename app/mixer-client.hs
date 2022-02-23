@@ -40,21 +40,23 @@ main :: IO ()
 main = do
     args <- getArgs
     case args of
-        ["deposit"]       -> depositProcedure
+        ["deposit",  str] -> depositProcedure str
         ["withdraw", str] -> withdrawProcedure str
         _                 -> print ("Unknown command" :: String)
 
 --------------------------------- Use mixer logic --------------------------------
 
-depositProcedure :: IO ()
-depositProcedure = do
+depositProcedure :: String -> IO ()
+depositProcedure str = do
+    (pkh, _, w) <- mixerConnectProcedure str
+
     ds   <- generateDepositSecret
     sas  <- generateShieldedAccountSecret
     logSecrets ds sas
     let leaf = mimcHash (getR1 ds) (getR2 ds)
     print $ mimcHash zero (getR1 ds)
-    cidMixerUse <- activateRequest pabIP MixerUse (Nothing :: Maybe Wallet)
-    endpointRequest pabIP "deposit" cidMixerUse (DepositParams mixVal leaf)
+    cidMixerUse <- activateRequest pabIP MixerUse (Just w)
+    endpointRequest pabIP "deposit" cidMixerUse (DepositParams pkh mixVal leaf)
     s <- awaitStatusUpdate pabIP cidMixerUse :: IO String
     print s
 

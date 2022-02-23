@@ -92,23 +92,23 @@ pabSimulator = void $ Simulator.runSimulationWith handlers $ do
 
 --------------------------------------- Emulator  trace -----------------------------------------------
 
--- pabEmulatorFee :: Value
--- pabEmulatorFee = lovelaceValueOf 30_000
-
 pabEmulatorMIXFee :: Value
 pabEmulatorMIXFee = singleton (CurrencySymbol $ foldr consByteString emptyByteString
     [234,90,69,0,93,247,236,193,240,29,130,189,8,57,128,143,197,107,192,226,136,118,145,236,43,91,163,42])
     (TokenName "tMIX") 10 + lovelaceValueOf 4_000
 
+-- pabEmulatorMIXFee :: Value
+-- pabEmulatorMIXFee = lovelaceValueOf 30_000
+
 pabEmulator :: (Fr, [Fr], Proof) -> EmulatorTrace ()
 pabEmulator (leaf, subs, proof) = do
     c0 <- activateContractWallet pabWallet (void mintCurrency)
-    callEndpoint @"Create native token" c0 (SimpleMPS "tMIX" 100_000_000 pabWalletPKH)
+    callEndpoint @"Create native token" c0 (SimpleMPS "tMIX" 100_000_000)
 
     _ <- waitNSlots 10
 
     c1 <- activateContractWallet pabWallet (void mixerProgram)
-    callEndpoint @"deposit" c1 (DepositParams pabEmulatorMIXFee leaf)
+    callEndpoint @"deposit" c1 (DepositParams pabWalletPKH pabEmulatorMIXFee leaf)
 
     _ <- waitNSlots 10
 
