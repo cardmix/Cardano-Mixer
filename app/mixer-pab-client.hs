@@ -21,7 +21,7 @@ import           Prelude                                      (IO, String, print
 import           System.Environment                           (getArgs)
 
 import           Configuration.PABConfig                      (pabWalletIdString)
-import           Contracts.Currency                           (SimpleMPS(SimpleMPS))
+import           Contracts.CurrencyContract                   (SimpleMPS(SimpleMPS))
 import           MixerContractsDefinition                     (MixerContractsDefinition(..), Wallet(..))
 import           Requests
 import           Tokens.AdminToken                            (adminTokenName)

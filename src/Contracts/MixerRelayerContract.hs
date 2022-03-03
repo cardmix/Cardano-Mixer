@@ -12,7 +12,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 
 
-module MixerRelayerContract (
+module Contracts.MixerRelayerContract (
     MixerRelayerSchema,
     mixerRelayerProgram
 ) where
@@ -26,7 +26,7 @@ import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf)
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  ((<>))
 
-import           MixerScript
+import           Scripts.MixerScript
 import           Tokens.RelayTicketToken                  (relayTicketTokenMintTx)
 
 

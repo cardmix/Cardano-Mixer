@@ -52,22 +52,23 @@ common lang
 library
     import: lang
     exposed-modules:
-      MixerContract
-      MixerContractTypes
-      MixerKeysContract
-      MixerRelayerContract
-      MixerStateContract
-      MixerScript
-      Contracts.AdminDecision
-      Contracts.Currency
-      Contracts.Vesting
-      ConnectToPABContract
+      Configuration.PABConfig
+      Contracts.AdminDecisionContract
+      Contracts.ConnectToPABContract
+      Contracts.CurrencyContract
+      Contracts.DispenserContract
+      Contracts.MixerContract
+      Contracts.MixerKeysContract
+      Contracts.MixerRelayerContract
+      Contracts.MixerStateContract
+      Contracts.VestingContract
+      Crypto.Conversions
       PABContracts
       RelayRequest
-      Utils.Address
-      Utils.Contracts
-      Utils.Conversions
-      Configuration.PABConfig
+      Scripts.CurrencyScript
+      Scripts.MixerScript
+      Scripts.VestingScript
+      Tokens.AdminDecisionToken
       Tokens.AdminToken
       Tokens.DepositToken
       Tokens.RelayToken
@@ -77,8 +78,10 @@ library
       Tokens.OracleToken
       Tokens.RelayTicketToken
       Tokens.WithdrawToken
-      Crypto.Conversions
-            
+      Types.MixerContractTypes
+      Utils.Address
+      Utils.Contracts
+      Utils.Conversions
     build-depends:
       base                          >= 4.9 && < 5,
       aeson                                  -any,

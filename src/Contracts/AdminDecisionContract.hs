@@ -6,58 +6,34 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MonoLocalBinds        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE ViewPatterns          #-}
-{-# LANGUAGE NumericUnderscores    #-}
 
-
-module Contracts.AdminDecision where
+module Contracts.AdminDecisionContract where
 
 import           Control.Lens.Review              (review)
 import           Control.Monad                    (void)
 import           Data.Aeson                       (FromJSON, ToJSON)
 import           GHC.Generics                     (Generic)
-import           Ledger                           (CurrencySymbol, getCardanoTxId, scriptCurrencySymbol, ScriptContext)
+import           Ledger                           (getCardanoTxId)
 import           Ledger.Address                   (Address (..), PaymentPubKeyHash (PaymentPubKeyHash))
 import           Ledger.Constraints               (mintingPolicy, ScriptLookups)
 import           Ledger.Constraints.TxConstraints (TxConstraints, mustPayToPubKey, mustPayToOtherScript, mustMintValue)
-import           Ledger.Scripts                   (MintingPolicy, Datum(..), mkMintingPolicyScript)
-import           Ledger.Tokens                    (token)
-import           Ledger.Typed.Scripts             (Any, wrapMintingPolicy)
-import           Ledger.Value                     (TokenName, Value, AssetClass(..), assetClassValue)
+import           Ledger.Scripts                   (Datum(..))
+import           Ledger.Typed.Scripts             (Any)
+import           Ledger.Value                     (TokenName, assetClassValue)
 import           Plutus.Contract
 import           Plutus.V1.Ledger.Api             (Credential(..), toBuiltinData)
-import           PlutusTx                         (compile)
 import           PlutusTx.Prelude                 hiding (Monoid (..), Semigroup (..), Eq)
 import           Prelude                          (Semigroup (..), Show, Eq)
 
-import           Contracts.Currency               (AsCurrencyError(..), CurrencyError)
-import           Tokens.AdminToken                (adminTokenRequired, adminTokenTx)
+import           Contracts.CurrencyContract       (AsCurrencyError(..), CurrencyError)
+import           Tokens.AdminDecisionToken
+import           Tokens.AdminToken                (adminTokenTx)
 
-
--------------------------------- On-chain ---------------------------------
-
-checkPolicy :: () -> ScriptContext -> Bool
-checkPolicy _ = adminTokenRequired
-
-curPolicy :: MintingPolicy
-curPolicy = mkMintingPolicyScript $$(compile [|| wrapMintingPolicy checkPolicy ||])
-
-adminDecisionSymbol :: CurrencySymbol
-adminDecisionSymbol = scriptCurrencySymbol curPolicy
-
-adminDecisionAssetClass :: TokenName -> AssetClass
-adminDecisionAssetClass tn = AssetClass (adminDecisionSymbol, tn)
-
-adminDecisionToken :: TokenName -> Value
-adminDecisionToken = token . adminDecisionAssetClass
 
 -------------------------------- Off-chain --------------------------------
 

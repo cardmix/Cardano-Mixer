@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 
 
-module MixerContractTypes where
+module Types.MixerContractTypes where
 
 import           Data.Aeson                               (FromJSON, ToJSON)
 import           GHC.Generics                             (Generic)

@@ -12,16 +12,17 @@
 
 module RelayRequest where
 
-import           PlutusTx.Prelude   hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
-import           Prelude            (Show)
+import           PlutusTx.Prelude            hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
+import           Prelude                     (Show)
 
+import           Contracts.MixerKeysContract (MixerKeys)
 import           Crypto
-import           Crypto.Conversions (dataToZp)
-import           MixerContractTypes (WithdrawParams(..))
-import           MixerKeysContract  (MixerKeys)
-import           MixerProofs        (verifyWithdraw)
-import           MixerState         (MixerState, MerkleTree(..), getMerkleTree)
-import           Utils.Common       (last)
+import           Crypto.Conversions          (dataToZp)
+import           Types.MixerContractTypes    (WithdrawParams(..))
+
+import           MixerProofs                 (verifyWithdraw)
+import           MixerState                  (MixerState, MerkleTree(..), getMerkleTree)
+import           Utils.Common                (last)
 
 
 data RelayRequest = RelayRequestAccepted
@@ -33,11 +34,11 @@ data RelayRequest = RelayRequestAccepted
 
 checkRelayRequest :: MixerState -> MixerKeys -> WithdrawParams -> RelayRequest
 checkRelayRequest state keys params
-  | checkWrongRootValue state params         = WrongRootValue
-  | checkWrongWithdrawalAddress state params = WrongWithdrawalAddress
-  | checkWrongProof state params             = WrongProof
-  | checkDuplicateKey keys params            = DuplicateKey
-  | otherwise                                = RelayRequestAccepted
+  | checkWrongRootValue state params   = WrongRootValue
+  | checkWrongWithdrawalAddress params = WrongWithdrawalAddress
+  | checkWrongProof params             = WrongProof
+  | checkDuplicateKey keys params      = DuplicateKey
+  | otherwise                          = RelayRequestAccepted
 
 checkWrongRootValue :: MixerState -> WithdrawParams -> Bool
 checkWrongRootValue state (WithdrawParams _ pos@(k, m) _ subs _)
@@ -48,14 +49,14 @@ checkWrongRootValue state (WithdrawParams _ pos@(k, m) _ subs _)
           coPath             = getMerkleCoPath leafs m
           root               = last coPath
 
-checkWrongWithdrawalAddress :: MixerState -> WithdrawParams -> Bool
-checkWrongWithdrawalAddress _ (WithdrawParams _ _ pkh subs _)
+checkWrongWithdrawalAddress :: WithdrawParams -> Bool
+checkWrongWithdrawalAddress (WithdrawParams _ _ pkh subs _)
   | length subs < 2           = True
   | dataToZp pkh /= subs !! 1 = True
   | otherwise                 = False
 
-checkWrongProof :: MixerState -> WithdrawParams -> Bool
-checkWrongProof _ (WithdrawParams _ _ _ subs proof) = not $ verifyWithdraw pubParams proof
+checkWrongProof :: WithdrawParams -> Bool
+checkWrongProof (WithdrawParams _ _ _ subs proof) = not $ verifyWithdraw pubParams proof
     where pubParams = [one, zero, zero, zero, zero, zero] ++ subs
 
 checkDuplicateKey :: MixerKeys -> WithdrawParams -> Bool

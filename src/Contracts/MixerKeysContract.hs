@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 
 
-module MixerKeysContract where
+module Contracts.MixerKeysContract where
 
 import           Data.Map                                 (member)
 import           Data.Maybe                               (mapMaybe)
@@ -21,12 +21,10 @@ import           Plutus.Contract                          (Promise, ContractErro
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
-import           Contracts.Vesting                        (vestingScriptAddress, VestingParams (..))
 import           Crypto
-import           MixerScript
+import           Scripts.MixerScript
+import           Scripts.VestingScript                    (vestingScriptAddress, VestingParams (..))
 import           Utils.Contracts                          (txosTxTxOutAt)
-
-
 
 type MixerKeys = [Fr]
 

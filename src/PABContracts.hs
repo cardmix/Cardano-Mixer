@@ -15,26 +15,24 @@ import           Data.Aeson                          (FromJSON(..), ToJSON(..))
 import           Data.Default                        (Default (..))
 import qualified Data.OpenApi
 import           Control.Monad.Freer                 (interpret)
-
 import           GHC.Generics                        (Generic)
-
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), BuiltinHandler(..), HasDefinitions(..),
                                                         handleBuiltin, endpointsToSchemas)
 import qualified Plutus.PAB.Simulator                as Simulator
 import           Prettyprinter                       (Pretty(..), viaShow)
 
-import           Contracts.Currency                  (CurrencySchema, mintCurrency)
-import           Contracts.Vesting                   (vestingContract)
-import           MixerContract                       (mixerProgram)
-import           MixerRelayerContract                (MixerRelayerSchema, mixerRelayerProgram)
-import           MixerStateContract                  (MixerStateSchema, getMixerStatePromise)
+import           Contracts.ConnectToPABContract      (ConnectToPABSchema, connectToPABPromise)
+import           Contracts.CurrencyContract          (CurrencySchema, mintCurrency)
+import           Contracts.MixerContract             (mixerProgram)
+import           Contracts.MixerRelayerContract      (MixerRelayerSchema, mixerRelayerProgram)
+import           Contracts.MixerStateContract        (MixerStateSchema, getMixerStatePromise)
+import           Contracts.VestingContract           (vestingContract)
 import           MixerContractsDefinition            (MixerContractsDefinition(..))
-import           ConnectToPABContract                (ConnectToPABSchema, connectToPABPromise)
 
 
 --------------------------------------- PAB Contracts -------------------------------------------
 
--- We use a wrapper to define backend instances here
+-- We use a wrapper to define contracts here
 newtype PABContracts = PABContracts MixerContractsDefinition
     deriving (Eq, Ord, Show, Generic, FromJSON, ToJSON)
     deriving anyclass (Data.OpenApi.ToSchema)

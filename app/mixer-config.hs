@@ -16,8 +16,7 @@ import           PlutusTx.Prelude                    hiding (Eq, Ord, (<$>))
 import           Prelude                             (IO, String, print, show, writeFile, FilePath )
 import           System.Environment                  (getArgs)
 
-
-import           Contracts.Vesting                   (vestingScriptHash)
+import           Scripts.VestingScript               (vestingScriptHash)
 import           Utils.Contracts                     (byteStringToList)
 
 configPath :: FilePath

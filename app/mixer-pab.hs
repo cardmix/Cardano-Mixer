@@ -36,15 +36,16 @@ import           System.Environment                  (getArgs)
 
 
 import           Configuration.PABConfig             (pabWallet, pabWalletPKH)
-import           Contracts.Currency                  (SimpleMPS (..), mintCurrency)
-import           Contracts.Vesting                   (vestingScriptAddress, vestingScriptHash, vestingContract)
+import           Contracts.CurrencyContract          (SimpleMPS (..), mintCurrency)
+import           Contracts.MixerContract
+import           Contracts.VestingContract           (vestingContract)
 import           Crypto
 import           Crypto.Conversions
-import           MixerContract
 import           MixerProofs                         (generateSimulatedWithdrawProof, verifyWithdraw)
 import           MixerState                          (MerkleTree(..), treeSize)
 import           MixerUserData
 import           PABContracts                        (PABContracts, handlers)
+import           Scripts.VestingScript               (vestingScriptHash, vestingScriptAddress)
 import           Tokens.RelayTicketToken             (relayTicketTokenSymbol)
 import           Utils.Common                        (replicate, last)
 import           Utils.Contracts                     (byteStringToList, buildByteString)

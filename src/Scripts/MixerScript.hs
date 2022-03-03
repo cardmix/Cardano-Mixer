@@ -18,7 +18,7 @@
 {-# LANGUAGE TypeOperators              #-}
 
 
-module MixerScript (
+module Scripts.MixerScript (
     Mixer(..),
     mixerInst,
     mixerValidator,
@@ -37,7 +37,7 @@ import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
 import           Configuration.PABConfig                  (vestingScriptPermanentHash)
-import           Contracts.Vesting                        (VestingParams(..))
+import           Scripts.VestingScript                    (VestingParams(..))
 
 
 ----------------------- Data types, instances, and constants -----------------------------

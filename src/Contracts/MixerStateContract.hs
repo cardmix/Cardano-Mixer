@@ -11,7 +11,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 
 
-module MixerStateContract where
+module Contracts.MixerStateContract where
 
 import           Data.Semigroup                           (Last (..))
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
@@ -21,8 +21,8 @@ import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<>), (<$>), unless, find, toList, fromInteger, check)
 
 import           Crypto
-import           MixerScript
 import           MixerState
+import           Scripts.MixerScript
 import           Tokens.DepositToken                      (depositTokenTargetAddress, depositToken)
 import           Utils.Contracts                          (txosTxTxOutAt)
 

@@ -23,7 +23,7 @@ import           Ledger                            (PaymentPubKeyHash, Value, Ad
 import           Ledger.Tx                         (Tx(..), TxOut(..), txOutRefId, pubKeyTxIn)
 import           Plutus.ChainIndex                 (ChainIndexTx, Page(..), nextPageQuery)
 import           Plutus.ChainIndex.Api             (TxosResponse(paget), UtxosResponse (page))
-import           Plutus.Contract                   (Contract, AsContractError, mapError, txOutFromRef)
+import           Plutus.Contract                   (Contract, AsContractError, mapError, txOutFromRef, ContractError (..), throwError)
 import           Plutus.Contract.Request           (txoRefsAt, txsFromTxIds, utxoRefsWithCurrency, utxosAt, currentSlot)
 import           Plutus.Contract.StateMachine      (SMContractError(..))
 import           Plutus.V1.Ledger.Value            (geq)
@@ -85,22 +85,27 @@ selectUTXOWithValue utxos val = (key, v, filterWithKey (\k _ -> k == key) utxos'
         key    = head $ keys utxos'
         v      = _ciTxOutValue $ head $ elems utxos'
 
-addUTXOUntil :: Map TxOutRef ChainIndexTxOut -> Value -> [Value] -> (Value, Map TxOutRef ChainIndexTxOut)
-addUTXOUntil utxos val fs = (change, utxos')
-  where f k o m = let actualFee = fs !! length (Data.Map.elems m)
-          in if sum (map _ciTxOutValue $ Data.Map.elems m) `geq` (val + actualFee) then m else Data.Map.insert k o m
-        utxos'  = Data.Map.foldrWithKey f empty utxos
-        change  = sum (map _ciTxOutValue $ Data.Map.elems utxos') - (val + fs !! length (Data.Map.elems utxos'))
+addUTXOUntil :: Map TxOutRef ChainIndexTxOut -> Value -> [Value] -> Maybe (Value, Map TxOutRef ChainIndexTxOut)
+addUTXOUntil utxos val fs = do
+    utxos' <- Data.Map.foldrWithKey f (Just empty) utxos
+    let change  = sum (map _ciTxOutValue $ Data.Map.elems utxos') - (val + fs !! length (Data.Map.elems utxos'))
+    Just (change, utxos')
+  where f k o (Just m) = do
+          let n = length (Data.Map.elems m)
+          actualFee <- if length fs < n - 1 then Nothing else Just $ fs !! n
+          if sum (map _ciTxOutValue $ Data.Map.elems m) `geq` (val + actualFee) then Just m else Just $ Data.Map.insert k o m
+        f _ _ Nothing = Nothing
 
 --------------------------------- Balancing transactions ----------------------------
 
-balanceTxWithExternalWallet :: AsContractError e => UnbalancedTx -> (PaymentPubKeyHash, Value) -> [Value] -> Contract w s e UnbalancedTx
+balanceTxWithExternalWallet :: UnbalancedTx -> (PaymentPubKeyHash, Value) -> [Value] -> Contract w s ContractError UnbalancedTx
 balanceTxWithExternalWallet utx (pkh, val) vals = do
     utxos <- utxosAt $ pubKeyHashAddress pkh Nothing
     cs    <- currentSlot
-    let (change, utxos') = addUTXOUntil utxos val vals -- We assume that val is equal to the difference between outputs and inputs plus the fee
-
-        tx      = unBalancedTxTx utx
+    (change, utxos') <- case addUTXOUntil utxos val vals of
+                          Nothing -> throwError $ OtherContractError "Cannot balance transaction!"
+                          Just r  -> pure r -- We assume that val is equal to the difference between outputs and inputs plus the fee
+    let tx      = unBalancedTxTx utx
         ins     = txInputs tx `Data.Set.union` Data.Set.fromList (map pubKeyTxIn $ keys utxos')
         outs    = txOutputs tx ++ [TxOut (pubKeyHashAddress pkh Nothing) change Nothing]
         tx'     = tx { txInputs = ins, txOutputs = outs}

@@ -31,8 +31,8 @@ import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), 
 import           Prelude                          ((<>))
 
 import           Configuration.PABConfig          (vestingScriptPermanentHash)
-import           Contracts.Vesting                ()
 import           Crypto
+import           Scripts.VestingScript            ()
 import           Tokens.Common
 
 ------------------------------------ Deposit Token -----------------------------------------------

@@ -24,15 +24,15 @@ import           Ledger.Constraints.TxConstraints (TxConstraints, mustPayToOther
 import           Ledger.Typed.Scripts             (wrapMintingPolicy)
 import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..))
-import           Plutus.V1.Ledger.Ada             (lovelaceValueOf)
+import           Plutus.V1.Ledger.Ada             (toValue)
 import           Plutus.V1.Ledger.Value           (geq)
 import           PlutusTx                         (compile, toBuiltinData, applyCode, liftCode)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
 import           Prelude                          ((<>))
 
-import           Contracts.Vesting                ()
-import           Crypto
-import           Tokens.Common
+import           Crypto                           (Zp(..), Fr)
+import           Scripts.VestingScript            ()
+import           Tokens.Common                    (tokensMintTx)
 
 ------------------------------------ Deposit Token -----------------------------------------------
 
@@ -102,5 +102,5 @@ depositTokenMintTx :: (Address, Value) -> (Fr, POSIXTime) -> (ScriptLookups a, T
 depositTokenMintTx par red@(Zp a, ct@(POSIXTime b)) = 
     let (lookups, cons) = tokensMintTx (curPolicy par) (Redeemer $ toBuiltinData red) (depositTokenName (a, b)) 1
     in (lookups, cons <> 
-      mustPayToOtherScript depositTokenTargetValidatorHash (Datum $ toBuiltinData (par, red)) (depositToken par red + lovelaceValueOf 2_000_000) <>
+      mustPayToOtherScript depositTokenTargetValidatorHash (Datum $ toBuiltinData (par, red)) (depositToken par red + toValue minAdaTxOut) <>
       mustValidateIn (interval (ct-100_000) (ct+200_000)))

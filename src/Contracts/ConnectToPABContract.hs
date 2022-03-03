@@ -8,21 +8,19 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 
-module ConnectToPABContract where
+module Contracts.ConnectToPABContract where
 
 import           Data.Semigroup            (Last (..))
 import           Ledger                    (PaymentPubKeyHash)
 import           Plutus.Contract           (Promise, ContractError, Endpoint, endpoint, tell)
 import           PlutusTx.Prelude          hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                   (String)
+import           Wallet.Emulator.Types     (Wallet)
 
 import           Configuration.PABConfig   (pabWallet)
 import           Crypto                    (Fr)
 import           Crypto.Conversions        (dataToZp)
 import           Utils.Address             (strToPKH)
-
-import Wallet.Emulator.Types (Wallet)
-
 
 ---------------------------------------------------------------------
 --------------------------- Off-Chain -------------------------------
