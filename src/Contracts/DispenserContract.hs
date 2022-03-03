@@ -51,13 +51,13 @@ import Configuration.PABConfig (pabWalletPKH)
 dispenserAddress :: Address
 dispenserAddress = pubKeyHashAddress pabWalletPKH Nothing
 
--- "withdraw" endpoint implementation
-sendTokens :: Promise (Maybe (Last String)) MixerSchema ContractError ()
-sendTokens = endpoint @"Send tokens" @() $ \params -> do
-    utxos  <- utxosAt dispenserAddress
-    -- let lookups = mempty
-    --     cons    = mustPayToPubKey pkh Value
-    return ()
+-- -- "withdraw" endpoint implementation
+-- sendTokens :: Promise (Maybe (Last String)) MixerSchema ContractError ()
+-- sendTokens = endpoint @"Send tokens" @() $ \params -> do
+--     utxos  <- utxosAt dispenserAddress
+--     -- let lookups = mempty
+--     --     cons    = mustPayToPubKey pkh Value
+--     return ()
 
     -- ct     <- currentTime
     -- let (utxo1, utxos'') = selectUTXO $ Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer)) utxos
