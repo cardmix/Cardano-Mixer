@@ -21,18 +21,21 @@ module Contracts.MixerContract (
 ) where
 
 import           Control.Monad                            (void)
+import           Data.Either                              (fromRight)
 import qualified Data.Map
 import           Data.Semigroup                           (Last (..))
+import qualified Data.Set
 import           Data.Text                                (pack, unpack)
 import           Ledger                                   hiding (txFee, singleton, validatorHash, unspentOutputs)
-import           Ledger.CardanoWallet                     (paymentPrivateKey, knownMockWallets)
 import           Ledger.Constraints.OffChain              (unspentOutputs, typedValidatorLookups, otherScript, UnbalancedTx (unBalancedTxTx))
 import           Ledger.Constraints.TxConstraints
 import           Ledger.Value                             (geq)
+import           Plutus.ChainIndex.Tx                     (ChainIndexTx (..), ChainIndexTxOutputs(..), fromOnChainTx)
 import           Plutus.Contract                          (Promise, Endpoint, type (.\/), Contract,
                                                             endpoint, selectList, utxosAt, logInfo, mkTxConstraints,
                                                             submitTxConfirmed, currentTime, ownPaymentPubKeyHash,
                                                             tell, handleError, throwError, submitBalancedTx, balanceTx)
+import           Plutus.Contract.CardanoAPI               (fromCardanoTx)
 import           Plutus.Contract.Types                    (ContractError(..))
 import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf, toValue)
 import           PlutusTx
@@ -40,7 +43,7 @@ import           PlutusTx.Prelude                         hiding (Semigroup, (<$
 import           Prelude                                  (String, (<>), show)
 
 
-import           Configuration.PABConfig                  (inSimulation)
+import           Configuration.PABConfig                  (inSimulation, pabWalletPKH)
 import           Contracts.MixerKeysContract              (getMixerKeys)
 import           Contracts.MixerStateContract             (getMixerState)
 import           RelayRequest
@@ -48,7 +51,7 @@ import           Scripts.MixerScript
 import           Scripts.VestingScript                    (VestingParams(..), vestingScriptHash)
 import           Tokens.DepositToken                      (depositTokenMintTx)
 import           Types.MixerContractTypes
-import           Utils.Contracts                          (selectUTXO, balanceTxWithExternalWallet)
+import           Utils.Contracts                          (selectUTXO, balanceTxWithExternalWallet, txOutsFromRefs)
 
 
 -- General MixerContract error
@@ -73,22 +76,33 @@ deposit = endpoint @"deposit" @DepositParams $ \(DepositParams pkh v leaf) -> ha
         lookups           = typedValidatorLookups (mixerInst mixer) <> lookups'
         -- must send value to the mixer script and mint deposit token
         cons              = mustPayToTheScript () val <> cons'
-    logInfo ct
-    logInfo cons
     -- unbalanced transaction
     utx  <- mkTxConstraints lookups cons
     -- adding user wallet inputs and outputs
     utx' <- balanceTxWithExternalWallet utx (pkh, val') (map (lovelaceValueOf . (\i -> 1_000_000 + 10_000 * i)) [0..100])
-    let tx    = unBalancedTxTx utx
-        utx'' = utx' { unBalancedTxTx = if inSimulation then addSignature' (unPaymentPrivateKey $ paymentPrivateKey $ knownMockWallets !! 2) tx else tx }
     -- final balancing with PAB wallet
-    ctx <- balanceTx utx''
+    ctx <- if inSimulation
+            then pure $ Right $ unBalancedTxTx utx'
+            else balanceTx utx'
     tell $ Just $ Last ctx
 
 -- "deposit" endpoint implementation
 depositSubmit :: Promise (Maybe (Last CardanoTx)) MixerSchema ContractError ()
 depositSubmit = endpoint @"depositSubmit" @CardanoTx $ \ctx -> handleError errorMixerContract $ do
-    void $ submitBalancedTx ctx
+    -- computing PAB wallet reward
+    let btx    = case ctx of
+                Left (SomeTx eraInMode tx) -> fromRight (error ()) $ fromCardanoTx tx eraInMode
+                Right tx                   -> fromOnChainTx $ Valid tx
+        inRefs = map txInRef $ Data.Set.toList $ _citxInputs btx
+        outs   = case _citxOutputs btx of
+                    ValidTx a -> a
+                    InvalidTx -> error ()
+    ins <- txOutsFromRefs inRefs
+    let inVal  = sum $ map txOutValue $ filter (\o -> txOutAddress o == pubKeyHashAddress pabWalletPKH Nothing) ins
+        outVal = sum $ map txOutValue $ filter (\o -> txOutAddress o == pubKeyHashAddress pabWalletPKH Nothing) outs
+    if outVal `geq` inVal
+        then void $ submitBalancedTx ctx
+    else throwError $ OtherContractError $ pack $ show $ outVal-inVal --"PAB fee for the deposit transaction is negative!"
 
 timeToValidateWithdrawal :: POSIXTime
 timeToValidateWithdrawal = POSIXTime 100_000

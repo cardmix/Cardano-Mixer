@@ -17,13 +17,15 @@ module Utils.Contracts where
 import           Data.Default                      (def)
 import           Data.Map                          (Map, empty, fromList, filterWithKey, keys, elems)
 import qualified Data.Map
+import           Data.Maybe                        (catMaybes)
 import qualified Data.Set
 import           Data.Text                         (Text, pack)
-import           Ledger                            (PaymentPubKeyHash, Value, Address, ChainIndexTxOut(..), TxOutRef, AssetClass, pubKeyHashAddress)
-import           Ledger.Tx                         (Tx(..), TxOut(..), txOutRefId, pubKeyTxIn, toTxOut)
+import           Ledger                            (PaymentPubKeyHash, Value, Address, ChainIndexTxOut(..), TxOutRef, AssetClass, pubKeyHashAddress, unPaymentPrivateKey, interval)
+import           Ledger.CardanoWallet              (paymentPrivateKey, knownMockWallets)
+import           Ledger.Tx                         (Tx(..), TxOut(..), txOutRefId, pubKeyTxIn, toTxOut, addSignature')
 import           Plutus.ChainIndex                 (ChainIndexTx, Page(..), nextPageQuery)
 import           Plutus.ChainIndex.Api             (TxosResponse(paget), UtxosResponse (page))
-import           Plutus.Contract                   (AsContractError, Contract, ContractError (..), mapError, txOutFromRef, throwError)
+import           Plutus.Contract                   (AsContractError, Contract, ContractError (..), mapError, txOutFromRef, throwError, currentSlot)
 import           Plutus.Contract.Request           (txoRefsAt, txsFromTxIds, utxoRefsWithCurrency, utxosAt)
 import           Plutus.Contract.StateMachine      (SMContractError(..))
 import           Plutus.V1.Ledger.Value            (geq)
@@ -33,6 +35,8 @@ import           Ledger.Constraints.TxConstraints  (TxConstraints)
 import           PlutusTx.Prelude                  hiding ((<>))
 import           Prelude                           (Show(..), Char, String, (<>))
 
+
+import           Configuration.PABConfig (inSimulation)
 import           Utils.Common                      (drop)
 
 -------------------------------- ByteStrings --------------------------------
@@ -104,11 +108,18 @@ balanceTxWithExternalWallet utx (pkh, val) vals = do
     (change, utxos') <- case addUTXOUntil utxos val vals of
                           Nothing -> throwError $ OtherContractError "Cannot balance transaction!"
                           Just r  -> pure r -- We assume that val is equal to the difference between outputs and inputs plus the fee
+    cs <- if inSimulation then currentSlot else pure 0
     let tx      = unBalancedTxTx utx
         ins     = txInputs tx `Data.Set.union` Data.Set.fromList (map pubKeyTxIn $ keys utxos')
         outs    = txOutputs tx ++ [TxOut (pubKeyHashAddress pkh Nothing) change Nothing]
         tx'     = tx { txInputs = ins, txOutputs = outs }
-        utx'    = utx { unBalancedTxTx = tx', unBalancedTxUtxoIndex = Data.Map.map toTxOut utxos' }
+        nInputs = length $ Data.Map.elems utxos'
+        actualFee = vals !! nInputs
+        utx'    = if inSimulation
+            then utx{ unBalancedTxTx = addSignature' (unPaymentPrivateKey $ paymentPrivateKey $ knownMockWallets !! 1) $
+              addSignature' (unPaymentPrivateKey $ paymentPrivateKey $ knownMockWallets !! 2) $
+              tx' {txFee = actualFee, txValidRange = interval (cs-10) (cs+100), txCollateral = [pubKeyTxIn $ head $ keys utxos']} }
+            else utx { unBalancedTxTx = tx', unBalancedTxUtxoIndex = Data.Map.map toTxOut utxos' }
     return utx'
 
 ---------------------------- Additional Chain Index queries -------------------------
@@ -128,6 +139,9 @@ txosTxTxOutAt = foldTxoRefsAt f []
       let txIds = txOutRefId <$> txoRefs
       txs <- txsFromTxIds txIds
       pure $ acc <> mapMaybe (\(tx, txo) -> fmap (tx,) txo) (zip txs txOuts)
+
+txOutsFromRefs :: forall w s e. (AsContractError e) => [TxOutRef] -> Contract w s e [TxOut]
+txOutsFromRefs refs = map toTxOut <$> (catMaybes <$> traverse txOutFromRef refs)
 
 foldTxoRefsAt ::
     forall w s e a.

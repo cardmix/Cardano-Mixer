@@ -25,6 +25,7 @@ result*
 .envrc
 .vim
 QAPs/
+testnet/bin/
 testnet/db/
 testnet/chain-index/
 testnet/Deposits/
