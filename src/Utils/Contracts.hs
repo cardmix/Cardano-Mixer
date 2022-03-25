@@ -19,12 +19,12 @@ import           Data.Map                          (Map, empty, fromList, filter
 import qualified Data.Map
 import qualified Data.Set
 import           Data.Text                         (Text, pack)
-import           Ledger                            (PaymentPubKeyHash, Value, Address, ChainIndexTxOut(..), TxOutRef, AssetClass, pubKeyHashAddress, interval)
-import           Ledger.Tx                         (Tx(..), TxOut(..), txOutRefId, pubKeyTxIn)
+import           Ledger                            (PaymentPubKeyHash, Value, Address, ChainIndexTxOut(..), TxOutRef, AssetClass, pubKeyHashAddress)
+import           Ledger.Tx                         (Tx(..), TxOut(..), txOutRefId, pubKeyTxIn, toTxOut)
 import           Plutus.ChainIndex                 (ChainIndexTx, Page(..), nextPageQuery)
 import           Plutus.ChainIndex.Api             (TxosResponse(paget), UtxosResponse (page))
-import           Plutus.Contract                   (Contract, AsContractError, mapError, txOutFromRef, ContractError (..), throwError)
-import           Plutus.Contract.Request           (txoRefsAt, txsFromTxIds, utxoRefsWithCurrency, utxosAt, currentSlot)
+import           Plutus.Contract                   (AsContractError, Contract, ContractError (..), mapError, txOutFromRef, throwError)
+import           Plutus.Contract.Request           (txoRefsAt, txsFromTxIds, utxoRefsWithCurrency, utxosAt)
 import           Plutus.Contract.StateMachine      (SMContractError(..))
 import           Plutus.V1.Ledger.Value            (geq)
 import           Ledger.Constraints                (mustPayToPubKey)
@@ -101,18 +101,14 @@ addUTXOUntil utxos val fs = do
 balanceTxWithExternalWallet :: UnbalancedTx -> (PaymentPubKeyHash, Value) -> [Value] -> Contract w s ContractError UnbalancedTx
 balanceTxWithExternalWallet utx (pkh, val) vals = do
     utxos <- utxosAt $ pubKeyHashAddress pkh Nothing
-    cs    <- currentSlot
     (change, utxos') <- case addUTXOUntil utxos val vals of
                           Nothing -> throwError $ OtherContractError "Cannot balance transaction!"
                           Just r  -> pure r -- We assume that val is equal to the difference between outputs and inputs plus the fee
     let tx      = unBalancedTxTx utx
         ins     = txInputs tx `Data.Set.union` Data.Set.fromList (map pubKeyTxIn $ keys utxos')
         outs    = txOutputs tx ++ [TxOut (pubKeyHashAddress pkh Nothing) change Nothing]
-        tx'     = tx { txInputs = ins, txOutputs = outs}
-        nInputs = length $ Data.Map.elems utxos'
-        actualFee = vals !! nInputs
-        utx'    = utx {unBalancedTxTx = tx' {txFee = actualFee,
-            txValidRange = interval (cs-10) (cs+100), txCollateral = [pubKeyTxIn $ head $ keys utxos']}}
+        tx'     = tx { txInputs = ins, txOutputs = outs }
+        utx'    = utx { unBalancedTxTx = tx', unBalancedTxUtxoIndex = Data.Map.map toTxOut utxos' }
     return utx'
 
 ---------------------------- Additional Chain Index queries -------------------------

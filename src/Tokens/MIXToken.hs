@@ -1,21 +1,12 @@
 {-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
-{-# LANGUAGE NumericUnderscores         #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE TypeSynonymInstances       #-}
-
 
 
 module Tokens.MIXToken (
@@ -43,7 +34,7 @@ import           Configuration.PABConfig          (mixTokenPolicyId)
 
 {-# INLINABLE mixTokenName #-}
 mixTokenName :: TokenName
-mixTokenName = TokenName "MIX"
+mixTokenName = TokenName "tMIX"
 
 {-# INLINABLE mixTokenSymbol #-}
 mixTokenSymbol :: CurrencySymbol

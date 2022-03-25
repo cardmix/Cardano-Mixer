@@ -15,7 +15,6 @@ import           Configuration.QAPConfig                      (fileWithdrawR1CS)
 import           Crypto
 
 
-
 main :: IO ()
 main = do
     (r1cs, wires) <- loadR1CSFile fileWithdrawR1CS

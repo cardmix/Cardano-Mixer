@@ -65,6 +65,7 @@ library
       Crypto.Conversions
       PABContracts
       RelayRequest
+      Requests
       Scripts.CurrencyScript
       Scripts.MixerScript
       Scripts.VestingScript

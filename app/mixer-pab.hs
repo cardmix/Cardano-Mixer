@@ -18,11 +18,10 @@ import           Control.Monad                       (void)
 import           Control.Monad.Freer.Extras          (logInfo)
 import           Control.Monad.IO.Class              (MonadIO (..))
 import           Data.Default                        (Default(..))
+import           Data.Semigroup                      (Last(..))
 import           Ledger                              (ValidatorMode(FullyAppliedValidators))
-import           Ledger.Scripts                      (ValidatorHash(ValidatorHash))
-import           Ledger.Value                        (Value(..), CurrencySymbol (..), TokenName (..), singleton)
-import           PlutusTx.AssocMap                   (elems)
-import           PlutusTx.Prelude                    hiding (Eq, Ord, (<$>))
+import           Ledger.Value                        (Value(..))
+import           Plutus.Contract.Test (knownWallet, mockWalletPaymentPubKeyHash)
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin, handleBuiltin)
 import           Plutus.PAB.Run                      (runWith)
 import qualified Plutus.PAB.Simulator                as Simulator
@@ -30,13 +29,15 @@ import qualified Plutus.PAB.Webserver.Server         as PAB.Server
 import           Plutus.V1.Ledger.Ada                (lovelaceValueOf)
 import           Plutus.Trace                        (ScriptsConfig (..), Command (Scripts, Transactions), writeScriptsTo)
 import           Plutus.Trace.Emulator
+import           PlutusTx.AssocMap                   (elems)
+import           PlutusTx.Prelude                    hiding (Eq, Ord, (<$>))
 import           Prelude                             (IO, Double, String, (/), (^), fromIntegral, print, show, getLine, (<$>), )
 import           System.CPUTime                      (getCPUTime)
 import           System.Environment                  (getArgs)
 
-
 import           Configuration.PABConfig             (pabWallet, pabWalletPKH)
 import           Contracts.CurrencyContract          (SimpleMPS (..), mintCurrency)
+import           Contracts.DispenserContract         (dispenserProgram)
 import           Contracts.MixerContract
 import           Contracts.VestingContract           (vestingContract)
 import           Crypto
@@ -44,28 +45,27 @@ import           Crypto.Conversions
 import           MixerProofs                         (generateSimulatedWithdrawProof, verifyWithdraw)
 import           MixerState                          (MerkleTree(..), treeSize)
 import           MixerUserData
-import           PABContracts                        (PABContracts, handlers)
-import           Scripts.VestingScript               (vestingScriptHash, vestingScriptAddress)
-import           Tokens.RelayTicketToken             (relayTicketTokenSymbol)
+import           PABContracts                        (PABContracts (BackendContracts), MixerBackendContracts (..), handlers)
+import           Tokens.MIXToken (mixToken)
 import           Utils.Common                        (replicate, last)
-import           Utils.Contracts                     (byteStringToList, buildByteString)
 
 
 main :: IO ()
 main = do
-    print $ byteStringToList $ unCurrencySymbol relayTicketTokenSymbol
-    print $ byteStringToList $ buildByteString "ea5a45005df7ecc1f01d82bd0839808fc56bc0e2887691ec2b5ba32a"
-    print vestingScriptAddress
     args <- getArgs
     ds   <- generateDepositSecret
     sas  <- generateShieldedAccountSecret
-    vals <- pabTestValues ds sas
+
     case args of
-        ["emulator", "transactions"] -> void $ writeScriptsTo (ScriptsConfig "emulator" (Transactions (unNetworkIdWrapper testnetNetworkId)
+        "emulator" : t -> do
+            vals <- pabTestValues ds sas
+            case t of
+                ["transactions"] -> void $ writeScriptsTo (ScriptsConfig "emulator" (Transactions (unNetworkIdWrapper testnetNetworkId)
                                              "testnet/protocol-parameters.json") ) "transaction" (pabEmulator vals) def
-        ["emulator", "scripts"]      -> void $ writeScriptsTo (ScriptsConfig "emulator" (Scripts FullyAppliedValidators))
+                ["scripts"]      -> void $ writeScriptsTo (ScriptsConfig "emulator" (Scripts FullyAppliedValidators))
                                              "script" (pabEmulator vals) def
-        ["emulator", "trace"]        -> runEmulatorTraceIO (pabEmulator vals)
+                ["trace"]        -> runEmulatorTraceIO (pabEmulator vals)
+                _                -> print ("Unknown command" :: String)
         ["simulator"] -> pabSimulator
         _             -> pabTestNet
 
@@ -79,6 +79,10 @@ pabSimulator :: IO ()
 pabSimulator = void $ Simulator.runSimulationWith handlers $ do
     Simulator.logString @(Builtin PABContracts) "Starting Oracle PAB webserver. Press enter to exit."
     shutdown <- PAB.Server.startServerDebug
+
+    c0 <- Simulator.activateContract pabWallet (BackendContracts MintCurrency)
+    _  <- Simulator.callEndpointOnInstance c0 "Create native token" (SimpleMPS "tMIX" 100_000_000_000)
+    _  <- Simulator.payToWallet (knownWallet 3) pabWallet (lovelaceValueOf 2_000_000)
 
     void $ liftIO getLine
 
@@ -94,9 +98,7 @@ pabSimulator = void $ Simulator.runSimulationWith handlers $ do
 --------------------------------------- Emulator  trace -----------------------------------------------
 
 pabEmulatorMIXFee :: Value
-pabEmulatorMIXFee = singleton (CurrencySymbol $ foldr consByteString emptyByteString
-    [234,90,69,0,93,247,236,193,240,29,130,189,8,57,128,143,197,107,192,226,136,118,145,236,43,91,163,42])
-    (TokenName "tMIX") 10 + lovelaceValueOf 4_000
+pabEmulatorMIXFee = scale 10 mixToken + lovelaceValueOf 4_000
 
 -- pabEmulatorMIXFee :: Value
 -- pabEmulatorMIXFee = lovelaceValueOf 30_000
@@ -105,22 +107,35 @@ pabEmulator :: (Fr, [Fr], Proof) -> EmulatorTrace ()
 pabEmulator (leaf, subs, proof) = do
     c0 <- activateContractWallet pabWallet (void mintCurrency)
     callEndpoint @"Create native token" c0 (SimpleMPS "tMIX" 100_000_000)
+    _ <- waitNSlots 10
 
+    _ <- payToWallet pabWallet (knownWallet 2) (scale 50_000_000 mixToken)
     _ <- waitNSlots 10
 
     c1 <- activateContractWallet pabWallet (void mixerProgram)
-    callEndpoint @"deposit" c1 (DepositParams pabWalletPKH pabEmulatorMIXFee leaf)
-
+    callEndpoint @"deposit" c1 (DepositParams (mockWalletPaymentPubKeyHash $ knownWallet 2) pabEmulatorMIXFee leaf)
     _ <- waitNSlots 10
 
+    obs <- observableState c1
+    let ctx = case obs of
+                Just (Last a) -> a
+                Nothing -> error ()
     c2 <- activateContractWallet pabWallet (void mixerProgram)
-    callEndpoint @"withdraw" c2 (WithdrawParams pabEmulatorMIXFee (0, 1) pabWalletPKH subs proof)
+    callEndpoint @"depositSubmit" c2 ctx
+    _ <- waitNSlots 10
 
+    c3 <- activateContractWallet pabWallet (void mixerProgram)
+    callEndpoint @"withdraw" c3 (WithdrawParams pabEmulatorMIXFee (0, 1) pabWalletPKH subs proof)
     _ <- waitNSlots 4000
 
-    c3 <- activateContractWallet pabWallet (void vestingContract)
-    callEndpoint @"retrieve funds" c3 ()
+    c4 <- activateContractWallet pabWallet (void vestingContract)
+    callEndpoint @"retrieve funds" c4 ()
+    _ <- waitNSlots 10
 
+    _ <- payToWallet (knownWallet 2) pabWallet (lovelaceValueOf 2_000_000)
+    _ <- waitNSlots 10
+
+    _ <- activateContractWallet pabWallet (void $ dispenserProgram 1000)
     _ <- waitNSlots 10
 
     logInfo @String "Finished."
@@ -140,11 +155,6 @@ pabTestValues (DepositSecret r1 r2) (ShieldedAccountSecret v1 v2 v3) = do
               cp0 = replicate d zero
               cp  = addMerkleLeaf leaf (c0+1) cp0
               root = last cp
-
-          print root
-
-          let ValidatorHash vh = vestingScriptHash
-          print $ byteStringToList vh
 
           t1 <- getCPUTime
           (_, subs, proof) <- generateSimulatedWithdrawProof (dataToZp pabWalletPKH) (DepositSecret r1 r2) (ShieldedAccountSecret v1 v2 v3) [MerkleTree 1 $ padToPowerOfTwo treeSize [leaf]]

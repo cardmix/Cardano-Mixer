@@ -14,17 +14,20 @@ module Main
     ) where
 
 import           Control.Concurrent                           (threadDelay)
+import           Control.Monad                                (void)
 import           Data.Text                                    (Text)
+import           Ledger.Value                                 (TokenName(..))
 import           Plutus.V1.Ledger.Ada                         (lovelaceValueOf)
+import           PlutusTx.Builtins.Class                      (stringToBuiltinByteString)
 import           PlutusTx.Prelude                             hiding ((<$>))
 import           Prelude                                      (IO, String, print, read)
 import           System.Environment                           (getArgs)
+import           Wallet.Emulator.Wallet                       (Wallet(..))
 
-import           Configuration.PABConfig                      (pabWalletIdString)
+import           Configuration.PABConfig                      (pabWallet)
 import           Contracts.CurrencyContract                   (SimpleMPS(SimpleMPS))
-import           MixerContractsDefinition                     (MixerContractsDefinition(..), Wallet(..))
+import           PABContracts                                 (PABContracts(..), MixerBackendContracts(..))
 import           Requests
-import           Tokens.AdminToken                            (adminTokenName)
 
 
 pabIP :: Text
@@ -34,11 +37,12 @@ main :: IO ()
 main = do
     args <- getArgs
     case args of
-        ["retrieve"] -> go
-        ["tickets", str] -> mintRelayTicketsProcedure $ read str
-        ["admin"]    -> mintAdminKeyProcedure $ Wallet pabWalletIdString   -- for testing purposes
-        _            -> print ("Unknown command" :: String)
-
+        ["mint", strTokenName, strAmount] -> mintCurrencyProcedure pabWallet 
+            (TokenName $ stringToBuiltinByteString strTokenName) (read strAmount)  -- for testing purposes
+        ["tickets", str]                  -> mintRelayTicketsProcedure $ read str
+        ["retrieve"]                      -> go
+        ["dispense"]                      -> dispenseProcedure
+        _                                 -> print ("Unknown command" :: String)
   where
       go = do
           retrieveTimeLockedProcedure
@@ -46,20 +50,21 @@ main = do
 
 ---------------------------------- Relayer logic ---------------------------------
 
+mintCurrencyProcedure :: Wallet -> TokenName -> Integer -> IO ()
+mintCurrencyProcedure w tn n = do
+    cidCurrency <- activateRequest pabIP (BackendContracts MintCurrency) (Just w)
+    endpointRequest pabIP "Create native token" cidCurrency (SimpleMPS tn n)
+
 mintRelayTicketsProcedure :: Integer -> IO ()
 mintRelayTicketsProcedure n = do
-    cidMintTickets <- activateRequest pabIP MixerRelay (Just $ Wallet pabWalletIdString)
+    cidMintTickets <- activateRequest pabIP (BackendContracts MixerRelay) (Just pabWallet)
     endpointRequest pabIP "Mint Relay Tickets" cidMintTickets (lovelaceValueOf 400_000, n)
 
 retrieveTimeLockedProcedure :: IO ()
 retrieveTimeLockedProcedure = do
-    cidTimeLocked <- activateRequest pabIP RetrieveTimeLocked (Just $ Wallet pabWalletIdString)
+    cidTimeLocked <- activateRequest pabIP (BackendContracts RetrieveTimeLocked) (Just pabWallet)
     endpointRequest pabIP "retrieve funds" cidTimeLocked ()
 
-
------------------------ Create mixer admin key -----------------------------------
-
-mintAdminKeyProcedure :: Wallet -> IO ()
-mintAdminKeyProcedure w = do
-    cidAdmin <- activateRequest pabIP MintAdminKey (Just w)
-    endpointRequest pabIP "Create native token" cidAdmin (SimpleMPS adminTokenName 1)
+dispenseProcedure :: IO ()
+dispenseProcedure = do
+    void $ activateRequest pabIP (BackendContracts Dispense) (Just pabWallet)

@@ -25,7 +25,7 @@
     "txFeePerByte": 44,
     "maxBlockExecutionUnits": {
         "steps": 40000000000,
-        "memory": 56000000
+        "memory": 80000000
     },
     "maxValueSize": 5000,
     "maxTxSize": 16384,

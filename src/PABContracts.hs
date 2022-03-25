@@ -16,6 +16,7 @@ import           Data.Default                        (Default (..))
 import qualified Data.OpenApi
 import           Control.Monad.Freer                 (interpret)
 import           GHC.Generics                        (Generic)
+import           Plutus.Contract.Schema              (EmptySchema)
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), BuiltinHandler(..), HasDefinitions(..),
                                                         handleBuiltin, endpointsToSchemas)
 import qualified Plutus.PAB.Simulator                as Simulator
@@ -23,17 +24,22 @@ import           Prettyprinter                       (Pretty(..), viaShow)
 
 import           Contracts.ConnectToPABContract      (ConnectToPABSchema, connectToPABPromise)
 import           Contracts.CurrencyContract          (CurrencySchema, mintCurrency)
+import           Contracts.DispenserContract         (dispenserProgram)
 import           Contracts.MixerContract             (mixerProgram)
 import           Contracts.MixerRelayerContract      (MixerRelayerSchema, mixerRelayerProgram)
 import           Contracts.MixerStateContract        (MixerStateSchema, getMixerStatePromise)
 import           Contracts.VestingContract           (vestingContract)
-import           MixerContractsDefinition            (MixerContractsDefinition(..))
+import           MixerFrontendContracts              (MixerFrontendContracts(..))
 
 
 --------------------------------------- PAB Contracts -------------------------------------------
 
+data MixerBackendContracts = MintCurrency | MixerRelay | RetrieveTimeLocked | Dispense
+    deriving (Eq, Ord, Show, Generic, FromJSON, ToJSON)
+    deriving anyclass (Data.OpenApi.ToSchema)
+
 -- We use a wrapper to define contracts here
-newtype PABContracts = PABContracts MixerContractsDefinition
+data PABContracts = BackendContracts MixerBackendContracts | FrontendContracts MixerFrontendContracts
     deriving (Eq, Ord, Show, Generic, FromJSON, ToJSON)
     deriving anyclass (Data.OpenApi.ToSchema)
 
@@ -42,21 +48,25 @@ instance Pretty PABContracts where
 
 -- TODO: Proof data type does not have ToSchema
 instance HasDefinitions PABContracts where
-    getDefinitions = map PABContracts [MintAdminKey, MixerUse, MixerRelay, MixerStateQuery, ConnectToPAB, RetrieveTimeLocked]
+    getDefinitions = map BackendContracts [MintCurrency, MixerRelay, RetrieveTimeLocked, Dispense] ++
+        map FrontendContracts [MixerUse, MixerStateQuery, ConnectToPAB]
     getSchema = \case
-        PABContracts MintAdminKey       -> endpointsToSchemas @CurrencySchema
-        PABContracts MixerUse           -> [] --endpointsToSchemas  @MixerSchema
-        PABContracts MixerRelay         -> endpointsToSchemas @MixerRelayerSchema
-        PABContracts MixerStateQuery    -> endpointsToSchemas @MixerStateSchema
-        PABContracts ConnectToPAB       -> endpointsToSchemas @ConnectToPABSchema
-        PABContracts RetrieveTimeLocked -> [] --endpointsToSchemas @VestingSchema
+        BackendContracts MintCurrency       -> endpointsToSchemas @CurrencySchema
+        BackendContracts MixerRelay         -> endpointsToSchemas @MixerRelayerSchema
+        BackendContracts RetrieveTimeLocked -> [] --endpointsToSchemas @VestingSchema
+        BackendContracts Dispense           -> endpointsToSchemas @EmptySchema
+        FrontendContracts MixerUse          -> [] --endpointsToSchemas  @MixerSchema
+        FrontendContracts MixerStateQuery   -> endpointsToSchemas @MixerStateSchema
+        FrontendContracts ConnectToPAB      -> endpointsToSchemas @ConnectToPABSchema
     getContract = \case
-        PABContracts MintAdminKey       -> SomeBuiltin mintCurrency
-        PABContracts MixerUse           -> SomeBuiltin mixerProgram
-        PABContracts MixerRelay         -> SomeBuiltin mixerRelayerProgram
-        PABContracts MixerStateQuery    -> SomeBuiltin getMixerStatePromise
-        PABContracts ConnectToPAB       -> SomeBuiltin connectToPABPromise
-        PABContracts RetrieveTimeLocked -> SomeBuiltin vestingContract
+        BackendContracts MintCurrency       -> SomeBuiltin mintCurrency
+        BackendContracts RetrieveTimeLocked -> SomeBuiltin vestingContract
+        BackendContracts MixerRelay         -> SomeBuiltin mixerRelayerProgram
+        BackendContracts Dispense           -> SomeBuiltin $ dispenserProgram 1000
+        FrontendContracts MixerUse          -> SomeBuiltin mixerProgram
+        FrontendContracts MixerStateQuery   -> SomeBuiltin getMixerStatePromise
+        FrontendContracts ConnectToPAB      -> SomeBuiltin connectToPABPromise
+        
 
 handlers :: Simulator.SimulatorEffectHandlers (Builtin PABContracts)
 handlers =
