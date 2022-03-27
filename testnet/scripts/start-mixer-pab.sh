@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rm -f ../plutus-pab.db
+rm -f ../data/plutus-pab.db
 
 ../../dist-newstyle/build/x86_64-linux/ghc-8.10.4.20210212/cardano-mixer-backend-0.1.0.0/x/cardano-mixer-pab/build/cardano-mixer-pab/cardano-mixer-pab \
  --config ../pab-config.yml migrate

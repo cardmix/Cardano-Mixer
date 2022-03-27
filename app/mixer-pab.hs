@@ -46,7 +46,7 @@ import           MixerProofs                         (generateSimulatedWithdrawP
 import           MixerState                          (MerkleTree(..), treeSize)
 import           MixerUserData
 import           PABContracts                        (PABContracts (BackendContracts), MixerBackendContracts (..), handlers)
-import           Tokens.MIXToken                     (mixTokenSimulator)
+import           Tokens.MIXToken                     (mixTokenInSimulator)
 import           Utils.Common                        (replicate, last)
 
 
@@ -98,7 +98,7 @@ pabSimulator = void $ Simulator.runSimulationWith handlers $ do
 --------------------------------------- Emulator  trace -----------------------------------------------
 
 pabEmulatorMIXFee :: Value
-pabEmulatorMIXFee = scale 10 mixTokenSimulator + lovelaceValueOf 4_000
+pabEmulatorMIXFee = scale 10 mixTokenInSimulator + lovelaceValueOf 4_000
 
 -- pabEmulatorMIXFee :: Value
 -- pabEmulatorMIXFee = lovelaceValueOf 30_000
@@ -109,7 +109,7 @@ pabEmulator (leaf, subs, proof) = do
     callEndpoint @"Create native token" c0 (SimpleMPS "tMIX" 100_000_000)
     _ <- waitNSlots 10
 
-    _ <- payToWallet pabWallet (knownWallet 2) (scale 50_000_000 mixTokenSimulator)
+    _ <- payToWallet pabWallet (knownWallet 2) (scale 50_000_000 mixTokenInSimulator)
     _ <- waitNSlots 10
 
     c1 <- activateContractWallet pabWallet (void mixerProgram)

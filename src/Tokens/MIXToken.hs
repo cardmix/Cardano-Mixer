@@ -11,7 +11,7 @@
 
 module Tokens.MIXToken (
     mixToken,
-    mixTokenSimulator,
+    mixTokenInSimulator,
     mixTokenSymbol,
     mixTokenName,
     mixTokenRequired,
@@ -49,8 +49,8 @@ mixTokenAssetClass = AssetClass (mixTokenSymbol, mixTokenName)
 mixToken :: Value
 mixToken = token mixTokenAssetClass
 
-mixTokenSimulator :: Value
-mixTokenSimulator = token $ AssetClass (CurrencySymbol $ foldr consByteString emptyByteString
+mixTokenInSimulator :: Value
+mixTokenInSimulator = token $ AssetClass (CurrencySymbol $ foldr consByteString emptyByteString
     [234,90,69,0,93,247,236,193,240,29,130,189,8,57,128,143,197,107,192,226,136,118,145,236,43,91,163,42], TokenName "tMIX")
 
 --------------------------- On-Chain -----------------------------

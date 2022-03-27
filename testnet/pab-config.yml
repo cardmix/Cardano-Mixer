@@ -1,5 +1,5 @@
 dbConfig:
-    dbConfigFile: ../plutus-pab.db
+    dbConfigFile: ../data/plutus-pab.db
     dbConfigPoolSize: 20
 
 pabWebserverConfig:
