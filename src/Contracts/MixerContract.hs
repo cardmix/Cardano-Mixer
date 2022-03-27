@@ -43,7 +43,7 @@ import           PlutusTx.Prelude                         hiding (Semigroup, (<$
 import           Prelude                                  (String, (<>), show)
 
 
-import           Configuration.PABConfig                  (inSimulation, pabWalletPKH)
+import           Configuration.PABConfig                  (PABConfig (..), pabConfig, pabWalletPKH)
 import           Contracts.MixerKeysContract              (getMixerKeys)
 import           Contracts.MixerStateContract             (getMixerState)
 import           RelayRequest
@@ -81,9 +81,9 @@ deposit = endpoint @"deposit" @DepositParams $ \(DepositParams pkh v leaf) -> ha
     -- adding user wallet inputs and outputs
     utx' <- balanceTxWithExternalWallet utx (pkh, val') (map (lovelaceValueOf . (\i -> 1_000_000 + 10_000 * i)) [0..100])
     -- final balancing with PAB wallet
-    ctx <- if inSimulation
-            then pure $ Right $ unBalancedTxTx utx'
-            else balanceTx utx'
+    ctx <- case pabConfig of
+            Simulator -> pure $ Right $ unBalancedTxTx utx'
+            Testnet   -> balanceTx utx'
     tell $ Just $ Last ctx
 
 -- "deposit" endpoint implementation

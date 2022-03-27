@@ -36,7 +36,7 @@ import           PlutusTx.Prelude                  hiding ((<>))
 import           Prelude                           (Show(..), Char, String, (<>))
 
 
-import           Configuration.PABConfig (inSimulation)
+import           Configuration.PABConfig           (PABConfig (..), pabConfig)
 import           Utils.Common                      (drop)
 
 -------------------------------- ByteStrings --------------------------------
@@ -108,18 +108,20 @@ balanceTxWithExternalWallet utx (pkh, val) vals = do
     (change, utxos') <- case addUTXOUntil utxos val vals of
                           Nothing -> throwError $ OtherContractError "Cannot balance transaction!"
                           Just r  -> pure r -- We assume that val is equal to the difference between outputs and inputs plus the fee
-    cs <- if inSimulation then currentSlot else pure 0
+    cs <- case pabConfig of
+            Simulator -> currentSlot
+            Testnet    -> pure 0
     let tx      = unBalancedTxTx utx
         ins     = txInputs tx `Data.Set.union` Data.Set.fromList (map pubKeyTxIn $ keys utxos')
         outs    = txOutputs tx ++ [TxOut (pubKeyHashAddress pkh Nothing) change Nothing]
         tx'     = tx { txInputs = ins, txOutputs = outs }
         nInputs = length $ Data.Map.elems utxos'
         actualFee = vals !! nInputs
-        utx'    = if inSimulation
-            then utx{ unBalancedTxTx = addSignature' (unPaymentPrivateKey $ paymentPrivateKey $ knownMockWallets !! 1) $
+        utx'    = case pabConfig of
+            Simulator -> utx{ unBalancedTxTx = addSignature' (unPaymentPrivateKey $ paymentPrivateKey $ knownMockWallets !! 1) $
               addSignature' (unPaymentPrivateKey $ paymentPrivateKey $ knownMockWallets !! 2) $
               tx' {txFee = actualFee, txValidRange = interval (cs-10) (cs+100), txCollateral = [pubKeyTxIn $ head $ keys utxos']} }
-            else utx { unBalancedTxTx = tx', unBalancedTxUtxoIndex = Data.Map.map toTxOut utxos' }
+            Testnet -> utx { unBalancedTxTx = tx', unBalancedTxUtxoIndex = Data.Map.map toTxOut utxos' }
     return utx'
 
 ---------------------------- Additional Chain Index queries -------------------------
