@@ -14,9 +14,9 @@ module Main
         main
     ) where
 
+import           Data.ByteString                              (ByteString, writeFile, readFile)
 import           Data.Text                                    (Text)
-import           Ledger.Address                               (PaymentPubKeyHash)
-import           Ledger.Value                                 (Value)
+import           Ledger                                       (PaymentPubKeyHash, Value)
 import           Plutus.V1.Ledger.Ada                         (lovelaceValueOf)
 import           PlutusTx.Prelude                             hiding ((<$>))
 import           Prelude                                      (IO, String, print)
@@ -45,6 +45,7 @@ main = do
     args <- getArgs
     case args of
         ["deposit",  str] -> depositProcedure str
+        ["submit"]        -> depositSubmitProcedure
         ["withdraw", str] -> withdrawProcedure str
         _                 -> print ("Unknown command" :: String)
 
@@ -60,9 +61,17 @@ depositProcedure str = do
     let leaf = mimcHash (getR1 ds) (getR2 ds)
     print $ mimcHash zero (getR1 ds)
     cidMixerUse <- activateRequest pabIP (FrontendContracts MixerUse) (Just w)
-    endpointRequest pabIP "deposit" cidMixerUse (DepositParams pkh mixVal leaf)
-    s <- awaitStatusUpdate pabIP cidMixerUse :: IO String
-    print s
+    endpointRequest pabIP "deposit" cidMixerUse (DepositParams pkh (1, 1) leaf)
+    bs <- awaitStatusUpdate pabIP cidMixerUse :: IO ByteString
+    writeFile "tx.raw" bs
+
+depositSubmitProcedure :: IO ()
+depositSubmitProcedure = do
+    (_, _, w) <- mixerConnectProcedure ""
+
+    bs <- readFile "tx.signed"
+    cidMixerUse <- activateRequest pabIP (FrontendContracts MixerUse) (Just w)
+    endpointRequest pabIP "depositSubmit" cidMixerUse bs
 
 withdrawProcedure :: String -> IO ()
 withdrawProcedure str = do
@@ -91,5 +100,3 @@ mixerStateProcedure = do
     cidQueryMixer <- activateRequest pabIP (FrontendContracts MixerStateQuery) (Nothing :: Maybe Wallet)
     endpointRequest pabIP "Get Mixer state" cidQueryMixer mixVal
     awaitStatusUpdate pabIP cidQueryMixer
-
-

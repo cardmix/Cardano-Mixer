@@ -1,3 +1,5 @@
 #!/bin/bash
 
-cardano-wallet serve --testnet ../testnet-byron-genesis.json --node-socket ../node.sock
+cd ../..
+
+cardano-wallet serve --testnet testnet/testnet-byron-genesis.json --node-socket testnet/node.sock

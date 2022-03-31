@@ -52,6 +52,7 @@ common lang
 library
     import: lang
     exposed-modules:
+      Configuration.MixerConfig
       Configuration.PABConfig
       Contracts.AdminDecisionContract
       Contracts.ConnectToPABContract
@@ -85,6 +86,7 @@ library
       Utils.Conversions
     build-depends:
       base                          >= 4.9 && < 5,
+      base64                                 -any,
       aeson                                  -any,
       bytestring                             -any,
       cardano-api                            -any,
@@ -158,6 +160,8 @@ executable cardano-mixer-client
   hs-source-dirs: app
   ghc-options:
     -threaded
+  build-depends:
+    base64                                 -any,
   build-depends:
     aeson                                  -any,
     base                          >= 4.9 && < 5,

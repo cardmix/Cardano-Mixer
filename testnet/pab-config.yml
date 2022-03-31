@@ -1,11 +1,11 @@
 dbConfig:
-    dbConfigFile: ../data/plutus-pab.db
+    dbConfigFile: testnet/data/plutus-pab.db
     dbConfigPoolSize: 20
 
 pabWebserverConfig:
   baseUrl: http://localhost:9080
   staticDir: plutus-pab-client/dist
-  permissiveCorsPolicy: False
+  permissiveCorsPolicy: True
   # Optional timeout (in seconds) for calls to endpoints that are not currently
   # available. If this is not set, calls to unavailable endpoints fail
   # immediately.
@@ -17,7 +17,7 @@ walletServerConfig:
     baseUrl: http://localhost:8090
 
 nodeServerConfig:
-  pscSocketPath: ../node.sock
+  pscSocketPath: testnet/node.sock
   pscBaseUrl: "localhost"
   pscKeptBlocks: 2160
   pscNetworkId: "1097911063" # Testnet network ID (main net = empty string)

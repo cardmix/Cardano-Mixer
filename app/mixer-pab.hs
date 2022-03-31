@@ -35,6 +35,7 @@ import           Prelude                             (IO, Double, String, (/), (
 import           System.CPUTime                      (getCPUTime)
 import           System.Environment                  (getArgs)
 
+
 import           Configuration.PABConfig             (pabWallet, pabWalletPKH)
 import           Contracts.CurrencyContract          (SimpleMPS (..), mintCurrency)
 import           Contracts.DispenserContract         (dispenserProgram)
@@ -72,8 +73,7 @@ main = do
 pabTestNet :: IO ()
 pabTestNet = runWith (handleBuiltin @PABContracts)
 
-
---------------------------------------- Simulator -----------------------------------------------
+--------------------------------------- Simulator ---------------------------------------------
 
 pabSimulator :: IO ()
 pabSimulator = void $ Simulator.runSimulationWith handlers $ do
@@ -95,13 +95,12 @@ pabSimulator = void $ Simulator.runSimulationWith handlers $ do
 
     shutdown
 
---------------------------------------- Emulator  trace -----------------------------------------------
+-------------------------------------- Emulator  trace -----------------------------------------
 
-pabEmulatorMIXFee :: Value
-pabEmulatorMIXFee = scale 10 mixTokenInSimulator + lovelaceValueOf 4_000
+-- TODO: Currently does not work. Need fixes in client emulation and MIX token
 
--- pabEmulatorMIXFee :: Value
--- pabEmulatorMIXFee = lovelaceValueOf 30_000
+pabEmulatorFee :: Value
+pabEmulatorFee = scale 10 mixTokenInSimulator + lovelaceValueOf 4_000
 
 pabEmulator :: (Fr, [Fr], Proof) -> EmulatorTrace ()
 pabEmulator (leaf, subs, proof) = do
@@ -109,11 +108,14 @@ pabEmulator (leaf, subs, proof) = do
     callEndpoint @"Create native token" c0 (SimpleMPS "tMIX" 100_000_000)
     _ <- waitNSlots 10
 
-    _ <- payToWallet pabWallet (knownWallet 2) (scale 50_000_000 mixTokenInSimulator)
+    _ <- activateContractWallet pabWallet (void $ dispenserProgram 1000)
+    _ <- waitNSlots 10
+
+    _ <- payToWallet (knownWallet 2) pabWallet (lovelaceValueOf 2_000_000)
     _ <- waitNSlots 10
 
     c1 <- activateContractWallet pabWallet (void mixerProgram)
-    callEndpoint @"deposit" c1 (DepositParams (mockWalletPaymentPubKeyHash $ knownWallet 2) pabEmulatorMIXFee leaf)
+    callEndpoint @"deposit" c1 (DepositParams (mockWalletPaymentPubKeyHash $ knownWallet 2) (2, 1) leaf)
     _ <- waitNSlots 10
 
     obs <- observableState c1
@@ -125,17 +127,11 @@ pabEmulator (leaf, subs, proof) = do
     _ <- waitNSlots 10
 
     c3 <- activateContractWallet pabWallet (void mixerProgram)
-    callEndpoint @"withdraw" c3 (WithdrawParams pabEmulatorMIXFee (0, 1) pabWalletPKH subs proof)
+    callEndpoint @"withdraw" c3 (WithdrawParams pabEmulatorFee (0, 1) pabWalletPKH subs proof)
     _ <- waitNSlots 4000
 
     c4 <- activateContractWallet pabWallet (void vestingContract)
     callEndpoint @"retrieve funds" c4 ()
-    _ <- waitNSlots 10
-
-    _ <- payToWallet (knownWallet 2) pabWallet (lovelaceValueOf 2_000_000)
-    _ <- waitNSlots 10
-
-    _ <- activateContractWallet pabWallet (void $ dispenserProgram 1000)
     _ <- waitNSlots 10
 
     logInfo @String "Finished."

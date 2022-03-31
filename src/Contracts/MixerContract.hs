@@ -11,6 +11,8 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 
 module Contracts.MixerContract (
@@ -20,12 +22,20 @@ module Contracts.MixerContract (
     mixerProgram
 ) where
 
+import           Cardano.Api                              (EraInMode (..), AsType (..), serialiseToCBOR, deserialiseFromCBOR)
 import           Control.Monad                            (void)
+import           Data.Aeson                               (FromJSON(..), ToJSON(..), Value (Object), (.:), encode, decode)
+import           Data.Aeson.Extras                        (encodeByteString)
+import           Data.ByteString                          (ByteString)
+import qualified Data.ByteString.Base64
+import           Data.ByteString.Lazy                     (toStrict, fromStrict)
 import           Data.Either                              (fromRight)
 import qualified Data.Map
 import           Data.Semigroup                           (Last (..))
 import qualified Data.Set
-import           Data.Text                                (pack, unpack)
+import           Data.Text                                (pack, unpack, Text)
+import           Data.Text.Encoding                       (encodeUtf8)
+import           GHC.Generics                             (Generic)
 import           Ledger                                   hiding (txFee, singleton, validatorHash, unspentOutputs)
 import           Ledger.Constraints.OffChain              (unspentOutputs, typedValidatorLookups, otherScript, UnbalancedTx (unBalancedTxTx))
 import           Ledger.Constraints.TxConstraints
@@ -40,9 +50,10 @@ import           Plutus.Contract.Types                    (ContractError(..))
 import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf, toValue)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
-import           Prelude                                  (String, (<>), show)
+import           Prelude                                  (String, (<>), show, Show, (<$>))
 
 
+import           Configuration.MixerConfig                (mixingValues)
 import           Configuration.PABConfig                  (PABConfig (..), pabConfig, pabWalletPKH)
 import           Contracts.MixerKeysContract              (getMixerKeys)
 import           Contracts.MixerStateContract             (getMixerState)
@@ -55,7 +66,7 @@ import           Utils.Contracts                          (selectUTXO, balanceTx
 
 
 -- General MixerContract error
-errorMixerContract :: ContractError -> Contract (Maybe (Last CardanoTx)) MixerSchema ContractError ()
+errorMixerContract :: ContractError -> Contract (Maybe (Last ByteString)) MixerSchema ContractError ()
 errorMixerContract e = do
     let msg = case e of
           OtherContractError txt -> unpack txt
@@ -64,8 +75,9 @@ errorMixerContract e = do
     -- tell $ Just $ Last msg
 
 -- "deposit" endpoint implementation
-deposit :: Promise (Maybe (Last CardanoTx)) MixerSchema ContractError ()
-deposit = endpoint @"deposit" @DepositParams $ \(DepositParams pkh v leaf) -> handleError errorMixerContract $ do
+deposit :: Promise (Maybe (Last ByteString)) MixerSchema ContractError ()
+deposit = endpoint @"deposit" @DepositParams $ \(DepositParams pkh (n, m) leaf) -> handleError errorMixerContract $ do
+    v <- mixingValues n m
     let mixer = makeMixerFromFees v
         -- value sent to the mixer script
         val   = mValue mixer + mTotalFees mixer
@@ -84,11 +96,18 @@ deposit = endpoint @"deposit" @DepositParams $ \(DepositParams pkh v leaf) -> ha
     ctx <- case pabConfig of
             Simulator -> pure $ Right $ unBalancedTxTx utx'
             Testnet   -> balanceTx utx'
-    tell $ Just $ Last ctx
+    bs  <- case ctx of
+            Left (SomeTx tx _) -> pure $ toStrict $ encode $ TxUnsignedCW "1234567890" $ encodeByteString $ serialiseToCBOR tx
+            Right tx           -> pure $ toStrict $ encode tx
+    tell $ Just $ Last bs
 
 -- "deposit" endpoint implementation
-depositSubmit :: Promise (Maybe (Last CardanoTx)) MixerSchema ContractError ()
-depositSubmit = endpoint @"depositSubmit" @CardanoTx $ \ctx -> handleError errorMixerContract $ do
+depositSubmit :: Promise (Maybe (Last ByteString)) MixerSchema ContractError ()
+depositSubmit = endpoint @"depositSubmit" @ByteString $ \bs -> handleError errorMixerContract $ do
+    -- converting ByteString into CardanoTx
+    let txSigned           = unTxSignedCW $ fromMaybe (error ()) (decode $ fromStrict bs :: Maybe TxSignedCW)
+        txSignedByteString = fromRight (error ()) $ Data.ByteString.Base64.decodeBase64 $ Data.Text.Encoding.encodeUtf8 txSigned
+        ctx                = Left $ SomeTx (fromRight (error ()) $ deserialiseFromCBOR AsAlonzoTx txSignedByteString) AlonzoEraInCardanoMode :: CardanoTx
     -- computing PAB wallet reward
     let btx    = case ctx of
                 Left (SomeTx eraInMode tx) -> fromRight (error ()) $ fromCardanoTx tx eraInMode
@@ -108,7 +127,7 @@ timeToValidateWithdrawal :: POSIXTime
 timeToValidateWithdrawal = POSIXTime 100_000
 
 -- "withdraw" endpoint implementation
-withdraw :: Promise (Maybe (Last CardanoTx)) MixerSchema ContractError ()
+withdraw :: Promise (Maybe (Last ByteString)) MixerSchema ContractError ()
 withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, _) pkhW subs _) -> handleError errorMixerContract $ do
     let mixer = makeMixerFromFees v
     pkhR   <- ownPaymentPubKeyHash
@@ -130,8 +149,19 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, 
                 -- tell $ Just $ Last "RelayRequestAccepted"
         e                    -> throwError $ OtherContractError $ pack $ show e
 
-type MixerSchema = Endpoint "deposit" DepositParams  .\/ Endpoint "depositSubmit" CardanoTx .\/ Endpoint "withdraw" WithdrawParams
+type MixerSchema = Endpoint "deposit" DepositParams  .\/ Endpoint "depositSubmit" ByteString .\/ Endpoint "withdraw" WithdrawParams
 
-mixerProgram :: Contract (Maybe (Last CardanoTx)) MixerSchema ContractError ()
+mixerProgram :: Contract (Maybe (Last ByteString)) MixerSchema ContractError ()
 mixerProgram = selectList [deposit, withdraw, depositSubmit]
 
+-----------------------------------------------------------------------------------
+
+data TxUnsignedCW = TxUnsignedCW { passphrase :: String, transaction :: Text }
+    deriving (Generic, FromJSON, ToJSON)
+
+newtype TxSignedCW = TxSignedCW { unTxSignedCW :: Text }
+    deriving Show
+
+instance FromJSON TxSignedCW where
+    parseJSON (Data.Aeson.Object v) = TxSignedCW <$> v .: "transaction"
+    parseJSON _ = error ()

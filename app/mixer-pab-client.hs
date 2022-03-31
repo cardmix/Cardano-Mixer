@@ -47,6 +47,7 @@ main = do
       go = do
           retrieveTimeLockedProcedure
           threadDelay 5_000_000
+          go
 
 ---------------------------------- Relayer logic ---------------------------------
 

@@ -24,7 +24,7 @@ import           Crypto
 data DepositParams = DepositParams
     {
         dpPKH            :: !PaymentPubKeyHash,
-        dpValue          :: !Value,
+        dpValue          :: !(Integer, Integer),
         dpLeaf           :: !Fr
     }
     deriving stock (Show, Generic)

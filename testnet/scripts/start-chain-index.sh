@@ -1,3 +1,5 @@
 #!/bin/bash
 
-../bin/plutus-chain-index --config ../chain-index-config.json start-index
+cd ../..
+
+testnet/bin/plutus-chain-index --config testnet/chain-index-config.json start-index
