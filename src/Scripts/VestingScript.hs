@@ -73,7 +73,7 @@ data VestingParams = VestingParams
     {
         vestingDate      :: POSIXTime,
         vestingOwner     :: PaymentPubKeyHash,
-        vestingReciever  :: PaymentPubKeyHash,
+        vestingReciever  :: Address,
         vestingTx        :: TxOutRef,
         vestingDatumHash :: BuiltinByteString,
         vestingWHash     :: Fr

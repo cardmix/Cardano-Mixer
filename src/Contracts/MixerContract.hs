@@ -24,17 +24,15 @@ module Contracts.MixerContract (
 
 import           Cardano.Api                              (EraInMode (..), AsType (..), serialiseToCBOR, deserialiseFromCBOR)
 import           Control.Monad                            (void)
-import           Data.Aeson                               (FromJSON(..), ToJSON(..), Value (Object), (.:), encode, decode)
-import           Data.Aeson.Extras                        (encodeByteString)
-import           Data.ByteString                          (ByteString)
-import qualified Data.ByteString.Base64
-import           Data.ByteString.Lazy                     (toStrict, fromStrict)
+import           Data.Aeson                               (FromJSON(..), ToJSON(..), Value (Object), (.:), encode)
+import           Data.Aeson.Extras                        (encodeByteString, tryDecode)
+import           Data.ByteString.Lazy                     (toStrict)
 import           Data.Either                              (fromRight)
 import qualified Data.Map
 import           Data.Semigroup                           (Last (..))
 import qualified Data.Set
 import           Data.Text                                (pack, unpack, Text)
-import           Data.Text.Encoding                       (encodeUtf8)
+import           Data.Text.Encoding                       (decodeUtf8)
 import           GHC.Generics                             (Generic)
 import           Ledger                                   hiding (txFee, singleton, validatorHash, unspentOutputs)
 import           Ledger.Constraints.OffChain              (unspentOutputs, typedValidatorLookups, otherScript, UnbalancedTx (unBalancedTxTx))
@@ -53,7 +51,6 @@ import           PlutusTx.Prelude                         hiding (Semigroup, (<$
 import           Prelude                                  (String, (<>), show, Show, (<$>))
 
 
-import           Configuration.MixerConfig                (mixingValues)
 import           Configuration.PABConfig                  (PABConfig (..), pabConfig, pabWalletPKH)
 import           Contracts.MixerKeysContract              (getMixerKeys)
 import           Contracts.MixerStateContract             (getMixerState)
@@ -62,11 +59,12 @@ import           Scripts.MixerScript
 import           Scripts.VestingScript                    (VestingParams(..), vestingScriptHash)
 import           Tokens.DepositToken                      (depositTokenMintTx)
 import           Types.MixerContractTypes
+import           Utils.Address                            (textToAddress, textToKeys)
 import           Utils.Contracts                          (selectUTXO, balanceTxWithExternalWallet, txOutsFromRefs)
 
 
 -- General MixerContract error
-errorMixerContract :: ContractError -> Contract (Maybe (Last ByteString)) MixerSchema ContractError ()
+errorMixerContract :: ContractError -> Contract (Maybe (Last Text)) MixerSchema ContractError ()
 errorMixerContract e = do
     let msg = case e of
           OtherContractError txt -> unpack txt
@@ -75,9 +73,10 @@ errorMixerContract e = do
     -- tell $ Just $ Last msg
 
 -- "deposit" endpoint implementation
-deposit :: Promise (Maybe (Last ByteString)) MixerSchema ContractError ()
-deposit = endpoint @"deposit" @DepositParams $ \(DepositParams pkh (n, m) leaf) -> handleError errorMixerContract $ do
-    v <- mixingValues n m
+deposit :: Promise (Maybe (Last Text)) MixerSchema ContractError ()
+deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) -> handleError errorMixerContract $ do
+    logInfo @String "deposit"
+    logInfo dp
     let mixer = makeMixerFromFees v
         -- value sent to the mixer script
         val   = mValue mixer + mTotalFees mixer
@@ -91,22 +90,28 @@ deposit = endpoint @"deposit" @DepositParams $ \(DepositParams pkh (n, m) leaf) 
     -- unbalanced transaction
     utx  <- mkTxConstraints lookups cons
     -- adding user wallet inputs and outputs
-    utx' <- balanceTxWithExternalWallet utx (pkh, val') (map (lovelaceValueOf . (\i -> 1_000_000 + 10_000 * i)) [0..100])
+    let addr = textToAddress txt
+    utx' <- balanceTxWithExternalWallet utx (addr, val') (map (lovelaceValueOf . (\i -> 1_000_000 + 10_000 * i)) [0..100])
     -- final balancing with PAB wallet
     ctx <- case pabConfig of
             Simulator -> pure $ Right $ unBalancedTxTx utx'
             Testnet   -> balanceTx utx'
-    bs  <- case ctx of
-            Left (SomeTx tx _) -> pure $ toStrict $ encode $ TxUnsignedCW "1234567890" $ encodeByteString $ serialiseToCBOR tx
-            Right tx           -> pure $ toStrict $ encode tx
-    tell $ Just $ Last bs
+    txUnsigned <- case ctx of
+        Left (SomeTx tx _) -> pure $ Data.Text.Encoding.decodeUtf8 $ toStrict $ encode $ TxUnsignedCW "1234567890" $ encodeByteString $ serialiseToCBOR tx
+        Right tx           -> pure $ Data.Text.Encoding.decodeUtf8 $ toStrict $ encode tx
+    tell $ Just $ Last txUnsigned
 
 -- "deposit" endpoint implementation
-depositSubmit :: Promise (Maybe (Last ByteString)) MixerSchema ContractError ()
-depositSubmit = endpoint @"depositSubmit" @ByteString $ \bs -> handleError errorMixerContract $ do
-    -- converting ByteString into CardanoTx
-    let txSigned           = unTxSignedCW $ fromMaybe (error ()) (decode $ fromStrict bs :: Maybe TxSignedCW)
-        txSignedByteString = fromRight (error ()) $ Data.ByteString.Base64.decodeBase64 $ Data.Text.Encoding.encodeUtf8 txSigned
+depositSubmit :: Promise (Maybe (Last Text)) MixerSchema ContractError ()
+depositSubmit = endpoint @"depositSubmit" @Text $ \txSigned -> handleError errorMixerContract $ do
+    logInfo @String "depositSubmit"
+    logInfo txSigned
+    -- converting CBOR text into CardanoTx
+    let 
+        -- txSigned           = unTxSignedCW $ fromMaybe (error ()) (decode $ fromStrict $ Data.Text.Encoding.encodeUtf8 bs :: Maybe TxSignedCW)
+        -- txSignedByteString = fromRight (error ()) $ Data.ByteString.Base64.decodeBase64 $ Data.Text.Encoding.encodeUtf8 txSigned
+        -- txSignedByteString = fromMaybe (error ()) $ decode $ fromStrict $ Data.Text.Encoding.encodeUtf8 txSigned
+        txSignedByteString = fromRight (error ()) $ tryDecode txSigned
         ctx                = Left $ SomeTx (fromRight (error ()) $ deserialiseFromCBOR AsAlonzoTx txSignedByteString) AlonzoEraInCardanoMode :: CardanoTx
     -- computing PAB wallet reward
     let btx    = case ctx of
@@ -127,12 +132,17 @@ timeToValidateWithdrawal :: POSIXTime
 timeToValidateWithdrawal = POSIXTime 100_000
 
 -- "withdraw" endpoint implementation
-withdraw :: Promise (Maybe (Last ByteString)) MixerSchema ContractError ()
-withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, _) pkhW subs _) -> handleError errorMixerContract $ do
-    let mixer = makeMixerFromFees v
+withdraw :: Promise (Maybe (Last Text)) MixerSchema ContractError ()
+withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, _) txt subs _) -> handleError errorMixerContract $ do
+    logInfo @String "withdraw"
+    logInfo params
+    let (pkhW, skhW) = textToKeys txt
+        addr = pubKeyHashAddress pkhW (Just skhW)
+        mixer = makeMixerFromFees v
     pkhR   <- ownPaymentPubKeyHash
     utxos  <- utxosAt (mixerAddress mixer)
     ct     <- currentTime
+    -- TODO: fix empty list error
     let (utxo1, utxos'') = selectUTXO $ Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer)) utxos
 
     state <- getMixerState v
@@ -140,18 +150,18 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, 
     case checkRelayRequest state mKeys params of
         RelayRequestAccepted -> do
                 let lookups   = unspentOutputs utxos'' <> typedValidatorLookups (mixerInst mixer) <> otherScript (mixerValidator mixer)
-                    cons      = mustPayToPubKey pkhW (mValue mixer) <> mustValidateIn (to $ ct + timeToValidateWithdrawal) <>
+                    cons      = mustPayToPubKeyAddress pkhW skhW (mValue mixer) <> mustValidateIn (to $ ct + timeToValidateWithdrawal) <>
                         mustPayToOtherScript vestingScriptHash (Datum $ toBuiltinData $ VestingParams
-                            (ct + hourPOSIX + 100000 + timeToValidateWithdrawal) pkhR pkhW utxo1 (sha2_256 emptyByteString) (subs !! 2)) (mRelayerCollateral mixer) <>
+                            (ct + hourPOSIX + 100000 + timeToValidateWithdrawal) pkhR addr utxo1 (sha2_256 emptyByteString) (subs !! 2)) (mRelayerCollateral mixer) <>
                         mustSpendScriptOutput utxo1 (Redeemer $ toBuiltinData ())
                 utx <- mkTxConstraints lookups cons
                 submitTxConfirmed utx
-                -- tell $ Just $ Last "RelayRequestAccepted"
+                tell $ Just $ Last "RelayRequestAccepted"
         e                    -> throwError $ OtherContractError $ pack $ show e
 
-type MixerSchema = Endpoint "deposit" DepositParams  .\/ Endpoint "depositSubmit" ByteString .\/ Endpoint "withdraw" WithdrawParams
+type MixerSchema = Endpoint "deposit" DepositParams  .\/ Endpoint "depositSubmit" Text .\/ Endpoint "withdraw" WithdrawParams
 
-mixerProgram :: Contract (Maybe (Last ByteString)) MixerSchema ContractError ()
+mixerProgram :: Contract (Maybe (Last Text)) MixerSchema ContractError ()
 mixerProgram = selectList [deposit, withdraw, depositSubmit]
 
 -----------------------------------------------------------------------------------

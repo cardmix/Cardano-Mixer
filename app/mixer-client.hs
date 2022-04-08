@@ -15,7 +15,7 @@ module Main
     ) where
 
 import           Data.ByteString                              (ByteString, writeFile, readFile)
-import           Data.Text                                    (Text)
+import           Data.Text                                    (Text, pack)
 import           Ledger                                       (PaymentPubKeyHash, Value)
 import           Plutus.V1.Ledger.Ada                         (lovelaceValueOf)
 import           PlutusTx.Prelude                             hiding ((<$>))
@@ -24,12 +24,11 @@ import           System.Environment                           (getArgs)
 import           Wallet.Emulator.Wallet                       (Wallet)
 
 import           ClientLog                                    (getSecrets, logSecrets)
-import           Crypto                                       (Fr, mimcHash)
-import           MixerFrontendContracts                       (MixerFrontendContracts(..))
+import           Crypto                                       (Fr, mimcHash, generateProofSecret)
 import           MixerProofs                                  (generateSimulatedWithdrawProof)
 import           MixerState                                   (MixerState)
 import           MixerUserData
-import           PABContracts                                 (PABContracts(..))
+import           PABContracts                                 (PABContracts(..), MixerFrontendContracts (..))
 import           Requests
 import           Types.MixerContractTypes                     (DepositParams(..), WithdrawParams (..))
 
@@ -53,7 +52,7 @@ main = do
 
 depositProcedure :: String -> IO ()
 depositProcedure str = do
-    (pkh, _, w) <- mixerConnectProcedure str
+    (_, _, w) <- mixerConnectProcedure str
 
     ds   <- generateDepositSecret
     sas  <- generateShieldedAccountSecret
@@ -61,7 +60,7 @@ depositProcedure str = do
     let leaf = mimcHash (getR1 ds) (getR2 ds)
     print $ mimcHash zero (getR1 ds)
     cidMixerUse <- activateRequest pabIP (FrontendContracts MixerUse) (Just w)
-    endpointRequest pabIP "deposit" cidMixerUse (DepositParams pkh (1, 1) leaf)
+    endpointRequest pabIP "deposit" cidMixerUse (DepositParams (pack str) (lovelaceValueOf 20_000) leaf)
     bs <- awaitStatusUpdate pabIP cidMixerUse :: IO ByteString
     writeFile "tx.raw" bs
 
@@ -75,15 +74,16 @@ depositSubmitProcedure = do
 
 withdrawProcedure :: String -> IO ()
 withdrawProcedure str = do
-    (pkh, a, w) <- mixerConnectProcedure str
+    (_, a, w) <- mixerConnectProcedure str
 
     secret <- getSecrets
     case secret of
       Nothing        -> print @String "Nothing to withdraw."
       Just (ds, sas) -> do
         state <- mixerStateProcedure
-        (lastDeposit, subs, proof) <- generateSimulatedWithdrawProof a ds sas state
-        let params = WithdrawParams mixVal lastDeposit pkh subs proof
+        randomness <- generateProofSecret
+        let (lastDeposit, subs, proof) = generateSimulatedWithdrawProof randomness a ds sas state
+            params = WithdrawParams mixVal lastDeposit (pack str) subs proof
         cidMixerUse <- activateRequest pabIP (FrontendContracts MixerUse) (Just w)
         endpointRequest pabIP "withdraw" cidMixerUse params
 

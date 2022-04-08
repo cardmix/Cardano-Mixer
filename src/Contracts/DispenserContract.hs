@@ -25,7 +25,7 @@ import           Ledger.Constraints.TxConstraints
 import qualified Ledger.Typed.Scripts                     as Scripts
 import           Plutus.ChainIndex                        (ChainIndexTx(..))
 import           Plutus.Contract                          (Contract, EmptySchema, mkTxConstraints,
-                                                            submitTxConfirmed, utxosTxOutTxAt, txOutFromRef, waitNSlots)
+                                                            submitTxConfirmed, utxosTxOutTxAt, txOutFromRef, waitNSlots, logInfo)
 import           Plutus.Contract.Types                    (ContractError(..), AsContractError)
 import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf)
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
@@ -69,5 +69,5 @@ dispenserProgram :: Integer -> Contract (Maybe (Last String)) EmptySchema Contra
 dispenserProgram n = do
     sendTokens
     _ <- waitNSlots 1
-    if n <= 0 then return () else dispenserProgram (n-1)
+    if n <= 0 then logInfo @String "Finished dispenser program!" else dispenserProgram (n-1)
 

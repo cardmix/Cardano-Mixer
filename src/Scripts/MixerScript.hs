@@ -78,7 +78,7 @@ mkMixerValidator mixer _ _ ctx = vestingOK && paymentOK
         outs'  = head $ filter (\o -> (txOutValue o `geq` mRelayerCollateral mixer) &&
             (txOutAddress o == Address (ScriptCredential vestingScriptPermanentHash) Nothing)) outs
 
-        VestingParams vTime _ pkhW ref _ _ = unsafeFromBuiltinData $ getDatum $ fromMaybe (error ()) $
+        VestingParams vTime _ addr ref _ _ = unsafeFromBuiltinData $ getDatum $ fromMaybe (error ()) $
             findDatum (fromMaybe (error ()) $ txOutDatumHash outs') txinfo
 
         -- finding current time estimate
@@ -91,7 +91,7 @@ mkMixerValidator mixer _ _ ctx = vestingOK && paymentOK
 
         vestingOK = (ownRef == ref) && dateOK
         paymentOK = any (\o -> (txOutValue o `geq` mValue mixer) &&
-            (txOutAddress o == pubKeyHashAddress pkhW Nothing)) outs
+            (txOutAddress o == addr)) outs
 
 -- Validator instance
 mixerInst :: Mixer -> TypedValidator Mixing

@@ -20,7 +20,7 @@ import qualified Data.Map
 import           Data.Maybe                        (catMaybes)
 import qualified Data.Set
 import           Data.Text                         (Text, pack)
-import           Ledger                            (PaymentPubKeyHash, Value, Address, ChainIndexTxOut(..), TxOutRef, AssetClass, pubKeyHashAddress, unPaymentPrivateKey, interval)
+import           Ledger                            (PaymentPubKeyHash, Value, Address, ChainIndexTxOut(..), TxOutRef, AssetClass, unPaymentPrivateKey, interval)
 import           Ledger.CardanoWallet              (paymentPrivateKey, knownMockWallets)
 import           Ledger.Tx                         (Tx(..), TxOut(..), txOutRefId, pubKeyTxIn, toTxOut, addSignature')
 import           Plutus.ChainIndex                 (ChainIndexTx, Page(..), nextPageQuery)
@@ -102,9 +102,9 @@ addUTXOUntil utxos val fs = do
 
 --------------------------------- Balancing transactions ----------------------------
 
-balanceTxWithExternalWallet :: UnbalancedTx -> (PaymentPubKeyHash, Value) -> [Value] -> Contract w s ContractError UnbalancedTx
-balanceTxWithExternalWallet utx (pkh, val) vals = do
-    utxos <- utxosAt $ pubKeyHashAddress pkh Nothing
+balanceTxWithExternalWallet :: UnbalancedTx -> (Address, Value) -> [Value] -> Contract w s ContractError UnbalancedTx
+balanceTxWithExternalWallet utx (addr, val) vals = do
+    utxos <- utxosAt addr
     (change, utxos') <- case addUTXOUntil utxos val vals of
                           Nothing -> throwError $ OtherContractError "Cannot balance transaction!"
                           Just r  -> pure r -- We assume that val is equal to the difference between outputs and inputs plus the fee
@@ -113,7 +113,7 @@ balanceTxWithExternalWallet utx (pkh, val) vals = do
             Testnet    -> pure 0
     let tx      = unBalancedTxTx utx
         ins     = txInputs tx `Data.Set.union` Data.Set.fromList (map pubKeyTxIn $ keys utxos')
-        outs    = txOutputs tx ++ [TxOut (pubKeyHashAddress pkh Nothing) change Nothing]
+        outs    = txOutputs tx ++ [TxOut addr change Nothing]
         tx'     = tx { txInputs = ins, txOutputs = outs }
         nInputs = length $ Data.Map.elems utxos'
         actualFee = vals !! nInputs

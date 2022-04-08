@@ -29,10 +29,12 @@ import           Contracts.MixerContract             (mixerProgram)
 import           Contracts.MixerRelayerContract      (MixerRelayerSchema, mixerRelayerProgram)
 import           Contracts.MixerStateContract        (MixerStateSchema, getMixerStatePromise)
 import           Contracts.VestingContract           (vestingContract)
-import           MixerFrontendContracts              (MixerFrontendContracts(..))
-
 
 --------------------------------------- PAB Contracts -------------------------------------------
+
+data MixerFrontendContracts = MixerUse | MixerStateQuery | ConnectToPAB
+    deriving (Eq, Ord, Show, Generic, FromJSON, ToJSON)
+    deriving anyclass (Data.OpenApi.ToSchema)
 
 data MixerBackendContracts = MintCurrency | MixerRelay | RetrieveTimeLocked | Dispense
     deriving (Eq, Ord, Show, Generic, FromJSON, ToJSON)

@@ -13,8 +13,9 @@
 module Types.MixerContractTypes where
 
 import           Data.Aeson                               (FromJSON, ToJSON)
+import           Data.Text                                (Text)
 import           GHC.Generics                             (Generic)
-import           Ledger                                   (Value, PaymentPubKeyHash)
+import           Ledger                                   (Value)
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  (Show (..))
 
@@ -23,8 +24,8 @@ import           Crypto
 -- Parameters for the "deposit" endpoint
 data DepositParams = DepositParams
     {
-        dpPKH            :: !PaymentPubKeyHash,
-        dpValue          :: !(Integer, Integer),
+        dpAddress        :: !Text,
+        dpValue          :: !Value,
         dpLeaf           :: !Fr
     }
     deriving stock (Show, Generic)
@@ -35,7 +36,7 @@ data WithdrawParams = WithdrawParams
     {
         wpValue         :: !Value,
         wpDepositNum    :: !(Integer, Integer),
-        wpPKH           :: !PaymentPubKeyHash,
+        wpAddress       :: !Text,
         wpPublicInputs  :: ![Fr],
         wpProof         :: !Proof
     }

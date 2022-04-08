@@ -21,7 +21,7 @@ import           Data.Default                        (Default(..))
 import           Data.Semigroup                      (Last(..))
 import           Ledger                              (ValidatorMode(FullyAppliedValidators))
 import           Ledger.Value                        (Value(..))
-import           Plutus.Contract.Test (knownWallet, mockWalletPaymentPubKeyHash)
+import           Plutus.Contract.Test                (knownWallet)
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin, handleBuiltin)
 import           Plutus.PAB.Run                      (runWith)
 import qualified Plutus.PAB.Simulator                as Simulator
@@ -115,7 +115,7 @@ pabEmulator (leaf, subs, proof) = do
     _ <- waitNSlots 10
 
     c1 <- activateContractWallet pabWallet (void mixerProgram)
-    callEndpoint @"deposit" c1 (DepositParams (mockWalletPaymentPubKeyHash $ knownWallet 2) (2, 1) leaf)
+    callEndpoint @"deposit" c1 (DepositParams "(pubKeyHashAddress (mockWalletPaymentPubKeyHash $ knownWallet 2) Nothing)" pabEmulatorFee leaf)
     _ <- waitNSlots 10
 
     obs <- observableState c1
@@ -127,7 +127,7 @@ pabEmulator (leaf, subs, proof) = do
     _ <- waitNSlots 10
 
     c3 <- activateContractWallet pabWallet (void mixerProgram)
-    callEndpoint @"withdraw" c3 (WithdrawParams pabEmulatorFee (0, 1) pabWalletPKH subs proof)
+    callEndpoint @"withdraw" c3 (WithdrawParams pabEmulatorFee (0, 1) "pabWalletPKH" subs proof)
     _ <- waitNSlots 4000
 
     c4 <- activateContractWallet pabWallet (void vestingContract)
@@ -153,7 +153,9 @@ pabTestValues (DepositSecret r1 r2) (ShieldedAccountSecret v1 v2 v3) = do
               root = last cp
 
           t1 <- getCPUTime
-          (_, subs, proof) <- generateSimulatedWithdrawProof (dataToZp pabWalletPKH) (DepositSecret r1 r2) (ShieldedAccountSecret v1 v2 v3) [MerkleTree 1 $ padToPowerOfTwo treeSize [leaf]]
+          randomness <- generateProofSecret
+          let (_, subs, proof) = generateSimulatedWithdrawProof randomness (dataToZp pabWalletPKH) (DepositSecret r1 r2)
+                (ShieldedAccountSecret v1 v2 v3) [MerkleTree 1 $ padToPowerOfTwo treeSize [leaf]]
           t2 <- getCPUTime
           print $ verifyWithdraw [one, zero, zero, zero, zero, zero, root, a, h, hA, one, oh, nh] proof
           t3 <- getCPUTime

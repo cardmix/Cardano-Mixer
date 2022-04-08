@@ -12,6 +12,8 @@
 
 module RelayRequest where
 
+import           Data.Maybe                  (fromJust)
+import           Ledger                      (toPubKeyHash, PaymentPubKeyHash (PaymentPubKeyHash))
 import           PlutusTx.Prelude            hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                     (Show)
 
@@ -22,6 +24,7 @@ import           Types.MixerContractTypes    (WithdrawParams(..))
 
 import           MixerProofs                 (verifyWithdraw)
 import           MixerState                  (MixerState, MerkleTree(..), getMerkleTree)
+import           Utils.Address               (textToAddress)
 import           Utils.Common                (last)
 
 
@@ -49,11 +52,13 @@ checkWrongRootValue state (WithdrawParams _ pos@(k, m) _ subs _)
           coPath             = getMerkleCoPath leafs m
           root               = last coPath
 
+-- TODO: make sure this cannot fail with error()
 checkWrongWithdrawalAddress :: WithdrawParams -> Bool
-checkWrongWithdrawalAddress (WithdrawParams _ _ pkh subs _)
-  | length subs < 2           = True
-  | dataToZp pkh /= subs !! 1 = True
-  | otherwise                 = False
+checkWrongWithdrawalAddress (WithdrawParams _ _ txt subs _)
+  | length subs < 2                              = True
+  | isNothing $ toPubKeyHash $ textToAddress txt = True
+  | otherwise                                    = dataToZp pkh /= subs !! 1
+  where pkh = PaymentPubKeyHash $ fromJust $ toPubKeyHash $ textToAddress txt
 
 checkWrongProof :: WithdrawParams -> Bool
 checkWrongProof (WithdrawParams _ _ _ subs proof) = not $ verifyWithdraw pubParams proof
