@@ -64,7 +64,7 @@ instance HasDefinitions PABContracts where
         BackendContracts MintCurrency       -> SomeBuiltin mintCurrency
         BackendContracts RetrieveTimeLocked -> SomeBuiltin vestingContract
         BackendContracts MixerRelay         -> SomeBuiltin mixerRelayerProgram
-        BackendContracts Dispense           -> SomeBuiltin $ dispenserProgram 1000
+        BackendContracts Dispense           -> SomeBuiltin dispenserProgram
         FrontendContracts MixerUse          -> SomeBuiltin mixerProgram
         FrontendContracts MixerStateQuery   -> SomeBuiltin getMixerStatePromise
         FrontendContracts ConnectToPAB      -> SomeBuiltin connectToPABPromise

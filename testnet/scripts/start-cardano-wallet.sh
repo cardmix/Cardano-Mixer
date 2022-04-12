@@ -2,4 +2,4 @@
 
 cd ../..
 
-cardano-wallet serve --testnet testnet/testnet-byron-genesis.json --node-socket testnet/node.sock
+testnet/bin/cardano-wallet serve --testnet testnet/testnet-byron-genesis.json --node-socket testnet/node.sock

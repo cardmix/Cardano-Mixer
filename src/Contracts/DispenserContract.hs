@@ -25,30 +25,35 @@ import           Ledger.Constraints.TxConstraints
 import qualified Ledger.Typed.Scripts                     as Scripts
 import           Plutus.ChainIndex                        (ChainIndexTx(..))
 import           Plutus.Contract                          (Contract, EmptySchema, mkTxConstraints,
-                                                            submitTxConfirmed, utxosTxOutTxAt, txOutFromRef, waitNSlots, logInfo)
+                                                            submitTxConfirmed, utxosTxOutTxAt, txOutFromRef, waitNSlots)
 import           Plutus.Contract.Types                    (ContractError(..), AsContractError)
-import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf)
+import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf, toValue)
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  (String, Foldable (null), (<>), (<$>))
 
 import           Configuration.PABConfig                  (pabWalletPKH)
 import           Tokens.MIXToken                          (mixToken)
+import Plutus.V1.Ledger.Credential (Credential(PubKeyCredential), StakingCredential (StakingHash))
 
 
 dispenserAddress :: Address
 dispenserAddress = pubKeyHashAddress pabWalletPKH Nothing
 
 dispenserAmount :: Value
-dispenserAmount = lovelaceValueOf 2_000_000 + scale 100_000 mixToken
+dispenserAmount = toValue minAdaTxOut + scale 100_000 mixToken
 
-getSender :: AsContractError e => ChainIndexTx -> Contract w s e (Maybe PaymentPubKeyHash)
+getSender :: AsContractError e => ChainIndexTx -> Contract w s e (Maybe (PaymentPubKeyHash, StakePubKeyHash))
 getSender tx = do
     let ref = txInRef $ head $ Data.Set.toList $ _citxInputs tx
     txo <- txOutFromRef ref
     return $ do
         addr <- _ciTxOutAddress <$> txo
-        pkh  <- toPubKeyHash addr
-        return $ PaymentPubKeyHash pkh
+        case addr of
+            Address (PubKeyCredential (PubKeyHash h1)) (Just (StakingHash (PubKeyCredential (PubKeyHash h2)))) -> 
+                let pkh = PaymentPubKeyHash $ PubKeyHash h1
+                    skh = StakePubKeyHash $ PubKeyHash h2
+                in Just (pkh, skh)
+            _ -> Nothing
 
 sendTokens :: Contract (Maybe (Last String)) EmptySchema ContractError ()
 sendTokens = do
@@ -59,15 +64,15 @@ sendTokens = do
         a <- getSender tx
         case a of
           Nothing  -> return ()
-          Just pkh -> do
+          Just (pkh, skh) -> do
             let lookups = unspentOutputs $ Data.Map.singleton ref utxo
-                cons    = mustPayToPubKey pkh dispenserAmount <> mustSpendPubKeyOutput ref
+                cons    = mustPayToPubKeyAddress pkh skh dispenserAmount <> mustSpendPubKeyOutput ref
             utx <- mkTxConstraints @Scripts.Any lookups cons
             submitTxConfirmed utx
 
-dispenserProgram :: Integer -> Contract (Maybe (Last String)) EmptySchema ContractError ()
-dispenserProgram n = do
+dispenserProgram :: Contract (Maybe (Last String)) EmptySchema ContractError ()
+dispenserProgram = do
     sendTokens
     _ <- waitNSlots 1
-    if n <= 0 then logInfo @String "Finished dispenser program!" else dispenserProgram (n-1)
+    dispenserProgram
 

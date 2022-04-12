@@ -108,7 +108,8 @@ pabEmulator (leaf, subs, proof) = do
     callEndpoint @"Create native token" c0 (SimpleMPS "tMIX" 100_000_000)
     _ <- waitNSlots 10
 
-    _ <- activateContractWallet pabWallet (void $ dispenserProgram 1000)
+    -- TODO: check if it does not cause infinite loop
+    _ <- activateContractWallet pabWallet (void dispenserProgram)
     _ <- waitNSlots 10
 
     _ <- payToWallet (knownWallet 2) pabWallet (lovelaceValueOf 2_000_000)

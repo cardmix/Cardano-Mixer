@@ -36,9 +36,9 @@ adminDecisionTokenPolicyId :: [Integer]
 adminDecisionTokenPolicyId = [0x18, 0x03, 0x07, 0xc3, 0x48, 0xf6, 0x48, 0x28, 0xb5, 0x8b, 0xa1, 0x19, 0x45, 0x8f, 0x41, 0xd9,
      0x9b, 0xfe, 0xd8, 0x23, 0x72, 0xba, 0xfb, 0xc0, 0x82, 0x9e, 0x05, 0xc6]
 
--- -- TODO: add to config
--- mixTokenPolicyId :: [Integer]
--- mixTokenPolicyId = [234,90,69,0,93,247,236,193,240,29,130,189,8,57,128,143,197,107,192,226,136,118,145,236,43,91,163,42]
+-- TODO: add to config
+mixTokenPolicyId :: [Integer]
+mixTokenPolicyId = [242,31,23,221,138,119,42,218,30,173,38,40,35,162,36,241,236,157,175,173,101,220,105,57,207,60,72,72]
 
 -- TODO: add to config
 mixStakingTokenPolicyId :: [Integer]
@@ -54,9 +54,9 @@ pabWalletPKHBytesSimulator :: [Integer]
 pabWalletPKHBytesSimulator = [0xc6, 0x05, 0x88, 0x8d, 0x3c, 0x40, 0x38, 0x6d, 0x7c, 0x32, 0x3a, 0x46, 0x79, 0xc7, 0x67, 0xe5,
      0xa0, 0xa7, 0xb6, 0x83, 0x60, 0x5c, 0x3e, 0x5d, 0xf9, 0xa7, 0x6a, 0xee]
 
--- TODO: add to config
-mixTokenPolicyId :: [Integer]
-mixTokenPolicyId = [234,90,69,0,93,247,236,193,240,29,130,189,8,57,128,143,197,107,192,226,136,118,145,236,43,91,163,42]
+-- -- TODO: add to config
+-- mixTokenPolicyId :: [Integer]
+-- mixTokenPolicyId = [234,90,69,0,93,247,236,193,240,29,130,189,8,57,128,143,197,107,192,226,136,118,145,236,43,91,163,42]
 
 ----------------------------- Common -------------------------------
 
