@@ -16,7 +16,7 @@ module Contracts.MixerStateContract where
 import           Data.Semigroup                           (Last (..))
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           Ledger.Value                             (geq)
-import           Plutus.Contract                          (Promise, ContractError, Endpoint, endpoint, tell, Contract)
+import           Plutus.Contract                          (Promise, ContractError, Endpoint, endpoint, tell, Contract, logInfo)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<>), (<$>), unless, find, toList, fromInteger, check)
 
@@ -55,9 +55,10 @@ getMixerState v = do
         state = snd $ constructStateFromList (leafs, [])
     return state
 
-type MixerStateSchema = Endpoint "Get Mixer state" Value
+type MixerStateSchema = Endpoint "Get Mixer state" [Value]
 
-getMixerStatePromise :: Promise (Maybe (Last MixerState)) MixerStateSchema ContractError ()
-getMixerStatePromise = endpoint @"Get Mixer state" @Value $ \v -> do
-    state <- getMixerState v
-    tell $ Just $ Last state
+getMixerStatePromise :: Promise (Maybe (Last [MixerState])) MixerStateSchema ContractError ()
+getMixerStatePromise = endpoint @"Get Mixer state" @[Value] $ \vals -> do
+    states <- mapM getMixerState vals
+    logInfo states
+    tell $ Just $ Last states
