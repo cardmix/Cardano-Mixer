@@ -66,9 +66,9 @@ instance ValidatorTypes Mixing where
 
 ------------------------------ Validator --------------------------------
 
--- TODO: this should be moved to config
+-- TODO: this should be moved to config and restored to one hour
 hourPOSIX :: POSIXTime
-hourPOSIX = POSIXTime 3600000
+hourPOSIX = POSIXTime 3_600_00
 
 {-# INLINABLE mkMixerValidator #-}
 mkMixerValidator :: Mixer -> MixerDatum -> MixerRedeemer -> ScriptContext -> Bool
