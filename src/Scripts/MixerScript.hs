@@ -66,6 +66,7 @@ instance ValidatorTypes Mixing where
 
 ------------------------------ Validator --------------------------------
 
+-- TODO: this should be moved to config
 hourPOSIX :: POSIXTime
 hourPOSIX = POSIXTime 3600000
 

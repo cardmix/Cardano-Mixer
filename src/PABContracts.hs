@@ -27,7 +27,7 @@ import           Contracts.CurrencyContract          (CurrencySchema, mintCurren
 import           Contracts.DispenserContract         (dispenserProgram)
 import           Contracts.MixerContract             (mixerProgram)
 import           Contracts.MixerRelayerContract      (MixerRelayerSchema, mixerRelayerProgram)
-import           Contracts.MixerStateContract        (MixerStateSchema, getMixerStatePromise)
+import           Contracts.MixerStateContract        (MixerStateSchema, MixerStateCache (..), getMixerStatePromise)
 import           Contracts.VestingContract           (vestingContract)
 
 --------------------------------------- PAB Contracts -------------------------------------------
@@ -66,7 +66,7 @@ instance HasDefinitions PABContracts where
         BackendContracts MixerRelay         -> SomeBuiltin mixerRelayerProgram
         BackendContracts Dispense           -> SomeBuiltin dispenserProgram
         FrontendContracts MixerUse          -> SomeBuiltin mixerProgram
-        FrontendContracts MixerStateQuery   -> SomeBuiltin getMixerStatePromise
+        FrontendContracts MixerStateQuery   -> SomeBuiltin $ getMixerStatePromise (MixerStateCache [] 0)
         FrontendContracts ConnectToPAB      -> SomeBuiltin connectToPABPromise
         
 
