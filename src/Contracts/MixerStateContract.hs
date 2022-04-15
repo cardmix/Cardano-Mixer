@@ -21,7 +21,7 @@ import           GHC.Generics                             (Generic)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           Ledger.Value                             (geq)
 import           Plutus.ChainIndex.Tx                     (ChainIndexTx)
-import           Plutus.Contract                          (Promise, ContractError, Endpoint, tell, Contract, logInfo, currentTime, endpointWithMeta)
+import           Plutus.Contract                          (Promise, Contract, ContractError, Endpoint, logInfo, currentTime, endpoint, tell)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<>), (<$>), unless, find, toList, fromInteger, check)
 import           Prelude                                  (Show)
@@ -53,12 +53,14 @@ cacheValidityPeriod = 10000
 
 --------------------------- Off-Chain -------------------------------
 
-getMixerState :: MixerStateCache -> Value -> Contract w s ContractError MixerState
-getMixerState (MixerStateCache cTxs cTime) v = do
+getMixerState :: MixerStateCache -> Value -> Contract w s ContractError (MixerState, MixerStateCache)
+getMixerState oldCache@(MixerStateCache cTxs cTime) v = do
     let mixer = makeMixerFromFees v
         val   = mValue mixer + mTotalFees mixer
     curTime <- currentTime
-    txTxos  <- if curTime - cTime <= cacheValidityPeriod then pure cTxs else txosTxTxOutAt depositTokenTargetAddress
+    txTxos  <- mixerStateCacheIsValid curTime (pure cTxs) (txosTxTxOutAt depositTokenTargetAddress)
+    cache   <- mixerStateCacheIsValid curTime (pure oldCache) (pure $ MixerStateCache txTxos curTime)
+    
     -- TODO: implement proper sort?
     let outs  = map snd txTxos
     let f o = do
@@ -70,12 +72,16 @@ getMixerState (MixerStateCache cTxs cTime) v = do
             if tokenCheck && addrCheck && valCheck then Just leaf else Nothing
         leafs = mapMaybe f outs
         state = snd $ constructStateFromList (leafs, [])
-    return state
+    return (state, cache)
+  where
+      mixerStateCacheIsValid :: POSIXTime -> Contract w s ContractError a -> Contract w s ContractError a -> Contract w s ContractError a
+      mixerStateCacheIsValid ct y n = if ct - cTime <= cacheValidityPeriod then y else n
 
 type MixerStateSchema = Endpoint "Get Mixer state" [Value]
 
-getMixerStatePromise :: MixerStateCache -> Promise (Maybe (Last [MixerState])) MixerStateSchema ContractError ()
-getMixerStatePromise cache = endpointWithMeta @"Get Mixer state" @[Value] cache $ \vals -> do
-    states <- mapM (getMixerState cache) vals
+getMixerStatePromise :: Promise (Maybe (Last [MixerState])) MixerStateSchema ContractError ()
+getMixerStatePromise = endpoint @"Get Mixer state" @[Value] $ \vals -> do
+    (_, cache) <- getMixerState (MixerStateCache [] 0) zero
+    states <- mapM (fmap fst . getMixerState cache) vals
     logInfo states
     tell $ Just $ Last states

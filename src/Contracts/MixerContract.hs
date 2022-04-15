@@ -145,7 +145,7 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, 
     -- TODO: fix empty list error
     let (utxo1, utxos'') = selectUTXO $ Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer)) utxos
 
-    state <- getMixerState (MixerStateCache [] 0) v
+    (state, _) <- getMixerState (MixerStateCache [] 0) v
     mKeys <- getMixerKeys v
     case checkRelayRequest state mKeys params of
         RelayRequestAccepted -> do
