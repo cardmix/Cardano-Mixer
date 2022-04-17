@@ -11,11 +11,14 @@
 
 module PABContracts where
 
+import           Control.Monad.Freer                 (interpret)
 import           Data.Aeson                          (FromJSON(..), ToJSON(..))
 import           Data.Default                        (Default (..))
 import qualified Data.OpenApi
-import           Control.Monad.Freer                 (interpret)
+import           Data.Semigroup                      (Last)
+import           Data.Text                           (Text)
 import           GHC.Generics                        (Generic)
+import           Plutus.Contract                     (Contract)
 import           Plutus.Contract.Schema              (EmptySchema)
 import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), BuiltinHandler(..), HasDefinitions(..),
                                                         handleBuiltin, endpointsToSchemas)
@@ -28,7 +31,8 @@ import           Contracts.DispenserContract         (dispenserProgram)
 import           Contracts.MixerContract             (mixerProgram)
 import           Contracts.MixerRelayerContract      (MixerRelayerSchema, mixerRelayerProgram)
 import           Contracts.MixerStateContract        (MixerStateSchema, getMixerStatePromise)
-import           Contracts.VestingContract           (vestingContract)
+import           Contracts.VestingContract           (retrieveFundsLoop)
+import           Scripts.VestingScript               (VestingError)
 
 --------------------------------------- PAB Contracts -------------------------------------------
 
@@ -55,15 +59,15 @@ instance HasDefinitions PABContracts where
     getSchema = \case
         BackendContracts MintCurrency       -> endpointsToSchemas @CurrencySchema
         BackendContracts MixerRelay         -> endpointsToSchemas @MixerRelayerSchema
-        BackendContracts RetrieveTimeLocked -> [] --endpointsToSchemas @VestingSchema
+        BackendContracts RetrieveTimeLocked -> endpointsToSchemas @EmptySchema
         BackendContracts Dispense           -> endpointsToSchemas @EmptySchema
         FrontendContracts MixerUse          -> [] --endpointsToSchemas  @MixerSchema
         FrontendContracts MixerStateQuery   -> endpointsToSchemas @MixerStateSchema
         FrontendContracts ConnectToPAB      -> endpointsToSchemas @ConnectToPABSchema
     getContract = \case
         BackendContracts MintCurrency       -> SomeBuiltin mintCurrency
-        BackendContracts RetrieveTimeLocked -> SomeBuiltin vestingContract
         BackendContracts MixerRelay         -> SomeBuiltin mixerRelayerProgram
+        BackendContracts RetrieveTimeLocked -> SomeBuiltin (retrieveFundsLoop :: Contract (Maybe (Last Text)) EmptySchema VestingError ())
         BackendContracts Dispense           -> SomeBuiltin dispenserProgram
         FrontendContracts MixerUse          -> SomeBuiltin mixerProgram
         FrontendContracts MixerStateQuery   -> SomeBuiltin getMixerStatePromise

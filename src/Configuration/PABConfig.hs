@@ -26,6 +26,12 @@ pabWalletPKHBytesTestnet :: [Integer]
 pabWalletPKHBytesTestnet = [0x46, 0x62, 0x9e, 0xfc, 0x9c, 0x5d, 0xdf, 0x1a, 0x78, 0x36, 0x0f, 0x4d, 0xa4, 0xdc, 0x38,
      0x72, 0x87, 0xa8, 0x23, 0x8a, 0x57, 0x27, 0xce, 0x7d, 0x02, 0xf6, 0xb6, 0x58]
 
+dispenserWalletIdStringTestnet :: String
+dispenserWalletIdStringTestnet = "5cd8d83d3de9770ac2970f6238386e183e216854"
+
+dispenserWalletPKHBytesTestnet :: [Integer]
+dispenserWalletPKHBytesTestnet = [238,124,117,213,182,255,103,17,174,19,115,112,145,197,125,26,131,244,146,99,216,28,233,128,221,173,106,2]
+
 -- TODO: add to config
 adminTokenPolicyId :: [Integer]
 adminTokenPolicyId = [0x14, 0xca, 0x69, 0xe5, 0x9f, 0x3e, 0xa7, 0xcb, 0x8d, 0x74,
@@ -54,6 +60,14 @@ pabWalletPKHBytesSimulator :: [Integer]
 pabWalletPKHBytesSimulator = [0xc6, 0x05, 0x88, 0x8d, 0x3c, 0x40, 0x38, 0x6d, 0x7c, 0x32, 0x3a, 0x46, 0x79, 0xc7, 0x67, 0xe5,
      0xa0, 0xa7, 0xb6, 0x83, 0x60, 0x5c, 0x3e, 0x5d, 0xf9, 0xa7, 0x6a, 0xee]
 
+-- TODO: correct bytes
+dispenserWalletIdStringSimulator :: String
+dispenserWalletIdStringSimulator = "5cd8d83d3de9770ac2970f6238386e183e216854"
+
+-- TODO: correct bytes
+dispenserWalletPKHBytesSimulator :: [Integer]
+dispenserWalletPKHBytesSimulator = [238,124,117,213,182,255,103,17,174,19,115,112,145,197,125,26,131,244,146,99,216,28,233,128,221,173,106,2]
+
 -- -- TODO: add to config
 -- mixTokenPolicyId :: [Integer]
 -- mixTokenPolicyId = [234,90,69,0,93,247,236,193,240,29,130,189,8,57,128,143,197,107,192,226,136,118,145,236,43,91,163,42]
@@ -65,16 +79,32 @@ pabWalletIdString = case pabConfig of
      Simulator -> pabWalletIdStringSimulator
      Testnet   -> pabWalletIdStringTestnet
 
+pabWallet :: Wallet
+pabWallet = Wallet $ head $ rights [fromBase16 $ pack pabWalletIdString]
+
 pabWalletPKHBytes :: [Integer]
 pabWalletPKHBytes = case pabConfig of
      Simulator -> pabWalletPKHBytesSimulator
      Testnet   -> pabWalletPKHBytesTestnet
 
-pabWallet :: Wallet
-pabWallet = Wallet $ head $ rights [fromBase16 $ pack pabWalletIdString]
-
 pabWalletPKH :: PaymentPubKeyHash
 pabWalletPKH = PaymentPubKeyHash $ PubKeyHash $ foldr consByteString emptyByteString pabWalletPKHBytes
+
+dispenserWalletIdString :: String
+dispenserWalletIdString = case pabConfig of
+     Simulator -> dispenserWalletIdStringSimulator
+     Testnet   -> dispenserWalletIdStringTestnet
+
+dispenserWallet :: Wallet
+dispenserWallet = Wallet $ head $ rights [fromBase16 $ pack dispenserWalletIdString]
+
+dispenserWalletPKHBytes :: [Integer]
+dispenserWalletPKHBytes = case pabConfig of
+     Simulator -> dispenserWalletPKHBytesSimulator
+     Testnet   -> dispenserWalletPKHBytesTestnet
+
+dispenserWalletPKH :: PaymentPubKeyHash
+dispenserWalletPKH = PaymentPubKeyHash $ PubKeyHash $ foldr consByteString emptyByteString dispenserWalletPKHBytes
 
 vestingHashBytes :: [Integer]
 vestingHashBytes = [227,105,154,57,112,79,3,28,249,43,212,15,231,233,204,78,174,132,89,90,172,3,99,68,65,35,135,9]

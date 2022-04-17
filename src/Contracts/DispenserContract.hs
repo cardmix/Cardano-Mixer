@@ -28,16 +28,16 @@ import           Plutus.Contract                          (Contract, EmptySchema
                                                             submitTxConfirmed, utxosTxOutTxAt, txOutFromRef, waitNSlots)
 import           Plutus.Contract.Types                    (ContractError(..), AsContractError)
 import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf, toValue)
+import           Plutus.V1.Ledger.Credential              (Credential(..), StakingCredential (..))
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  (String, Foldable (null), (<>), (<$>))
 
-import           Configuration.PABConfig                  (pabWalletPKH)
+import           Configuration.PABConfig                  (dispenserWalletPKH)
 import           Tokens.MIXToken                          (mixToken)
-import Plutus.V1.Ledger.Credential (Credential(PubKeyCredential), StakingCredential (StakingHash))
 
 
 dispenserAddress :: Address
-dispenserAddress = pubKeyHashAddress pabWalletPKH Nothing
+dispenserAddress = pubKeyHashAddress dispenserWalletPKH Nothing
 
 dispenserAmount :: Value
 dispenserAmount = toValue minAdaTxOut + scale 100_000 mixToken
@@ -73,6 +73,6 @@ sendTokens = do
 dispenserProgram :: Contract (Maybe (Last String)) EmptySchema ContractError ()
 dispenserProgram = do
     sendTokens
-    _ <- waitNSlots 1
+    _ <- waitNSlots 10
     dispenserProgram
 

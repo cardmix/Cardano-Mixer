@@ -13,7 +13,6 @@ module Main
         main
     ) where
 
-import           Control.Concurrent                           (threadDelay)
 import           Control.Monad                                (void)
 import           Data.Text                                    (Text)
 import           Ledger.Value                                 (TokenName(..))
@@ -24,7 +23,7 @@ import           Prelude                                      (IO, String, print
 import           System.Environment                           (getArgs)
 import           Wallet.Emulator.Wallet                       (Wallet(..))
 
-import           Configuration.PABConfig                      (pabWallet)
+import           Configuration.PABConfig                      (pabWallet, dispenserWallet)
 import           Contracts.CurrencyContract                   (SimpleMPS(SimpleMPS))
 import           PABContracts                                 (PABContracts(..), MixerBackendContracts(..))
 import           Requests
@@ -40,14 +39,12 @@ main = do
         ["mint", strTokenName, strAmount] -> mintCurrencyProcedure pabWallet 
             (TokenName $ stringToBuiltinByteString strTokenName) (read strAmount)  -- for testing purposes
         ["tickets", str]                  -> mintRelayTicketsProcedure $ read str
-        ["retrieve"]                      -> go
+        ["retrieve"]                      -> retrieveTimeLockedProcedure
         ["dispense"]                      -> dispenseProcedure
+        ["startup"]                       -> do
+            retrieveTimeLockedProcedure
+            dispenseProcedure
         _                                 -> print ("Unknown command" :: String)
-  where
-      go = do
-          retrieveTimeLockedProcedure
-          threadDelay 5_000_000
-          go
 
 ---------------------------------- Relayer logic ---------------------------------
 
@@ -63,9 +60,8 @@ mintRelayTicketsProcedure n = do
 
 retrieveTimeLockedProcedure :: IO ()
 retrieveTimeLockedProcedure = do
-    cidTimeLocked <- activateRequest pabIP (BackendContracts RetrieveTimeLocked) (Just pabWallet)
-    endpointRequest pabIP "retrieve funds" cidTimeLocked ()
+    void $ activateRequest pabIP (BackendContracts RetrieveTimeLocked) (Just pabWallet)
 
 dispenseProcedure :: IO ()
 dispenseProcedure = do
-    void $ activateRequest pabIP (BackendContracts Dispense) (Just pabWallet)
+    void $ activateRequest pabIP (BackendContracts Dispense) (Just dispenserWallet)

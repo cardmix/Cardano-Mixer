@@ -52,6 +52,12 @@ retrieveFunds = mapError (review _VestingError) $ do
           Right r -> let m = fromBuiltinData $ getDatum r :: Maybe VestingParams
                      in maybe False (\p -> vestingDate p <= t && vestingOwner p == h) m
 
+retrieveFundsLoop :: (AsVestingError e, AsContractError e) => Contract w s e ()
+retrieveFundsLoop = do
+    retrieveFunds
+    _ <- waitNSlots 30
+    retrieveFundsLoop
+
 type VestingSchema =
         Endpoint "vest funds" (VestingParams, Value)
         .\/ Endpoint "retrieve funds" ()
