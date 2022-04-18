@@ -40,7 +40,7 @@ retrieveFunds = mapError (review _VestingError) $ do
     utxos <- utxosAt vestingScriptAddress
     pkh   <- ownPaymentPubKeyHash
     ct    <- currentTime
-    let (utxo1, utxos') = selectUTXO $ Data.Map.filter (\txout -> f txout ct pkh) utxos
+    let (utxo1, utxos') = selectUTXO $ Data.Map.filter (\txout -> f txout (ct-100000) pkh) utxos
     if Data.Map.null utxos'
         then return ()
         else do

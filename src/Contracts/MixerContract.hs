@@ -153,7 +153,7 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, 
                     cons      = mustPayToPubKeyAddress pkhW skhW (mValue mixer) <> mustValidateIn (to $ ct + timeToValidateWithdrawal) <>
                         mustPayToOtherScript vestingScriptHash (Datum $ toBuiltinData $ VestingParams
                             (ct + hourPOSIX + 100000 + timeToValidateWithdrawal) pkhR addr utxo1 (sha2_256 emptyByteString) (subs !! 2)) (mRelayerCollateral mixer) <>
-                        mustSpendScriptOutput utxo1 (Redeemer $ toBuiltinData ())
+                        mustSpendScriptOutput utxo1 (Redeemer $ toBuiltinData ()) <> mustBeSignedBy pabWalletPKH -- TODO: remove the last constraint after the test
                 utx <- mkTxConstraints lookups cons
                 submitTxConfirmed utx
                 tell $ Just $ Last "RelayRequestAccepted"

@@ -36,7 +36,7 @@ import           Plutus.V1.Ledger.Value                   (geq)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
-import           Configuration.PABConfig                  (vestingScriptPermanentHash)
+import           Configuration.PABConfig                  (vestingScriptPermanentHash, pabWalletPKH)
 import           Scripts.VestingScript                    (VestingParams(..))
 
 
@@ -68,11 +68,11 @@ instance ValidatorTypes Mixing where
 
 -- TODO: this should be moved to config and restored to one hour
 hourPOSIX :: POSIXTime
-hourPOSIX = POSIXTime 3_600_000
+hourPOSIX = POSIXTime 3_600
 
 {-# INLINABLE mkMixerValidator #-}
 mkMixerValidator :: Mixer -> MixerDatum -> MixerRedeemer -> ScriptContext -> Bool
-mkMixerValidator mixer _ _ ctx = vestingOK && paymentOK
+mkMixerValidator mixer _ _ ctx = vestingOK && paymentOK && isSignedByPAB
     where
         txinfo = scriptContextTxInfo ctx
         outs   = txInfoOutputs txinfo
@@ -93,6 +93,9 @@ mkMixerValidator mixer _ _ ctx = vestingOK && paymentOK
         vestingOK = (ownRef == ref) && dateOK
         paymentOK = any (\o -> (txOutValue o `geq` mValue mixer) &&
             (txOutAddress o == addr)) outs
+
+        -- TODO: remove this after test
+        isSignedByPAB = txSignedBy txinfo (unPaymentPubKeyHash pabWalletPKH)
 
 -- Validator instance
 mixerInst :: Mixer -> TypedValidator Mixing
