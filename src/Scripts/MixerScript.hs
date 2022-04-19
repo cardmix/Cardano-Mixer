@@ -51,7 +51,7 @@ data Mixer = Mixer {
 PlutusTx.makeLift ''Mixer
 
 mixerFixedFee :: Value
-mixerFixedFee = lovelaceValueOf 3_000_000
+mixerFixedFee = lovelaceValueOf 2_000_000
 
 makeMixerFromFees :: Value -> Mixer
 makeMixerFromFees v = Mixer (scale 500 v) (scale 1000 v + toValue minAdaTxOut) (v + mixerFixedFee)
