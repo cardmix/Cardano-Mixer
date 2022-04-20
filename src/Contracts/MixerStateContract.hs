@@ -77,10 +77,10 @@ getMixerState oldCache@(MixerStateCache cTxs cTime) v = do
       mixerStateCacheIsValid :: POSIXTime -> Contract w s ContractError a -> Contract w s ContractError a -> Contract w s ContractError a
       mixerStateCacheIsValid ct y n = if ct - cTime <= cacheValidityPeriod then y else n
 
-type MixerStateSchema = Endpoint "Get Mixer state" [Value]
+type MixerStateSchema = Endpoint "get-mixer-state" [Value]
 
 getMixerStatePromise :: Promise (Maybe (Last [MixerState])) MixerStateSchema ContractError ()
-getMixerStatePromise = endpoint @"Get Mixer state" @[Value] $ \vals -> do
+getMixerStatePromise = endpoint @"get-mixer-state" @[Value] $ \vals -> do
     (_, cache) <- getMixerState (MixerStateCache [] 0) zero
     states <- mapM (fmap fst . getMixerState cache) vals
     logInfo states

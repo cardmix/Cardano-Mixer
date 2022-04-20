@@ -103,8 +103,8 @@ deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) ->
 
 -- "deposit" endpoint implementation
 depositSubmit :: Promise (Maybe (Last Text)) MixerSchema ContractError ()
-depositSubmit = endpoint @"depositSubmit" @Text $ \txSigned -> handleError errorMixerContract $ do
-    logInfo @String "depositSubmit"
+depositSubmit = endpoint @"deposit-submit" @Text $ \txSigned -> handleError errorMixerContract $ do
+    logInfo @String "deposit-submit"
     logInfo txSigned
     -- converting CBOR text into CardanoTx
     let 
@@ -159,7 +159,7 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, 
                 tell $ Just $ Last "RelayRequestAccepted"
         e                    -> throwError $ OtherContractError $ pack $ show e
 
-type MixerSchema = Endpoint "deposit" DepositParams  .\/ Endpoint "depositSubmit" Text .\/ Endpoint "withdraw" WithdrawParams
+type MixerSchema = Endpoint "deposit" DepositParams  .\/ Endpoint "deposit-submit" Text .\/ Endpoint "withdraw" WithdrawParams
 
 mixerProgram :: Contract (Maybe (Last Text)) MixerSchema ContractError ()
 mixerProgram = selectList [deposit, withdraw, depositSubmit]

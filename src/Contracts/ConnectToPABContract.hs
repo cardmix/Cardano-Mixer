@@ -27,10 +27,10 @@ import           Utils.Address             (textToPKH)
 --------------------------- Off-Chain -------------------------------
 ---------------------------------------------------------------------
 
-type ConnectToPABSchema = Endpoint "Connect to PAB" Text
+type ConnectToPABSchema = Endpoint "connect-to-pab" Text
 
 connectToPABPromise :: Promise (Maybe (Last (PaymentPubKeyHash, Fr, Wallet))) ConnectToPABSchema ContractError ()
-connectToPABPromise = endpoint @"Connect to PAB" @Text $ \txt ->
+connectToPABPromise = endpoint @"connect-to-pab" @Text $ \txt ->
     let pkh = textToPKH txt
         a   = dataToZp pkh
         w   = pabWallet

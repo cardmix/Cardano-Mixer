@@ -93,11 +93,11 @@ data SimpleMPS = SimpleMPS
         deriving stock (Haskell.Eq, Haskell.Show, Generic)
         deriving anyclass (FromJSON, ToJSON, ToSchema)
 
-type CurrencySchema = Endpoint "Create native token" SimpleMPS
+type CurrencySchema = Endpoint "create-native-token" SimpleMPS
 
 -- | Use 'mintContract' to create the currency specified by a 'SimpleMPS'
 mintCurrency :: Promise (Maybe (Last OneShotCurrency)) CurrencySchema CurrencyError OneShotCurrency
-mintCurrency = endpoint @"Create native token" $ \simpleMPS -> do
+mintCurrency = endpoint @"create-native-token" $ \simpleMPS -> do
     cur <- mintContract simpleMPS
     tell (Just (Last cur))
     pure cur

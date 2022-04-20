@@ -59,13 +59,13 @@ retrieveFundsLoop = do
     retrieveFundsLoop
 
 type VestingSchema =
-        Endpoint "vest funds" (VestingParams, Value)
-        .\/ Endpoint "retrieve funds" ()
+        Endpoint "vest-funds" (VestingParams, Value)
+        .\/ Endpoint "retrieve-funds" ()
 
 vestingContract :: Contract () VestingSchema VestingError ()
 vestingContract = selectList [vest, retrieve]
   where
-    vest = endpoint @"vest funds" $ \(p, v) -> do
+    vest = endpoint @"vest-funds" $ \(p, v) -> do
         (lookups, cons) <- timelockTx p v
         void $ submitTxConstraintsWith (lookups <> typedValidatorLookups typedValidator) cons
-    retrieve = endpoint @"retrieve funds" $ \() -> retrieveFunds
+    retrieve = endpoint @"retrieve-funds" $ \() -> retrieveFunds

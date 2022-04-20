@@ -81,7 +81,7 @@ pabSimulator = void $ Simulator.runSimulationWith handlers $ do
     shutdown <- PAB.Server.startServerDebug
 
     c0 <- Simulator.activateContract pabWallet (BackendContracts MintCurrency)
-    _  <- Simulator.callEndpointOnInstance c0 "Create native token" (SimpleMPS "tMIX" 100_000_000_000)
+    _  <- Simulator.callEndpointOnInstance c0 "create-native-token" (SimpleMPS "tMIX" 100_000_000_000)
     _  <- Simulator.payToWallet (knownWallet 3) pabWallet (lovelaceValueOf 2_000_000)
 
     void $ liftIO getLine
@@ -105,7 +105,7 @@ pabEmulatorFee = scale 10 mixTokenInSimulator + lovelaceValueOf 4_000
 pabEmulator :: (Fr, [Fr], Proof) -> EmulatorTrace ()
 pabEmulator (leaf, subs, proof) = do
     c0 <- activateContractWallet pabWallet (void mintCurrency)
-    callEndpoint @"Create native token" c0 (SimpleMPS "tMIX" 100_000_000)
+    callEndpoint @"create-native-token" c0 (SimpleMPS "tMIX" 100_000_000)
     _ <- waitNSlots 10
 
     -- TODO: check if it does not cause infinite loop
@@ -124,7 +124,7 @@ pabEmulator (leaf, subs, proof) = do
                 Just (Last a) -> a
                 Nothing -> error ()
     c2 <- activateContractWallet pabWallet (void mixerProgram)
-    callEndpoint @"depositSubmit" c2 ctx
+    callEndpoint @"deposit-submit" c2 ctx
     _ <- waitNSlots 10
 
     c3 <- activateContractWallet pabWallet (void mixerProgram)
@@ -132,7 +132,7 @@ pabEmulator (leaf, subs, proof) = do
     _ <- waitNSlots 4000
 
     c4 <- activateContractWallet pabWallet (void vestingContract)
-    callEndpoint @"retrieve funds" c4 ()
+    callEndpoint @"retrieve-funds" c4 ()
     _ <- waitNSlots 10
 
     logInfo @String "Finished."

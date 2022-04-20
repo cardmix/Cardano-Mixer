@@ -56,10 +56,10 @@ getTxKeys tx = do
         p <- fromBuiltinData $ getDatum d :: Maybe VestingParams
         return $ vestingWHash p
 
-type MixerKeysSchema = Endpoint "Get Mixer keys" Value
+type MixerKeysSchema = Endpoint "get-mixer-keys" Value
 
 getMixerKeysPromise :: Promise (Maybe (Last MixerKeys)) MixerKeysSchema ContractError ()
-getMixerKeysPromise = endpoint @"Get Mixer keys" @Value $ \v -> do
+getMixerKeysPromise = endpoint @"get-mixer-keys" @Value $ \v -> do
     mKeys <- getMixerKeys v
     tell $ Just $ Last mKeys
 
