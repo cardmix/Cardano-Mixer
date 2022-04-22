@@ -92,6 +92,7 @@ deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) ->
     -- adding user wallet inputs and outputs
     let addr = textToAddress txt
     utx' <- balanceTxWithExternalWallet utx (addr, val') (map (lovelaceValueOf . (\i -> 1_000_000 + 10_000 * i)) [0..100])
+    logInfo utx'
     -- final balancing with PAB wallet
     ctx <- case pabConfig of
             Simulator -> pure $ Right $ unBalancedTxTx utx'
