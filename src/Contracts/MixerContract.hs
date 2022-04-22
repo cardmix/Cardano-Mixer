@@ -99,6 +99,10 @@ deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) ->
     ctx <- case pabConfig of
             Simulator -> pure $ Right $ unBalancedTxTx utx'
             Testnet   -> balanceTx utx'
+    let btx    = case ctx of
+                Left (SomeTx tx eraInMode) -> fromRight (error ()) $ fromCardanoTx eraInMode tx
+                Right tx                   -> fromOnChainTx $ Valid tx
+    logInfo btx
     txUnsigned <- case ctx of
         Left (SomeTx tx _) -> pure $ Data.Text.Encoding.decodeUtf8 $ toStrict $ encode $ TxUnsignedCW "1234567890" $ encodeByteString $ serialiseToCBOR tx
         Right tx           -> pure $ Data.Text.Encoding.decodeUtf8 $ toStrict $ encode tx
