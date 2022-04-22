@@ -129,6 +129,7 @@ depositSubmit = endpoint @"deposit-submit" @(Text, Text) $ \(txUnsigned, txSigne
         txFinal  = makeSignedTransaction witness body
         ctxFinal = Left $ SomeTx txFinal AlonzoEraInCardanoMode :: CardanoTx
     logInfo ctxFinal
+    logInfo $ show witness
 
     -- computing PAB wallet reward
     let btx    = case ctxFinal of
