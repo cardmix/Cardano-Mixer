@@ -31,6 +31,7 @@ import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), 
 import           Prelude                          ((<>))
 
 import           Crypto                           (Zp(..), Fr)
+import           Scripts.MixerScript
 import           Scripts.VestingScript            ()
 import           Tokens.Common                    (tokensMintTx)
 
@@ -83,7 +84,8 @@ checkPolicy (addr, val) (Zp a, dTime@(POSIXTime b)) ctx@ScriptContext{scriptCont
         sentOK = sum (map txOutValue outs') `geq` t
 
         outs'' = filter (\o -> txOutAddress o == addr) outs
-        txOK = sum (map txOutValue outs'') `geq` val
+        mixer  = makeMixerFromFees val
+        txOK = sum (map txOutValue outs'') `geq` (mValue mixer + mTotalFees mixer)
 
         int    = txInfoValidRange txinfo
         int'   = interval (dTime-600_000) (dTime+600_000)

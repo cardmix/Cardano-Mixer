@@ -56,7 +56,6 @@ cacheValidityPeriod = 10000
 getMixerState :: MixerStateCache -> Value -> Contract w s ContractError (MixerState, MixerStateCache)
 getMixerState oldCache@(MixerStateCache cTxs cTime) v = do
     let mixer = makeMixerFromFees v
-        val   = mValue mixer + mTotalFees mixer
     curTime <- currentTime
     txTxos  <- mixerStateCacheIsValid curTime (pure cTxs) (txosTxTxOutAt depositTokenTargetAddress)
     cache   <- mixerStateCacheIsValid curTime (pure oldCache) (pure $ MixerStateCache txTxos curTime)
@@ -68,7 +67,7 @@ getMixerState oldCache@(MixerStateCache cTxs cTime) v = do
             ((addr, mv), (leaf, t)) <- fromBuiltinData $ getDatum d :: Maybe ((Address, Value), (Fr, POSIXTime))
             let tokenCheck = _ciTxOutValue o `geq` depositToken (addr, mv) (leaf, t)
                 addrCheck  = addr == mixerAddress mixer
-                valCheck   = mv   == val
+                valCheck   = mv   == v
             if tokenCheck && addrCheck && valCheck then Just leaf else Nothing
         leafs = mapMaybe f outs
         state = snd $ constructStateFromList (leafs, [])

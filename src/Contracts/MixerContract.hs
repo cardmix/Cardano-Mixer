@@ -81,7 +81,7 @@ deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) ->
         -- value sent to the mixer script
         val   = mValue mixer + mTotalFees mixer
     ct <- currentTime
-    let (lookups', cons') = depositTokenMintTx (mixerAddress mixer, val) (leaf, ct)
+    let (lookups', cons') = depositTokenMintTx (mixerAddress mixer, v) (leaf, ct)
         -- total ADA value of all outputs
         val'              = val + toValue minAdaTxOut
         lookups           = typedValidatorLookups (mixerInst mixer) <> lookups'
