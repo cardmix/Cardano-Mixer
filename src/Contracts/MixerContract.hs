@@ -122,6 +122,7 @@ depositSubmit = endpoint @"deposit-submit" @Text $ \txSigned -> handleError erro
         outs   = case _citxOutputs btx of
                     ValidTx a -> a
                     InvalidTx -> error ()
+    logInfo btx
     ins <- txOutsFromRefs inRefs
     let inVal  = sum $ map txOutValue $ filter (\o -> txOutAddress o == pubKeyHashAddress pabWalletPKH Nothing) ins
         outVal = sum $ map txOutValue $ filter (\o -> txOutAddress o == pubKeyHashAddress pabWalletPKH Nothing) outs
