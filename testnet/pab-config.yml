@@ -47,7 +47,7 @@ metadataServerConfig:
   mdBaseUrl: http://localhost:9085
 
 developmentOptions:
-  pabRollbackHistory: 100
+  pabRollbackHistory: 500
   pabResumeFrom:
     # { "tag" : "PointAtGenesis" }
     { "tag" : "Point"

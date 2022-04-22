@@ -22,7 +22,9 @@ module Contracts.MixerContract (
     mixerProgram
 ) where
 
-import           Cardano.Api                              (EraInMode (..), AsType (..), serialiseToCBOR, deserialiseFromCBOR)
+import           Cardano.Api                              (EraInMode (..), AsType (..), AlonzoEra, serialiseToCBOR, deserialiseFromCBOR,
+                                                            getTxWitnesses, getTxBody, makeSignedTransaction)
+import qualified Cardano.Api                              as CardanoAPI
 import           Control.Monad                            (void)
 import           Data.Aeson                               (FromJSON(..), ToJSON(..), Value (Object), (.:), encode)
 import           Data.Aeson.Extras                        (encodeByteString, tryDecode)
@@ -104,30 +106,37 @@ deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) ->
 
 -- "deposit" endpoint implementation
 depositSubmit :: Promise (Maybe (Last Text)) MixerSchema ContractError ()
-depositSubmit = endpoint @"deposit-submit" @Text $ \txSigned -> handleError errorMixerContract $ do
+depositSubmit = endpoint @"deposit-submit" @(Text, Text) $ \(txUnsigned, txSigned) -> handleError errorMixerContract $ do
     logInfo @String "deposit-submit"
     logInfo txSigned
-    -- converting CBOR text into CardanoTx
-    let 
-        -- txSigned           = unTxSignedCW $ fromMaybe (error ()) (decode $ fromStrict $ Data.Text.Encoding.encodeUtf8 bs :: Maybe TxSignedCW)
-        -- txSignedByteString = fromRight (error ()) $ Data.ByteString.Base64.decodeBase64 $ Data.Text.Encoding.encodeUtf8 txSigned
-        -- txSignedByteString = fromMaybe (error ()) $ decode $ fromStrict $ Data.Text.Encoding.encodeUtf8 txSigned
-        txSignedByteString = fromRight (error ()) $ tryDecode txSigned
-        ctx                = Left $ SomeTx (fromRight (error ()) $ deserialiseFromCBOR AsAlonzoTx txSignedByteString) AlonzoEraInCardanoMode :: CardanoTx
+    -- converting CBOR text into ByteString
+    let txUnsignedByteString = fromRight (error ()) $ tryDecode txUnsigned
+        txSignedByteString   = fromRight (error ()) $ tryDecode txSigned
+    -- building correct CardanoTx using the original usigned transaction and the signature from the signed transaction
+    -- this is due to cardano-serialization-lib building transaction incorrectly (changing datum/datumhash of the original tx)
+    let txU = fromRight (error ()) $ deserialiseFromCBOR AsAlonzoTx txUnsignedByteString :: CardanoAPI.Tx AlonzoEra
+        txS = fromRight (error ()) $ deserialiseFromCBOR AsAlonzoTx txSignedByteString :: CardanoAPI.Tx AlonzoEra
+        body    = getTxBody txU
+        witness = getTxWitnesses txS
+        txFinal  = makeSignedTransaction witness body
+        ctxFinal = Left $ SomeTx txFinal AlonzoEraInCardanoMode :: CardanoTx
+    logInfo ctxFinal
+
     -- computing PAB wallet reward
-    let btx    = case ctx of
-                Left (SomeTx eraInMode tx) -> fromRight (error ()) $ fromCardanoTx tx eraInMode
+    let btx    = case ctxFinal of
+                Left (SomeTx tx eraInMode) -> fromRight (error ()) $ fromCardanoTx eraInMode tx
                 Right tx                   -> fromOnChainTx $ Valid tx
         inRefs = map txInRef $ Data.Set.toList $ _citxInputs btx
         outs   = case _citxOutputs btx of
                     ValidTx a -> a
                     InvalidTx -> error ()
     logInfo btx
+
     ins <- txOutsFromRefs inRefs
     let inVal  = sum $ map txOutValue $ filter (\o -> txOutAddress o == pubKeyHashAddress pabWalletPKH Nothing) ins
         outVal = sum $ map txOutValue $ filter (\o -> txOutAddress o == pubKeyHashAddress pabWalletPKH Nothing) outs
     if outVal `geq` inVal
-        then void $ submitBalancedTx ctx
+        then void $ submitBalancedTx ctxFinal
     else throwError $ OtherContractError $ pack $ show $ outVal-inVal --"PAB fee for the deposit transaction is negative!"
 
 timeToValidateWithdrawal :: POSIXTime
@@ -161,7 +170,7 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, 
                 tell $ Just $ Last "RelayRequestAccepted"
         e                    -> throwError $ OtherContractError $ pack $ show e
 
-type MixerSchema = Endpoint "deposit" DepositParams  .\/ Endpoint "deposit-submit" Text .\/ Endpoint "withdraw" WithdrawParams
+type MixerSchema = Endpoint "deposit" DepositParams  .\/ Endpoint "deposit-submit" (Text, Text) .\/ Endpoint "withdraw" WithdrawParams
 
 mixerProgram :: Contract (Maybe (Last Text)) MixerSchema ContractError ()
 mixerProgram = selectList [deposit, withdraw, depositSubmit]
