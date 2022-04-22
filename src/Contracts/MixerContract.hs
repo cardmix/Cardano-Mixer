@@ -112,13 +112,15 @@ depositSubmit = endpoint @"deposit-submit" @(Text, Text) $ \(txUnsigned, txSigne
     -- converting CBOR text into ByteString
     let txUnsignedByteString = fromRight (error ()) $ tryDecode txUnsigned
         txSignedByteString   = fromRight (error ()) $ tryDecode txSigned
+        
     -- building correct CardanoTx using the original usigned transaction and the signature from the signed transaction
     -- this is due to cardano-serialization-lib building transaction incorrectly (changing datum/datumhash of the original tx)
     let txU = fromRight (error ()) $ deserialiseFromCBOR AsAlonzoTx txUnsignedByteString :: CardanoAPI.Tx AlonzoEra
-        txS = fromRight (error ()) $ deserialiseFromCBOR AsAlonzoTx txSignedByteString :: CardanoAPI.Tx AlonzoEra
+        -- txS = fromRight (error ()) $ deserialiseFromCBOR AsAlonzoTx txSignedByteString :: CardanoAPI.Tx AlonzoEra
+        witness = fromRight (error ()) $ deserialiseFromCBOR (AsKeyWitness AsAlonzoEra) txSignedByteString
         body    = getTxBody txU
-        witness = getTxWitnesses txS
-        txFinal  = makeSignedTransaction witness body
+        -- witness = getTxWitnesses txS
+        txFinal  = makeSignedTransaction [witness] body
         ctxFinal = Left $ SomeTx txFinal AlonzoEraInCardanoMode :: CardanoTx
     logInfo ctxFinal
 
