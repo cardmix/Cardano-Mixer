@@ -124,7 +124,7 @@ pabEmulator (leaf, subs, proof) = do
                 Just (Last a) -> a
                 Nothing -> error ()
     c2 <- activateContractWallet pabWallet (void mixerProgram)
-    callEndpoint @"deposit-submit" c2 ctx
+    callEndpoint @"deposit-submit" c2 (ctx, ctx)
     _ <- waitNSlots 10
 
     c3 <- activateContractWallet pabWallet (void mixerProgram)
