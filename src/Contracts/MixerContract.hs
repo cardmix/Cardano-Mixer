@@ -152,7 +152,7 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, 
     case checkRelayRequest state mKeys params of
         RelayRequestAccepted -> do
                 let lookups   = unspentOutputs utxos'' <> typedValidatorLookups (mixerInst mixer) <> otherScript (mixerValidator mixer)
-                    cons      = mustPayToPubKeyAddress pkhW skhW (mValue mixer + toValue minAdaTxOut) <>
+                    cons      = mustPayToPubKeyAddress pkhW skhW (mValue mixer) <>
                         mustValidateIn (to $ ct + timeToValidateWithdrawal) <>
                         mustPayToOtherScript vestingScriptHash (Datum $ toBuiltinData $ VestingParams
                             (ct + hourPOSIX + 100000 + timeToValidateWithdrawal) pkhR addr utxo1 (sha2_256 emptyByteString) (subs !! 2)) (mRelayerCollateral mixer) <>
