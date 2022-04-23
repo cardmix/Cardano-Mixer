@@ -91,7 +91,7 @@ deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) ->
     utx  <- mkTxConstraints lookups cons
     -- adding user wallet inputs and outputs
     let addr = textToAddress txt
-    utx' <- balanceTxWithExternalWallet utx (addr, val') (map (lovelaceValueOf . (\i -> 1_050_000 + 10_000 * i)) [0..100])
+    utx' <- balanceTxWithExternalWallet utx (addr, val') (map (lovelaceValueOf . (\i -> 1_060_000 + 20_000 * i)) [0..100])
     logInfo utx'
     -- final balancing with PAB wallet
     ctx <- case pabConfig of
@@ -122,6 +122,7 @@ depositSubmit = endpoint @"deposit-submit" @Text $ \txSigned -> handleError erro
     ins <- txOutsFromRefs inRefs
     let inVal  = sum $ map txOutValue $ filter checkTxOutPKH ins
         outVal = sum $ map txOutValue $ filter checkTxOutPKH outs
+    logInfo $ map (toPubKeyHash . txOutAddress) ins
     logInfo inVal
     logInfo outVal
     if outVal `geq` inVal
