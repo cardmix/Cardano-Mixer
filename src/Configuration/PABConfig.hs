@@ -90,6 +90,12 @@ pabWalletPKHBytes = case pabConfig of
 pabWalletPKH :: PaymentPubKeyHash
 pabWalletPKH = PaymentPubKeyHash $ PubKeyHash $ foldr consByteString emptyByteString pabWalletPKHBytes
 
+pabWalletSKHBytes :: [Integer]
+pabWalletSKHBytes = [243,164,20,223,212,64,134,145,48,199,95,222,0,209,106,90,163,129,242,2,159,196,118,76,249,7,183,33]
+
+pabWalletSKH :: PubKeyHash
+pabWalletSKH = PubKeyHash $ foldr consByteString emptyByteString pabWalletSKHBytes
+
 dispenserWalletIdString :: String
 dispenserWalletIdString = case pabConfig of
      Simulator -> dispenserWalletIdStringSimulator

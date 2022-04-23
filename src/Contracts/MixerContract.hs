@@ -46,12 +46,13 @@ import           Plutus.Contract                          (Promise, Endpoint, ty
 import           Plutus.Contract.CardanoAPI               (fromCardanoTx)
 import           Plutus.Contract.Types                    (ContractError(..))
 import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf, toValue)
+import           Plutus.V1.Ledger.Api                     (Credential(..), StakingCredential (..))
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  (String, (<>), show, Show, (<$>))
 
 
-import           Configuration.PABConfig                  (PABConfig (..), pabConfig, pabWalletPKH)
+import           Configuration.PABConfig                  (PABConfig (..), pabConfig, pabWalletPKH, pabWalletSKH)
 import           Contracts.MixerKeysContract              (getMixerKeys)
 import           Contracts.MixerStateContract             (MixerStateCache (..), getMixerState)
 import           RelayRequest
@@ -91,7 +92,7 @@ deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) ->
     utx  <- mkTxConstraints lookups cons
     -- adding user wallet inputs and outputs
     let addr = textToAddress txt
-    utx' <- balanceTxWithExternalWallet utx (addr, val') (map (lovelaceValueOf . (\i -> 1_060_000 + 20_000 * i)) [0..100])
+    utx' <- balanceTxWithExternalWallet utx (addr, val') (map (lovelaceValueOf . (\i -> 1_100_000 + 20_000 * i)) [0..100])
     logInfo utx'
     -- final balancing with PAB wallet
     ctx <- case pabConfig of
@@ -122,16 +123,15 @@ depositSubmit = endpoint @"deposit-submit" @Text $ \txSigned -> handleError erro
     ins <- txOutsFromRefs inRefs
     let inVal  = sum $ map txOutValue $ filter checkTxOutPKH ins
         outVal = sum $ map txOutValue $ filter checkTxOutPKH outs
-    logInfo $ unPaymentPubKeyHash pabWalletPKH
-    logInfo $ map (toPubKeyHash . txOutAddress) ins
-    logInfo $ map (toPubKeyHash . txOutAddress) outs
     logInfo inVal
     logInfo outVal
     if outVal `geq` inVal
         then void $ submitBalancedTx ctx
     else throwError $ OtherContractError $ pack $ show $ outVal-inVal --"PAB fee for the deposit transaction is negative!"
   where
-      checkTxOutPKH o = toPubKeyHash (txOutAddress o) == Just (unPaymentPubKeyHash pabWalletPKH)
+      checkTxOutPKH o = case txOutAddress o of
+          Address (PubKeyCredential _) (Just (StakingHash (PubKeyCredential skh))) -> skh == pabWalletSKH
+          _ -> False
 
 timeToValidateWithdrawal :: POSIXTime
 timeToValidateWithdrawal = POSIXTime 100_000
