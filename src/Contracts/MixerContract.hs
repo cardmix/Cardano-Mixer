@@ -79,7 +79,7 @@ deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) ->
     logInfo dp
     let mixer = makeMixerFromFees v
         -- value sent to the mixer script
-        val   = mValue mixer + mTotalFees mixer
+        val   = mValue mixer + mTotalFees mixer + mixerAdaUTXO mixer
     ct <- currentTime
     let (lookups', cons') = depositTokenMintTx (mixerAddress mixer, v) (leaf, ct)
         -- total ADA value of all outputs
@@ -144,14 +144,14 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, 
     utxos  <- utxosAt (mixerAddress mixer)
     ct     <- currentTime
     -- TODO: fix empty list error
-    let (utxo1, utxos'') = selectUTXO $ Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer)) utxos
+    let (utxo1, utxos'') = selectUTXO $ Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer + mixerAdaUTXO mixer)) utxos
 
     (state, _) <- getMixerState (MixerStateCache [] 0) v
     mKeys <- getMixerKeys v
     case checkRelayRequest state mKeys params of
         RelayRequestAccepted -> do
                 let lookups   = unspentOutputs utxos'' <> typedValidatorLookups (mixerInst mixer) <> otherScript (mixerValidator mixer)
-                    cons      = mustPayToPubKeyAddress pkhW skhW (mValue mixer + toValue minAdaTxOut) <>
+                    cons      = mustPayToPubKeyAddress pkhW skhW (mValue mixer + mixerAdaUTXO mixer) <>
                         mustValidateIn (to $ ct + timeToValidateWithdrawal) <>
                         mustPayToOtherScript vestingScriptHash (Datum $ toBuiltinData $ VestingParams
                             (ct + hourPOSIX + 100000 + timeToValidateWithdrawal) pkhR utxo1 (subs !! 2)) (mRelayerCollateral mixer) <>
