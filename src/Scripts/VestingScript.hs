@@ -75,7 +75,6 @@ data VestingParams = VestingParams
         vestingOwner     :: PaymentPubKeyHash,
         vestingReciever  :: Address,
         vestingTx        :: TxOutRef,
-        vestingDatumHash :: BuiltinByteString,
         vestingWHash     :: Fr
     } deriving (Show, Generic, ToJSON, FromJSON)
 
@@ -88,7 +87,7 @@ instance ValidatorTypes Vesting where
 
 {-# INLINABLE validate #-}
 validate :: VestingParams -> () -> ScriptContext -> Bool
-validate (VestingParams d o _ _ _ _) () ctx@ScriptContext{scriptContextTxInfo=txInfo@TxInfo{txInfoValidRange}} =
+validate (VestingParams d o _ _ _) () ctx@ScriptContext{scriptContextTxInfo=txInfo@TxInfo{txInfoValidRange}} =
     (isUnlocked && isSignedByOwner) || oracleTokenRequired ctx
   where
       validRange      = Interval.from d

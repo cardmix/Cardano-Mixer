@@ -79,7 +79,7 @@ mkMixerValidator mixer _ _ ctx = vestingOK && paymentOK && isSignedByPAB
         outs'  = head $ filter (\o -> (txOutValue o `geq` mRelayerCollateral mixer) &&
             (txOutAddress o == Address (ScriptCredential vestingScriptPermanentHash) Nothing)) outs
 
-        VestingParams vTime _ addr ref _ _ = unsafeFromBuiltinData $ getDatum $ fromMaybe (error ()) $
+        VestingParams vTime _ addr ref _ = unsafeFromBuiltinData $ getDatum $ fromMaybe (error ()) $
             findDatum (fromMaybe (error ()) $ txOutDatumHash outs') txinfo
 
         -- finding current time estimate
