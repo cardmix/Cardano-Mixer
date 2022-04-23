@@ -32,12 +32,12 @@ import           Plutus.V1.Ledger.Credential              (Credential(..), Staki
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  (String, Foldable (null), (<>), (<$>))
 
-import           Configuration.PABConfig                  (dispenserWalletPKH, pabWalletSKH)
+import           Configuration.PABConfig                  (dispenserWalletPKH)
 import           Tokens.MIXToken                          (mixToken)
 
 
 dispenserAddress :: Address
-dispenserAddress = pubKeyHashAddress dispenserWalletPKH (Just $ StakePubKeyHash pabWalletSKH )
+dispenserAddress = pubKeyHashAddress dispenserWalletPKH Nothing
 
 dispenserAmount :: Value
 dispenserAmount = toValue minAdaTxOut + scale 100_000 mixToken

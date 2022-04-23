@@ -123,8 +123,6 @@ depositSubmit = endpoint @"deposit-submit" @Text $ \txSigned -> handleError erro
     ins <- txOutsFromRefs inRefs
     let inVal  = sum $ map txOutValue $ filter checkTxOutPKH ins
         outVal = sum $ map txOutValue $ filter checkTxOutPKH outs
-    logInfo inVal
-    logInfo outVal
     if outVal `geq` inVal
         then void $ submitBalancedTx ctx
     else throwError $ OtherContractError $ pack $ show $ outVal-inVal --"PAB fee for the deposit transaction is negative!"
