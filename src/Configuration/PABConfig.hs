@@ -107,7 +107,7 @@ dispenserWalletPKH :: PaymentPubKeyHash
 dispenserWalletPKH = PaymentPubKeyHash $ PubKeyHash $ foldr consByteString emptyByteString dispenserWalletPKHBytes
 
 vestingHashBytes :: [Integer]
-vestingHashBytes = [147,23,12,153,206,117,160,14,84,131,156,37,230,78,21,156,201,41,222,160,146,27,57,206,250,106,90,177]
+vestingHashBytes = [189,179,221,146,199,167,210,211,153,234,155,218,69,28,238,129,6,21,97,16,41,71,20,87,235,184,0,141]
 
 vestingScriptPermanentHash :: ValidatorHash
 vestingScriptPermanentHash = ValidatorHash $ foldr consByteString emptyByteString vestingHashBytes

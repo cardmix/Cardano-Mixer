@@ -72,14 +72,16 @@ hourPOSIX = POSIXTime 3_600
 
 {-# INLINABLE mkMixerValidator #-}
 mkMixerValidator :: Mixer -> MixerDatum -> MixerRedeemer -> ScriptContext -> Bool
-mkMixerValidator mixer _ _ ctx = vestingOK && paymentOK && isSignedByPAB
+mkMixerValidator mixer _ _ ctx = vestingOK &&
+                                --  paymentOK &&
+                                 isSignedByPAB
     where
         txinfo = scriptContextTxInfo ctx
         outs   = txInfoOutputs txinfo
         outs'  = head $ filter (\o -> (txOutValue o `geq` mRelayerCollateral mixer) &&
             (txOutAddress o == Address (ScriptCredential vestingScriptPermanentHash) Nothing)) outs
 
-        VestingParams vTime _ addr ref _ = unsafeFromBuiltinData $ getDatum $ fromMaybe (error ()) $
+        VestingParams vTime _ ref _ = unsafeFromBuiltinData $ getDatum $ fromMaybe (error ()) $
             findDatum (fromMaybe (error ()) $ txOutDatumHash outs') txinfo
 
         -- finding current time estimate
@@ -91,8 +93,8 @@ mkMixerValidator mixer _ _ ctx = vestingOK && paymentOK && isSignedByPAB
         ownRef = txInInfoOutRef $ fromMaybe (error ()) $ findOwnInput ctx
 
         vestingOK = (ownRef == ref) && dateOK
-        paymentOK = any (\o -> (txOutValue o `geq` mValue mixer) &&
-            (txOutAddress o == addr)) outs
+        -- paymentOK = any (\o -> (txOutValue o `geq` mValue mixer) &&
+        --     (txOutAddress o == addr)) outs
 
         -- TODO: remove this after test
         isSignedByPAB = txSignedBy txinfo (unPaymentPubKeyHash pabWalletPKH)

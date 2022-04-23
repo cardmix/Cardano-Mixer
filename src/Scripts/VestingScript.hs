@@ -58,7 +58,7 @@ import           Tokens.OracleToken       (oracleTokenRequired)
 
 -}
 
-data VestingData = VestingData PaymentPubKeyHash (Integer, Integer) [Fr] Proof
+data VestingData = VestingData Address (Integer, Integer) [Fr] Proof
     deriving (Show, Generic, ToJSON, FromJSON)
 
 PlutusTx.unstableMakeIsData ''VestingData
@@ -73,7 +73,6 @@ data VestingParams = VestingParams
     {
         vestingDate      :: POSIXTime,
         vestingOwner     :: PaymentPubKeyHash,
-        vestingReciever  :: Address,
         vestingTx        :: TxOutRef,
         vestingWHash     :: Fr
     } deriving (Show, Generic, ToJSON, FromJSON)
@@ -87,7 +86,7 @@ instance ValidatorTypes Vesting where
 
 {-# INLINABLE validate #-}
 validate :: VestingParams -> () -> ScriptContext -> Bool
-validate (VestingParams d o _ _ _) () ctx@ScriptContext{scriptContextTxInfo=txInfo@TxInfo{txInfoValidRange}} =
+validate (VestingParams d o _ _) () ctx@ScriptContext{scriptContextTxInfo=txInfo@TxInfo{txInfoValidRange}} =
     (isUnlocked && isSignedByOwner) || oracleTokenRequired ctx
   where
       validRange      = Interval.from d

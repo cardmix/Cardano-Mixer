@@ -139,7 +139,6 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, 
     logInfo @String "withdraw"
     logInfo params
     let (pkhW, skhW) = textToKeys txt
-        addr = pubKeyHashAddress pkhW (Just skhW)
         mixer = makeMixerFromFees v
     pkhR   <- ownPaymentPubKeyHash
     utxos  <- utxosAt (mixerAddress mixer)
@@ -155,7 +154,7 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, 
                     cons      = mustPayToPubKeyAddress pkhW skhW (mValue mixer + toValue minAdaTxOut) <>
                         mustValidateIn (to $ ct + timeToValidateWithdrawal) <>
                         mustPayToOtherScript vestingScriptHash (Datum $ toBuiltinData $ VestingParams
-                            (ct + hourPOSIX + 100000 + timeToValidateWithdrawal) pkhR addr utxo1 (subs !! 2)) (mRelayerCollateral mixer) <>
+                            (ct + hourPOSIX + 100000 + timeToValidateWithdrawal) pkhR utxo1 (subs !! 2)) (mRelayerCollateral mixer) <>
                         mustSpendScriptOutput utxo1 (Redeemer $ toBuiltinData ()) <> mustBeSignedBy pabWalletPKH -- TODO: remove the last constraint after the test
                 utx <- mkTxConstraints lookups cons
                 submitTxConfirmed utx
