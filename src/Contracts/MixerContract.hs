@@ -91,7 +91,7 @@ deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) ->
     utx  <- mkTxConstraints lookups cons
     -- adding user wallet inputs and outputs
     let addr = textToAddress txt
-    utx' <- balanceTxWithExternalWallet utx (addr, val') (map (lovelaceValueOf . (\i -> 1_000_000 + 10_000 * i)) [0..100])
+    utx' <- balanceTxWithExternalWallet utx (addr, val') (map (lovelaceValueOf . (\i -> 1_050_000 + 10_000 * i)) [0..100])
     logInfo utx'
     -- final balancing with PAB wallet
     ctx <- case pabConfig of
@@ -108,11 +108,7 @@ depositSubmit = endpoint @"deposit-submit" @Text $ \txSigned -> handleError erro
     logInfo @String "deposit-submit"
     logInfo txSigned
     -- converting CBOR text into CardanoTx
-    let 
-        -- txSigned           = unTxSignedCW $ fromMaybe (error ()) (decode $ fromStrict $ Data.Text.Encoding.encodeUtf8 bs :: Maybe TxSignedCW)
-        -- txSignedByteString = fromRight (error ()) $ Data.ByteString.Base64.decodeBase64 $ Data.Text.Encoding.encodeUtf8 txSigned
-        -- txSignedByteString = fromMaybe (error ()) $ decode $ fromStrict $ Data.Text.Encoding.encodeUtf8 txSigned
-        txSignedByteString = fromRight (error ()) $ tryDecode txSigned
+    let txSignedByteString = fromRight (error ()) $ tryDecode txSigned
         ctx                = Left $ SomeTx (fromRight (error ()) $ deserialiseFromCBOR AsAlonzoTx txSignedByteString) AlonzoEraInCardanoMode :: CardanoTx
     -- computing PAB wallet reward
     let btx    = case ctx of
@@ -126,6 +122,8 @@ depositSubmit = endpoint @"deposit-submit" @Text $ \txSigned -> handleError erro
     ins <- txOutsFromRefs inRefs
     let inVal  = sum $ map txOutValue $ filter (\o -> txOutAddress o == pubKeyHashAddress pabWalletPKH Nothing) ins
         outVal = sum $ map txOutValue $ filter (\o -> txOutAddress o == pubKeyHashAddress pabWalletPKH Nothing) outs
+    logInfo inVal
+    logInfo outVal
     if outVal `geq` inVal
         then void $ submitBalancedTx ctx
     else throwError $ OtherContractError $ pack $ show $ outVal-inVal --"PAB fee for the deposit transaction is negative!"
