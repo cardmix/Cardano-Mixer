@@ -120,13 +120,15 @@ depositSubmit = endpoint @"deposit-submit" @Text $ \txSigned -> handleError erro
                     InvalidTx -> error ()
     logInfo btx
     ins <- txOutsFromRefs inRefs
-    let inVal  = sum $ map txOutValue $ filter (\o -> txOutAddress o == pubKeyHashAddress pabWalletPKH Nothing) ins
-        outVal = sum $ map txOutValue $ filter (\o -> txOutAddress o == pubKeyHashAddress pabWalletPKH Nothing) outs
+    let inVal  = sum $ map txOutValue $ filter checkTxOutPKH ins
+        outVal = sum $ map txOutValue $ filter checkTxOutPKH outs
     logInfo inVal
     logInfo outVal
     if outVal `geq` inVal
         then void $ submitBalancedTx ctx
     else throwError $ OtherContractError $ pack $ show $ outVal-inVal --"PAB fee for the deposit transaction is negative!"
+  where
+      checkTxOutPKH o = toPubKeyHash (txOutAddress o) == Just (unPaymentPubKeyHash pabWalletPKH)
 
 timeToValidateWithdrawal :: POSIXTime
 timeToValidateWithdrawal = POSIXTime 100_000
