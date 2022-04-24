@@ -91,7 +91,7 @@ deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) ->
     -- unbalanced transaction
     utx  <- mkTxConstraints lookups cons
     -- adding user wallet inputs and outputs
-    let addr = textToAddress txt
+    let addr = fromMaybe (pubKeyHashAddress pabWalletPKH (Just $ StakePubKeyHash pabWalletSKH)) $ textToAddress txt
     utx' <- balanceTxWithExternalWallet utx (addr, val') (map (lovelaceValueOf . (\i -> 1_100_000 + 20_000 * i)) [0..100])
     logInfo utx'
     -- final balancing with PAB wallet
@@ -139,7 +139,7 @@ withdraw :: Promise (Maybe (Last Text)) MixerSchema ContractError ()
 withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, _) txt subs _) -> handleError errorMixerContract $ do
     logInfo @String "withdraw"
     logInfo params
-    let (pkhW, skhW) = textToKeys txt
+    let (pkhW, skhW) = fromMaybe (pabWalletPKH, StakePubKeyHash pabWalletSKH) $ textToKeys txt
         mixer = makeMixerFromFees v
     pkhR   <- ownPaymentPubKeyHash
     utxos  <- utxosAt (mixerAddress mixer)

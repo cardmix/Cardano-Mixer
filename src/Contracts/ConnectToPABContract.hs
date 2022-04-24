@@ -17,7 +17,7 @@ import           Plutus.Contract           (Promise, ContractError, Endpoint, en
 import           PlutusTx.Prelude          hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 import           Wallet.Emulator.Types     (Wallet)
 
-import           Configuration.PABConfig   (pabWallet)
+import           Configuration.PABConfig   (pabWallet, pabWalletPKH)
 import           Crypto                    (Fr)
 import           Crypto.Conversions        (dataToZp)
 import           Utils.Address             (textToPKH)
@@ -30,8 +30,8 @@ import           Utils.Address             (textToPKH)
 type ConnectToPABSchema = Endpoint "connect-to-pab" Text
 
 connectToPABPromise :: Promise (Maybe (Last (PaymentPubKeyHash, Fr, Wallet))) ConnectToPABSchema ContractError ()
-connectToPABPromise = endpoint @"connect-to-pab" @Text $ \txt ->
-    let pkh = textToPKH txt
+connectToPABPromise = endpoint @"connect-to-pab" @Text $ \txt -> do
+    let pkh = fromMaybe pabWalletPKH $ textToPKH txt
         a   = dataToZp pkh
         w   = pabWallet
-    in tell $ Just $ Last (pkh, a, w)
+    tell $ Just $ Last (pkh, a, w)

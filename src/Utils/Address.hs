@@ -21,7 +21,7 @@ import           Ledger.Address                  (PaymentPubKeyHash(..), StakePu
 import           Plutus.V1.Ledger.Api            (PubKeyHash)
 import           PlutusTx.Prelude
 
-import           Configuration.PABConfig         (pabWalletPKH)
+import           Configuration.PABConfig         (pabWalletPKH, pabWalletSKH)
 
 
 getPubKeyHashFromStakeAddress :: Text -> PaymentPubKeyHash
@@ -34,34 +34,37 @@ stakeAddrToPlutusPubKHash (StakeAddress _ payCred) =
     Shelley.ScriptHashObj _ -> Nothing
     Shelley.KeyHashObj kHash -> Just $ Alonzo.transKeyHash kHash
 
-textToPKH :: Text -> PaymentPubKeyHash
+textToPKH :: Text -> Maybe PaymentPubKeyHash
 textToPKH txt = case txt of
-                "" -> pabWalletPKH
-                _  -> maybe (error ()) PaymentPubKeyHash $ shelleyPayAddrToPlutusPubKHash $
-                        fromRight (error ()) $ deserialiseFromBech32 AsShelleyAddress txt
+                "" -> Just pabWalletPKH
+                _  -> do
+                        addr <- either (const Nothing) Just $ deserialiseFromBech32 AsShelleyAddress txt
+                        pkh  <- shelleyPayAddrToPlutusPubKHash addr
+                        return $ PaymentPubKeyHash pkh
+                        
 
-textToAddress :: Text -> Address 
+textToAddress :: Text -> Maybe Address
 textToAddress txt = case txt of
-                "" -> pubKeyHashAddress pabWalletPKH Nothing
-                _  -> pubKeyHashAddress pkh (Just skh)
-      where
-        Shelley.ShelleyAddress _ payCred stakeRef  = fromRight (error ()) $ deserialiseFromBech32 AsShelleyAddress txt
-        pkh = case payCred of
-                KeyHashObj    h1 -> PaymentPubKeyHash $ transKeyHash h1
-                ScriptHashObj _  -> error ()
-        skh = case fromShelleyStakeReference stakeRef of
-                StakeAddressByValue (StakeCredentialByKey (StakeKeyHash h2)) -> StakePubKeyHash $ transKeyHash h2
-                _  -> error ()
+                "" -> Just $ pubKeyHashAddress pabWalletPKH (Just $ StakePubKeyHash pabWalletSKH)
+                _  -> do
+                        Shelley.ShelleyAddress _ payCred stakeRef <- either (const Nothing) Just $ deserialiseFromBech32 AsShelleyAddress txt
+                        pkh <- case payCred of
+                                KeyHashObj    h1 -> Just $ PaymentPubKeyHash $ transKeyHash h1
+                                ScriptHashObj _  -> Nothing
+                        skh <- case fromShelleyStakeReference stakeRef of
+                                StakeAddressByValue (StakeCredentialByKey (StakeKeyHash h2)) -> Just $ StakePubKeyHash $ transKeyHash h2
+                                _  -> Nothing
+                        return $ pubKeyHashAddress pkh (Just skh)
 
-textToKeys :: Text -> (PaymentPubKeyHash, StakePubKeyHash)
+textToKeys :: Text -> Maybe (PaymentPubKeyHash, StakePubKeyHash)
 textToKeys txt = case txt of
-                "" -> (pabWalletPKH, StakePubKeyHash $ unPaymentPubKeyHash pabWalletPKH)
-                _  -> (pkh, skh)
-      where
-        Shelley.ShelleyAddress _ payCred stakeRef  = fromRight (error ()) $ deserialiseFromBech32 AsShelleyAddress txt
-        pkh = case payCred of
-                KeyHashObj    h1 -> PaymentPubKeyHash $ transKeyHash h1
-                ScriptHashObj _  -> error ()
-        skh = case fromShelleyStakeReference stakeRef of
-                StakeAddressByValue (StakeCredentialByKey (StakeKeyHash h2)) -> StakePubKeyHash $ transKeyHash h2
-                _  -> error ()
+                "" -> Just (pabWalletPKH, StakePubKeyHash pabWalletSKH)
+                _  -> do
+                        Shelley.ShelleyAddress _ payCred stakeRef  <- either (const Nothing) Just $ deserialiseFromBech32 AsShelleyAddress txt
+                        pkh <- case payCred of
+                                KeyHashObj    h1 -> Just $ PaymentPubKeyHash $ transKeyHash h1
+                                ScriptHashObj _  -> Nothing
+                        skh <- case fromShelleyStakeReference stakeRef of
+                                StakeAddressByValue (StakeCredentialByKey (StakeKeyHash h2)) -> Just $ StakePubKeyHash $ transKeyHash h2
+                                _  -> Nothing
+                        return (pkh, skh)

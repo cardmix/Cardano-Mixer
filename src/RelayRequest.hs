@@ -55,10 +55,10 @@ checkWrongRootValue state (WithdrawParams _ pos@(k, m) _ subs _)
 -- TODO: make sure this cannot fail with error()
 checkWrongWithdrawalAddress :: WithdrawParams -> Bool
 checkWrongWithdrawalAddress (WithdrawParams _ _ txt subs _)
-  | length subs < 2                              = True
-  | isNothing $ toPubKeyHash $ textToAddress txt = True
-  | otherwise                                    = dataToZp pkh /= subs !! 1
-  where pkh = PaymentPubKeyHash $ fromJust $ toPubKeyHash $ textToAddress txt
+  | length subs < 2                                 = True
+  | isNothing $ textToAddress txt >>= toPubKeyHash  = True
+  | otherwise                                       = dataToZp pkh /= subs !! 1
+  where pkh = PaymentPubKeyHash $ fromJust $ textToAddress txt >>= toPubKeyHash
 
 checkWrongProof :: WithdrawParams -> Bool
 checkWrongProof (WithdrawParams _ _ _ subs proof) = not $ verifyWithdraw pubParams proof
