@@ -12,6 +12,7 @@
 
 {-# OPTIONS_GHC -Wno-orphans               #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
+{-# LANGUAGE NumericUnderscores #-}
 
 
 module Contracts.VestingContract where
@@ -19,20 +20,24 @@ module Contracts.VestingContract where
 import           Control.Lens             (review)
 import           Control.Monad            (void)
 import qualified Data.Map
-import           Ledger                   (Redeemer (Redeemer))
+import           Ledger                   (Redeemer (..), StakePubKeyHash (..))
 import           Ledger.Constraints       (mustBeSignedBy, mustValidateIn, unspentOutputs,
-                                            otherScript, typedValidatorLookups, mustSpendScriptOutput)
+                                            otherScript, typedValidatorLookups, mustSpendScriptOutput, mustPayToPubKeyAddress)
 import qualified Ledger.Interval          as Interval
 import           Ledger.Scripts           (Datum(..))
 import           Ledger.Tx                (ChainIndexTxOut(..))
 import           Ledger.Value             (Value)
 import           Prelude                  (Semigroup (..))
 import           Plutus.Contract
+import           Plutus.V1.Ledger.Ada     (lovelaceValueOf)
 import           PlutusTx
 import           PlutusTx.Prelude         hiding ((<>), Eq, Semigroup, fold, mempty)
 
+import           Configuration.PABConfig  (pabWalletPKH, pabWalletSKH)
 import           Scripts.VestingScript
 import           Utils.Contracts          (selectUTXO)
+
+
 
 
 retrieveFunds :: (AsVestingError e) => Contract w s e ()
@@ -45,7 +50,8 @@ retrieveFunds = mapError (review _VestingError) $ do
         then return ()
         else do
             let lookups = unspentOutputs utxos' <> typedValidatorLookups typedValidator <> otherScript vestingScript
-                cons    = mustSpendScriptOutput utxo1 (Redeemer $ toBuiltinData ()) <> mustValidateIn (Interval.from (ct-100000)) <> mustBeSignedBy pkh
+                cons    = mustSpendScriptOutput utxo1 (Redeemer $ toBuiltinData ()) <> mustValidateIn (Interval.from (ct-100000)) <>
+                    mustBeSignedBy pkh <> mustPayToPubKeyAddress pabWalletPKH (StakePubKeyHash pabWalletSKH) (lovelaceValueOf 10_000_000)
             void $ submitTxConstraintsWith lookups cons
   where f o t h = case _ciTxOutDatum o of
           Left  _ -> False
