@@ -70,8 +70,8 @@ errorMixerContract e = do
     let msg = case e of
           OtherContractError txt -> unpack txt
           _                      -> show e
-    logInfo @String msg
-    -- tell $ Just $ Last msg
+    logInfo msg
+    tell $ Just $ Last $ pack msg
 
 -- "deposit" endpoint implementation
 deposit :: Promise (Maybe (Last Text)) MixerSchema ContractError ()

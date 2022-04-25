@@ -38,8 +38,6 @@ import           Scripts.VestingScript
 import           Utils.Contracts          (selectUTXO)
 
 
-
-
 retrieveFunds :: (AsVestingError e) => Contract w s e ()
 retrieveFunds = mapError (review _VestingError) $ do
     utxos <- utxosAt vestingScriptAddress

@@ -21,7 +21,7 @@ import           GHC.Generics                             (Generic)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           Ledger.Value                             (geq)
 import           Plutus.ChainIndex.Tx                     (ChainIndexTx)
-import           Plutus.Contract                          (Promise, Contract, ContractError, Endpoint, currentTime, endpoint, tell, logInfo)
+import           Plutus.Contract                          (Promise, Contract, ContractError, Endpoint, currentTime, endpoint, tell)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<>), (<$>), unless, find, toList, fromInteger, check)
 import           Prelude                                  (Show)
@@ -82,5 +82,4 @@ getMixerStatePromise :: Promise (Maybe (Last [MixerState])) MixerStateSchema Con
 getMixerStatePromise = endpoint @"get-mixer-state" @[Value] $ \vals -> do
     (_, cache) <- getMixerState (MixerStateCache [] 0) zero
     states <- mapM (fmap fst . getMixerState cache) vals
-    logInfo states
     tell $ Just $ Last states
