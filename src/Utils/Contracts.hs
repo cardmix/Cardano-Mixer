@@ -20,7 +20,7 @@ import qualified Data.Map
 import           Data.Maybe                        (catMaybes)
 import qualified Data.Set
 import           Data.Text                         (Text, pack)
-import           Ledger                            (PaymentPubKeyHash, Value, Address, ChainIndexTxOut(..), TxOutRef, AssetClass, unPaymentPrivateKey, interval)
+import           Ledger                            (PaymentPubKeyHash, Value, Address, ChainIndexTxOut(..), TxOutRef, AssetClass, unPaymentPrivateKey, interval, minAdaTxOut)
 import           Ledger.CardanoWallet              (paymentPrivateKey, knownMockWallets)
 import           Ledger.Tx                         (Tx(..), TxOut(..), txOutRefId, pubKeyTxIn, toTxOut, addSignature')
 import           Plutus.ChainIndex                 (ChainIndexTx, Page(..), nextPageQuery)
@@ -28,6 +28,7 @@ import           Plutus.ChainIndex.Api             (TxosResponse(paget), UtxosRe
 import           Plutus.Contract                   (AsContractError, Contract, ContractError (..), mapError, txOutFromRef, throwError, currentSlot)
 import           Plutus.Contract.Request           (txoRefsAt, txsFromTxIds, utxoRefsWithCurrency, utxosAt)
 import           Plutus.Contract.StateMachine      (SMContractError(..))
+import           Plutus.V1.Ledger.Ada              (toValue)
 import           Plutus.V1.Ledger.Value            (geq)
 import           Ledger.Constraints                (mustPayToPubKey)
 import           Ledger.Constraints.OffChain       (UnbalancedTx(..))
@@ -38,6 +39,7 @@ import           Prelude                           (Show(..), Char, String, (<>)
 
 import           Configuration.PABConfig           (PABConfig (..), pabConfig)
 import           Utils.Common                      (drop)
+
 
 -------------------------------- ByteStrings --------------------------------
 
@@ -97,7 +99,7 @@ addUTXOUntil utxos val fs = do
   where f k o (Just m) = do
           let n = length (Data.Map.elems m)
           actualFee <- if length fs < n - 1 then Nothing else Just $ fs !! n
-          if sum (map _ciTxOutValue $ Data.Map.elems m) `geq` (val + actualFee) then Just m else Just $ Data.Map.insert k o m
+          if sum (map _ciTxOutValue $ Data.Map.elems m) `geq` (val + actualFee + toValue minAdaTxOut) then Just m else Just $ Data.Map.insert k o m
         f _ _ Nothing = Nothing
 
 --------------------------------- Balancing transactions ----------------------------
