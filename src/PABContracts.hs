@@ -76,5 +76,4 @@ instance HasDefinitions PABContracts where
 
 handlers :: Simulator.SimulatorEffectHandlers (Builtin PABContracts)
 handlers =
-    Simulator.mkSimulatorHandlers @(Builtin PABContracts) def def
-    $ interpret (contractHandler handleBuiltin)
+    Simulator.mkSimulatorHandlers @(Builtin PABContracts) def $ interpret (contractHandler handleBuiltin)

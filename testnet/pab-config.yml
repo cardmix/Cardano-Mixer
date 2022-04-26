@@ -51,8 +51,8 @@ developmentOptions:
   pabResumeFrom:
     # { "tag" : "PointAtGenesis" }
     { "tag" : "Point"
-    , "pointBlockId" : "30205ebd81bc04fc0f092355755009073f302d7fa69cc7d80476e9b3e9e82a99"
-    , "pointSlot" : { "getSlot" : 55598281 }
+    , "pointBlockId" : "fd6f1edb130e23f20d934631c6561d654315b44c889015b3cfef476fecbe1791"
+    , "pointSlot" : { "getSlot" : 56462388 }
     }
 
 # Optional EKG Server Config

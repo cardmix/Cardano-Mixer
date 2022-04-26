@@ -80,7 +80,7 @@ pabWalletIdString = case pabConfig of
      Testnet   -> pabWalletIdStringTestnet
 
 pabWallet :: Wallet
-pabWallet = Wallet $ head $ rights [fromBase16 $ pack pabWalletIdString]
+pabWallet = Wallet (Just "PAB Wallet") $ head $ rights [fromBase16 $ pack pabWalletIdString]
 
 pabWalletPKHBytes :: [Integer]
 pabWalletPKHBytes = case pabConfig of
@@ -102,7 +102,7 @@ dispenserWalletIdString = case pabConfig of
      Testnet   -> dispenserWalletIdStringTestnet
 
 dispenserWallet :: Wallet
-dispenserWallet = Wallet $ head $ rights [fromBase16 $ pack dispenserWalletIdString]
+dispenserWallet = Wallet (Just "Dispenser Wallet") $ head $ rights [fromBase16 $ pack dispenserWalletIdString]
 
 dispenserWalletPKHBytes :: [Integer]
 dispenserWalletPKHBytes = case pabConfig of

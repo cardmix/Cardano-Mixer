@@ -96,11 +96,12 @@ deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) ->
     logInfo utx'
     -- final balancing with PAB wallet
     ctx <- case pabConfig of
-            Simulator -> pure $ Right $ unBalancedTxTx utx'
+            Simulator -> pure $ EmulatorTx $ unBalancedTxTx utx'
             Testnet   -> balanceTx utx'
     txUnsigned <- case ctx of
-        Left (SomeTx tx _) -> pure $ Data.Text.Encoding.decodeUtf8 $ toStrict $ encode $ TxUnsignedCW "1234567890" $ encodeByteString $ serialiseToCBOR tx
-        Right tx           -> pure $ Data.Text.Encoding.decodeUtf8 $ toStrict $ encode tx
+        CardanoApiTx (SomeTx tx _) -> pure $ Data.Text.Encoding.decodeUtf8 $ toStrict $ encode $ TxUnsignedCW "1234567890" $ encodeByteString $ serialiseToCBOR tx
+        Both _ (SomeTx tx _)       -> pure $ Data.Text.Encoding.decodeUtf8 $ toStrict $ encode $ TxUnsignedCW "1234567890" $ encodeByteString $ serialiseToCBOR tx
+        EmulatorTx tx              -> pure $ Data.Text.Encoding.decodeUtf8 $ toStrict $ encode tx
     tell $ Just $ Last txUnsigned
 
 -- "deposit" endpoint implementation
@@ -110,11 +111,12 @@ depositSubmit = endpoint @"deposit-submit" @Text $ \txSigned -> handleError erro
     logInfo txSigned
     -- converting CBOR text into CardanoTx
     let txSignedByteString = fromRight (error ()) $ tryDecode txSigned
-        ctx                = Left $ SomeTx (fromRight (error ()) $ deserialiseFromCBOR AsAlonzoTx txSignedByteString) AlonzoEraInCardanoMode :: CardanoTx
+        ctx                = CardanoApiTx $ SomeTx (fromRight (error ()) $ deserialiseFromCBOR AsAlonzoTx txSignedByteString) AlonzoEraInCardanoMode :: CardanoTx
     -- computing PAB wallet reward
     let btx    = case ctx of
-                Left (SomeTx eraInMode tx) -> fromRight (error ()) $ fromCardanoTx tx eraInMode
-                Right tx                   -> fromOnChainTx $ Valid tx
+                CardanoApiTx (SomeTx eraInMode tx) -> fromRight (error ()) $ fromCardanoTx tx eraInMode
+                Both _ (SomeTx eraInMode tx)       -> fromRight (error ()) $ fromCardanoTx tx eraInMode
+                EmulatorTx tx                      -> fromOnChainTx $ Valid tx
         inRefs = map txInRef $ Data.Set.toList $ _citxInputs btx
         outs   = case _citxOutputs btx of
                     ValidTx a -> a

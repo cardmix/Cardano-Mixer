@@ -24,8 +24,8 @@ import           Ledger.Constraints.OffChain              (unspentOutputs)
 import           Ledger.Constraints.TxConstraints
 import qualified Ledger.Typed.Scripts                     as Scripts
 import           Plutus.ChainIndex                        (ChainIndexTx(..))
-import           Plutus.Contract                          (Contract, EmptySchema, mkTxConstraints,
-                                                            submitTxConfirmed, utxosTxOutTxAt, txOutFromRef, waitNSlots)
+import           Plutus.Contract                          (Contract, EmptySchema, mkTxConstraints, submitTxConfirmed, txOutFromRef, waitNSlots)
+import           Plutus.Contract.Request                  (utxosTxOutTxAt)
 import           Plutus.Contract.Types                    (ContractError(..), AsContractError)
 import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf, toValue)
 import           Plutus.V1.Ledger.Credential              (Credential(..), StakingCredential (..))

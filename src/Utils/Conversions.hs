@@ -27,6 +27,7 @@ import           Cardano.Api.Shelley    (ProtocolParameters, NetworkId(..), Netw
 import           Data.Aeson             (decode)
 import           Data.Aeson.Extras      (encodeByteString)
 import           Data.ByteString.Lazy   (fromStrict)
+import           Data.Default           (def)
 import           Data.Either            (fromRight)
 import           Data.FileEmbed         (embedFile)
 import           Data.Text              (unpack)
@@ -43,4 +44,4 @@ testnetParams :: ProtocolParameters
 testnetParams = fromMaybe (error ()) $ decode $ fromStrict $(embedFile "testnet/protocol-parameters.json")
 
 unbalancedTxToCBOR :: UnbalancedTx -> String
-unbalancedTxToCBOR = unpack . encodeByteString . serialiseToCBOR . partialTx . fromRight (error ()) . export testnetParams testnetId
+unbalancedTxToCBOR = unpack . encodeByteString . serialiseToCBOR . partialTx . fromRight (error ()) . export testnetParams testnetId def
