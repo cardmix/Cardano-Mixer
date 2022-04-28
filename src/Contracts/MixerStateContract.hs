@@ -24,7 +24,7 @@ import           Plutus.ChainIndex.Tx                     (ChainIndexTx)
 import           Plutus.Contract                          (Promise, Contract, ContractError, Endpoint, currentTime, endpoint, tell, logInfo)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<>), (<$>), unless, find, toList, fromInteger, check)
-import           Prelude                                  (Show)
+import           Prelude                                  (Show, String)
 
 import           Crypto
 import           MixerState
