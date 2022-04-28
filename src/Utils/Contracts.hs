@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
+{-# LANGUAGE NumericUnderscores         #-}
 {-# LANGUAGE OverloadedLists            #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
@@ -28,7 +29,7 @@ import           Plutus.ChainIndex.Api             (TxosResponse(paget), UtxosRe
 import           Plutus.Contract                   (AsContractError, Contract, ContractError (..), logInfo, mapError, txOutFromRef, throwError, currentSlot)
 import           Plutus.Contract.Request           (txoRefsAt, txsFromTxIds, utxoRefsWithCurrency, utxosAt)
 import           Plutus.Contract.StateMachine      (SMContractError(..))
-import           Plutus.V1.Ledger.Ada              (toValue)
+import           Plutus.V1.Ledger.Ada              (toValue, lovelaceValueOf)
 import           Plutus.V1.Ledger.Value            (geq)
 import           Ledger.Constraints                (mustPayToPubKey)
 import           Ledger.Constraints.OffChain       (UnbalancedTx(..))
@@ -104,9 +105,14 @@ addUTXOUntil utxos val fs = do
 
 --------------------------------- Balancing transactions ----------------------------
 
+removeCollateralUTXO :: Map TxOutRef ChainIndexTxOut -> Map TxOutRef ChainIndexTxOut
+removeCollateralUTXO utxos = Data.Map.difference utxos col
+  where cols = Data.Map.filter (\o -> lovelaceValueOf 10_000_000 `geq` _ciTxOutValue o) utxos
+        col  = if not $ Data.Map.null cols then Data.Map.fromList [head $ Data.Map.toList cols] else Data.Map.empty
+
 balanceTxWithExternalWallet :: UnbalancedTx -> (Address, Value) -> [Value] -> Contract w s ContractError UnbalancedTx
 balanceTxWithExternalWallet utx (addr, val) vals = do
-    utxos <- utxosAt addr
+    utxos <- removeCollateralUTXO <$> utxosAt addr
     logInfo utxos
     (change, utxos') <- case addUTXOUntil utxos val vals of
                           Nothing -> throwError $ OtherContractError "Cannot balance transaction!"
