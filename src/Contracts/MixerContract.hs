@@ -92,6 +92,7 @@ deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) ->
     utx  <- mkTxConstraints lookups cons
     -- adding user wallet inputs and outputs
     let addr = fromMaybe (pubKeyHashAddress pabWalletPKH (Just $ StakePubKeyHash pabWalletSKH)) $ textToAddress txt
+    logInfo @String "Prebalancing..."
     utx' <- balanceTxWithExternalWallet utx (addr, val') (map (lovelaceValueOf . (\i -> 1_100_000 + 20_000 * i)) [0..100])
     logInfo utx'
     -- final balancing with PAB wallet
@@ -147,6 +148,7 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, 
     -- TODO: fix empty list error
     let (utxo1, utxos'') = selectUTXO $ Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer + mixerAdaUTXO mixer)) utxos
 
+    logInfo @String "Querying MixerState..."
     (state, _) <- getMixerState (MixerStateCache [] 0) v
     mKeys <- getMixerKeys v
     case checkRelayRequest state mKeys params of
