@@ -83,6 +83,7 @@ getMixerStatePromise = endpoint @"get-mixer-state" @[Value] $ \vals -> do
     (_, cache) <- getMixerState (MixerStateCache [] 0) zero zero
     logInfo @String "Cached txos"
     curTime <- currentTime
+    logInfo curTime
     states <- mapM (fmap fst . getMixerState cache curTime) vals
     logInfo @String "Retrieved states"
     tell $ Just $ Last states
