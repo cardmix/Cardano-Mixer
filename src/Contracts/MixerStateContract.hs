@@ -60,6 +60,8 @@ getMixerState oldCache@(MixerStateCache cTxs cTime) curTime v = do
     txTxos  <- mixerStateCacheIsValid curTime (pure cTxs) (txosTxTxOutAt depositTokenTargetAddress)
     cache   <- mixerStateCacheIsValid curTime (pure oldCache) (pure $ MixerStateCache txTxos curTime)
     
+    logInfo @String "Got txos and cache"
+
     -- TODO: implement proper sort?
     let outs  = map snd txTxos
     let f o = do
