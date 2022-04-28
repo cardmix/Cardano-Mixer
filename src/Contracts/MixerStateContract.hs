@@ -57,6 +57,8 @@ getMixerState :: MixerStateCache -> POSIXTime -> Value -> Contract w s ContractE
 getMixerState oldCache@(MixerStateCache cTxs cTime) curTime v = do
     let mixer = makeMixerFromFees v
     
+    logInfo curTime
+    logInfo cTime
     logInfo $ curTime - cTime <= cacheValidityPeriod
     txTxos  <- mixerStateCacheIsValid curTime (pure cTxs) (txosTxTxOutAt depositTokenTargetAddress)
     cache   <- mixerStateCacheIsValid curTime (pure oldCache) (pure $ MixerStateCache txTxos curTime)
