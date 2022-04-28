@@ -54,9 +54,9 @@ cacheValidityPeriod = 10000
 --------------------------- Off-Chain -------------------------------
 
 getMixerState :: MixerStateCache -> Value -> Contract w s ContractError (MixerState, MixerStateCache)
-getMixerState oldCache@(MixerStateCache cTxs cTime) v = do
+getMixerState oldCache@(MixerStateCache cTxs cTime) v curTime = do
     let mixer = makeMixerFromFees v
-    curTime <- currentTime
+    
     txTxos  <- mixerStateCacheIsValid curTime (pure cTxs) (txosTxTxOutAt depositTokenTargetAddress)
     cache   <- mixerStateCacheIsValid curTime (pure oldCache) (pure $ MixerStateCache txTxos curTime)
     
@@ -80,8 +80,9 @@ type MixerStateSchema = Endpoint "get-mixer-state" [Value]
 
 getMixerStatePromise :: Promise (Maybe (Last [MixerState])) MixerStateSchema ContractError ()
 getMixerStatePromise = endpoint @"get-mixer-state" @[Value] $ \vals -> do
-    (_, cache) <- getMixerState (MixerStateCache [] 0) zero
+    (_, cache) <- getMixerState (MixerStateCache [] 0) zero zero
     logInfo @String "Cached txos"
-    states <- mapM (fmap fst . getMixerState cache) vals
+    curTime <- currentTime
+    states <- mapM (fmap fst . getMixerState cache) vals curTime
     logInfo @String "Retrieved states"
     tell $ Just $ Last states
