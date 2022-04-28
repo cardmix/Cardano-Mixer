@@ -149,7 +149,7 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, 
     let (utxo1, utxos'') = selectUTXO $ Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer + mixerAdaUTXO mixer)) utxos
 
     logInfo @String "Querying MixerState..."
-    (state, _) <- getMixerState (MixerStateCache [] 0) v
+    (state, _) <- getMixerState (MixerStateCache [] 0) ct v
     mKeys <- getMixerKeys v
     case checkRelayRequest state mKeys params of
         RelayRequestAccepted -> do
