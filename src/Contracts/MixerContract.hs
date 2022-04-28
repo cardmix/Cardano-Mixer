@@ -94,7 +94,7 @@ deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) ->
     let addr = fromMaybe (pubKeyHashAddress pabWalletPKH (Just $ StakePubKeyHash pabWalletSKH)) $ textToAddress txt
     logInfo @String "Prebalancing..."
     utx' <- balanceTxWithExternalWallet utx (addr, val') (map (lovelaceValueOf . (\i -> 1_100_000 + 20_000 * i)) [0..100])
-    logInfo utx'
+    -- logInfo utx'
     -- final balancing with PAB wallet
     ctx <- case pabConfig of
             Simulator -> pure $ Right $ unBalancedTxTx utx'

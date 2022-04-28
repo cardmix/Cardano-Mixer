@@ -111,6 +111,7 @@ balanceTxWithExternalWallet utx (addr, val) vals = do
     (change, utxos') <- case addUTXOUntil utxos val vals of
                           Nothing -> throwError $ OtherContractError "Cannot balance transaction!"
                           Just r  -> pure r -- We assume that val is equal to the difference between outputs and inputs plus the fee
+    logInfo change
     cs <- case pabConfig of
             Simulator -> currentSlot
             Testnet    -> pure 0
