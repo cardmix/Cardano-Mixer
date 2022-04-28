@@ -112,7 +112,7 @@ removeCollateralUTXO utxos = Data.Map.difference utxos col
 
 balanceTxWithExternalWallet :: UnbalancedTx -> (Address, Value) -> [Value] -> Contract w s ContractError UnbalancedTx
 balanceTxWithExternalWallet utx (addr, val) vals = do
-    utxos <- removeCollateralUTXO <$> utxosAt addr
+    utxos <- utxosAt addr
     logInfo utxos
     (change, utxos') <- case addUTXOUntil utxos val vals of
                           Nothing -> throwError $ OtherContractError "Cannot balance transaction!"
