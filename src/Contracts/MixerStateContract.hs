@@ -85,9 +85,9 @@ type MixerStateSchema = Endpoint "get-mixer-state" [Value]
 
 getMixerStatePromise :: Promise (Maybe (Last [MixerState])) MixerStateSchema ContractError ()
 getMixerStatePromise = endpoint @"get-mixer-state" @[Value] $ \vals -> do
-    (_, cache@(MixerStateCache _ ct)) <- getMixerState (MixerStateCache [] 0) zero zero
-    logInfo @String "Cached txos"
     curTime <- currentTime
+    (_, cache@(MixerStateCache _ ct)) <- getMixerState (MixerStateCache [] 0) curTime zero
+    logInfo @String "Cached txos"
     logInfo $ curTime - ct
     states <- mapM (fmap fst . getMixerState cache curTime) vals
     logInfo @String "Retrieved states"
