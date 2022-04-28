@@ -25,7 +25,7 @@ import           Ledger.CardanoWallet              (paymentPrivateKey, knownMock
 import           Ledger.Tx                         (Tx(..), TxOut(..), txOutRefId, pubKeyTxIn, toTxOut, addSignature')
 import           Plutus.ChainIndex                 (ChainIndexTx, Page(..), nextPageQuery)
 import           Plutus.ChainIndex.Api             (TxosResponse(paget), UtxosResponse (page))
-import           Plutus.Contract                   (AsContractError, Contract, ContractError (..), mapError, txOutFromRef, throwError, currentSlot)
+import           Plutus.Contract                   (AsContractError, Contract, ContractError (..), logInfo, mapError, txOutFromRef, throwError, currentSlot)
 import           Plutus.Contract.Request           (txoRefsAt, txsFromTxIds, utxoRefsWithCurrency, utxosAt)
 import           Plutus.Contract.StateMachine      (SMContractError(..))
 import           Plutus.V1.Ledger.Ada              (toValue)
@@ -107,6 +107,7 @@ addUTXOUntil utxos val fs = do
 balanceTxWithExternalWallet :: UnbalancedTx -> (Address, Value) -> [Value] -> Contract w s ContractError UnbalancedTx
 balanceTxWithExternalWallet utx (addr, val) vals = do
     utxos <- utxosAt addr
+    logInfo utxos
     (change, utxos') <- case addUTXOUntil utxos val vals of
                           Nothing -> throwError $ OtherContractError "Cannot balance transaction!"
                           Just r  -> pure r -- We assume that val is equal to the difference between outputs and inputs plus the fee
