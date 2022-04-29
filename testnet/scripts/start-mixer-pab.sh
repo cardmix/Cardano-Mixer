@@ -1,5 +1,8 @@
 #!/bin/bash
 
+pid=$(pidof cardano-mixer-pab)
+killall -9 cardano-mixer-pab
+
 cd ../..
 
 rm -f testnet/data/plutus-pab.db
