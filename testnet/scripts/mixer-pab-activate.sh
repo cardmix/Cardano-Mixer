@@ -2,5 +2,5 @@
 
 cd ../..
 
-$NODE_HOME/Cardano-Mixer/testnet/bin/cardano-mixer-pab-client dispense
-$NODE_HOME/Cardano-Mixer/testnet/bin/cardano-mixer-pab-client retrieve
+/home/ec2-user/cardano-my-node/Cardano-Mixer/testnet/bin/cardano-mixer-pab-client dispense
+/home/ec2-user/cardano-my-node/Cardano-Mixer/testnet/bin/cardano-mixer-pab-client retrieve
