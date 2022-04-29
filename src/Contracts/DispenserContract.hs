@@ -25,12 +25,12 @@ import           Ledger.Constraints.TxConstraints
 import qualified Ledger.Typed.Scripts                     as Scripts
 import           Plutus.ChainIndex                        (ChainIndexTx(..))
 import           Plutus.Contract                          (Contract, EmptySchema, mkTxConstraints,
-                                                            submitTxConfirmed, utxosTxOutTxAt, txOutFromRef, waitNSlots)
+                                                            submitTxConfirmed, utxosTxOutTxAt, txOutFromRef, waitNSlots, logInfo)
 import           Plutus.Contract.Types                    (ContractError(..), AsContractError)
 import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf, toValue)
 import           Plutus.V1.Ledger.Credential              (Credential(..), StakingCredential (..))
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
-import           Prelude                                  (String, Foldable (null), (<>), (<$>))
+import           Prelude                                  (String, Foldable (null, length), (<>), (<$>))
 
 import           Configuration.PABConfig                  (dispenserWalletPKH)
 import           Tokens.MIXToken                          (mixToken)
@@ -58,6 +58,7 @@ getSender tx = do
 sendTokens :: Contract (Maybe (Last String)) EmptySchema ContractError ()
 sendTokens = do
     utxosTxOut  <- utxosTxOutTxAt dispenserAddress
+    logInfo $ Prelude.length utxosTxOut
     let utxosTxOut' = Data.Map.filter (\o -> _ciTxOutValue (fst o) == lovelaceValueOf 2_000_000) utxosTxOut
     if Prelude.null utxosTxOut' then return () else do
         let (ref, (utxo, tx)) = head $ Data.Map.toList utxosTxOut'
@@ -73,6 +74,6 @@ sendTokens = do
 dispenserProgram :: Contract (Maybe (Last String)) EmptySchema ContractError ()
 dispenserProgram = do
     sendTokens
-    _ <- waitNSlots 10
+    _ <- waitNSlots 60
     dispenserProgram
 
