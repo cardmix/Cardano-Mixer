@@ -57,6 +57,7 @@ getSender tx = do
 
 sendTokens :: Contract (Maybe (Last String)) EmptySchema ContractError ()
 sendTokens = do
+    logInfo @String "Start dispensing..."
     utxosTxOut  <- utxosTxOutTxAt dispenserAddress
     logInfo $ Prelude.length utxosTxOut
     let utxosTxOut' = Data.Map.filter (\o -> _ciTxOutValue (fst o) == lovelaceValueOf 2_000_000) utxosTxOut
