@@ -133,7 +133,7 @@ depositSubmit = endpoint @"deposit-submit" @Text $ \txSigned -> handleError erro
           _ -> False
 
 timeToValidateWithdrawal :: POSIXTime
-timeToValidateWithdrawal = POSIXTime 100_000
+timeToValidateWithdrawal = POSIXTime 500_000
 
 -- "withdraw" endpoint implementation
 withdraw :: Promise (Maybe (Last Text)) MixerSchema ContractError ()
