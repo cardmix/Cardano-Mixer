@@ -15,7 +15,7 @@ module Main
 
 import           Control.Monad                                (void)
 import           Data.Text                                    (Text)
-import           Ledger.Value                                 (TokenName(..))
+import           Ledger.Value                                 (TokenName(..), Value)
 import           Plutus.V1.Ledger.Ada                         (lovelaceValueOf)
 import           PlutusTx.Builtins.Class                      (stringToBuiltinByteString)
 import           PlutusTx.Prelude                             hiding ((<$>))
@@ -25,7 +25,7 @@ import           Wallet.Emulator.Wallet                       (Wallet(..))
 
 import           Configuration.PABConfig                      (pabWallet, dispenserWallet)
 import           Contracts.CurrencyContract                   (SimpleMPS(SimpleMPS))
-import           PABContracts                                 (PABContracts(..), MixerBackendContracts(..))
+import           PABContracts                                 (PABContracts(..), MixerBackendContracts(..), MixerFrontendContracts(..))
 import           Requests
 
 
@@ -41,6 +41,7 @@ main = do
         ["tickets", str]                  -> mintRelayTicketsProcedure $ read str
         ["retrieve"]                      -> retrieveTimeLockedProcedure
         ["dispense"]                      -> dispenseProcedure
+        ["state"]                         -> stateProcedure
         ["startup"]                       -> do
             retrieveTimeLockedProcedure
             dispenseProcedure
@@ -65,3 +66,8 @@ retrieveTimeLockedProcedure = do
 dispenseProcedure :: IO ()
 dispenseProcedure = do
     void $ activateRequest pabIP (BackendContracts Dispense) (Just dispenserWallet)
+
+stateProcedure :: IO ()
+stateProcedure = do
+    cidMixerState <- activateRequest pabIP (FrontendContracts MixerStateQuery) Nothing
+    endpointRequest pabIP "get-mixer-state" cidMixerState ([] :: [Value])

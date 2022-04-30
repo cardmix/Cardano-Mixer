@@ -92,3 +92,13 @@ getMixerStatePromise = endpoint @"get-mixer-state" @[Value] $ \vals -> do
     states <- mapM (fmap fst . getMixerState cache curTime) vals
     logInfo @String "Retrieved states"
     tell $ Just $ Last states
+    -- where defVals = map lovelaceValueOf [40_000, 60_000, 80_000, 100_000] ++ map (`scale` mixToken) [20, 40, 60]
+    --     mixerStateLoop oldCache = do
+    --         logInfo @String "Enter mixerStateLoop"
+    --         curTime <- currentTime
+    --         (_, cache) <- getMixerState oldCache curTime zero
+    --         states <- mapM (fmap fst . getMixerState cache curTime) defVals
+    --         tell $ Just $ Last states
+    --         logInfo @String "Exit mixerStateLoop"
+    --         _ <- waitNSlots 30
+    --         mixerStateLoop cache
