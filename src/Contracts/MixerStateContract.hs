@@ -11,6 +11,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE NumericUnderscores #-}
 
 
 module Contracts.MixerStateContract where
@@ -21,7 +22,7 @@ import           GHC.Generics                             (Generic)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           Ledger.Value                             (geq)
 import           Plutus.ChainIndex.Tx                     (ChainIndexTx)
-import           Plutus.Contract                          (Promise, Contract, ContractError, Endpoint, currentTime, endpoint, tell, logInfo)
+import           Plutus.Contract                          (Promise, Contract, ContractError, Endpoint, currentTime, endpoint, tell, logInfo, waitNSlots)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<>), (<$>), unless, find, toList, fromInteger, check)
 import           Prelude                                  (Show, String)
@@ -30,13 +31,16 @@ import           Crypto
 import           MixerState
 import           Scripts.MixerScript
 import           Tokens.DepositToken                      (depositTokenTargetAddress, depositToken)
-import           Utils.Contracts                          (txosTxTxOutAt)
+import           Utils.Contracts                          (txosTxTxOutAt, foldTxoRefsAt, txosTxOutAt)
+import Plutus.V1.Ledger.Ada (lovelaceValueOf)
+import Tokens.MIXToken (mixToken)
+import Plutus.ChainIndex (pageItems)
 
 --------------------------- Types -----------------------------------
 
 data MixerStateCache = MixerStateCache
     {
-        mixerStateCacheTxs  :: [(ChainIndexTx, ChainIndexTxOut)],
+        mixerStateCacheTxs  :: [ChainIndexTxOut],
         mixerStateCacheTime :: POSIXTime
     }
     deriving (Show, Generic, FromJSON, ToJSON)
@@ -60,13 +64,13 @@ getMixerState oldCache@(MixerStateCache cTxs cTime) curTime v = do
     logInfo curTime
     logInfo cTime
     logInfo $ curTime - cTime <= cacheValidityPeriod
-    txTxos  <- mixerStateCacheIsValid curTime (pure cTxs) (txosTxTxOutAt depositTokenTargetAddress)
+    txTxos  <- mixerStateCacheIsValid curTime (pure cTxs) (txosTxOutAt depositTokenTargetAddress)
     cache   <- mixerStateCacheIsValid curTime (pure oldCache) (pure $ MixerStateCache txTxos curTime)
     
     logInfo @String "Got txos and cache"
 
     -- TODO: implement proper sort?
-    let outs  = map snd txTxos
+    let outs  = txTxos
     let f o = do
             d  <- either (const Nothing) Just $ _ciTxOutDatum o
             ((addr, mv), (leaf, t)) <- fromBuiltinData $ getDatum d :: Maybe ((Address, Value), (Fr, POSIXTime))
@@ -92,8 +96,10 @@ getMixerStatePromise = endpoint @"get-mixer-state" @[Value] $ \vals -> do
     states <- mapM (fmap fst . getMixerState cache curTime) vals
     logInfo @String "Retrieved states"
     tell $ Just $ Last states
+
+    -- mixerStateLoop (MixerStateCache [] 0)
     -- where defVals = map lovelaceValueOf [40_000, 60_000, 80_000, 100_000] ++ map (`scale` mixToken) [20, 40, 60]
-    --     mixerStateLoop oldCache = do
+    --       mixerStateLoop oldCache = do
     --         logInfo @String "Enter mixerStateLoop"
     --         curTime <- currentTime
     --         (_, cache) <- getMixerState oldCache curTime zero
