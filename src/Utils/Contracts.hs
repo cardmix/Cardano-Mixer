@@ -166,6 +166,20 @@ txosTxOutAt = foldTxoRefsAt f []
       txOuts <- traverse txOutFromRef txoRefs
       pure $ acc <> catMaybes txOuts
 
+-- | Get the transactions at an address.
+txosTxRefTxOutAt ::
+    forall w s e.
+    ( AsContractError e
+    )
+    => Address
+    -> Contract w s e [(TxOutRef, ChainIndexTxOut)]
+txosTxRefTxOutAt = foldTxoRefsAt f []
+  where
+    f acc pg = do
+      let txoRefs = pageItems pg
+      txOuts <- traverse txOutFromRef txoRefs
+      pure $ acc <> mapMaybe (\(tx, txo) -> fmap (tx,) txo) (zip txoRefs txOuts)
+
 txOutsFromRefs :: forall w s e. (AsContractError e) => [TxOutRef] -> Contract w s e [TxOut]
 txOutsFromRefs refs = map toTxOut <$> (catMaybes <$> traverse txOutFromRef refs)
 
