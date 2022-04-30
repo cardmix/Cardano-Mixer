@@ -2,10 +2,10 @@
 
 cd ../..
 
-#rm -f testnet/data/plutus-pab.db
+rm -f testnet/data/plutus-pab.db
 
-#testnet/bin/cardano-mixer-pab \
-# --config testnet/pab-config.yml migrate
+testnet/bin/cardano-mixer-pab \
+ --config testnet/pab-config.yml migrate
   
 testnet/bin/cardano-mixer-pab \
   --config testnet/pab-config.yml webserver \
