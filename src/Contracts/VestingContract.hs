@@ -40,8 +40,8 @@ import           Utils.Contracts          (selectUTXO)
 
 retrieveFunds :: (AsVestingError e) => Contract w s e ()
 retrieveFunds = mapError (review _VestingError) $ do
-    utxos <- utxosAt vestingScriptAddress
     pkh   <- ownPaymentPubKeyHash
+    utxos <- utxosAt vestingScriptAddress
     ct    <- currentTime
     let (utxo1, utxos') = selectUTXO $ Data.Map.filter (\txout -> f txout (ct-100000) pkh) utxos
     if Data.Map.null utxos'
