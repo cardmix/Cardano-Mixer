@@ -11,18 +11,14 @@
 
 module PABContracts where
 
-import           Control.Monad.Freer                 (interpret)
 import           Data.Aeson                          (FromJSON(..), ToJSON(..))
-import           Data.Default                        (Default (..))
 import qualified Data.OpenApi
 import           Data.Semigroup                      (Last)
 import           Data.Text                           (Text)
 import           GHC.Generics                        (Generic)
 import           Plutus.Contract                     (Contract)
 import           Plutus.Contract.Schema              (EmptySchema)
-import           Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), BuiltinHandler(..), HasDefinitions(..),
-                                                        handleBuiltin, endpointsToSchemas)
-import qualified Plutus.PAB.Simulator                as Simulator
+import           Plutus.PAB.Effects.Contract.Builtin (SomeBuiltin (..), HasDefinitions(..), endpointsToSchemas)
 import           Prettyprinter                       (Pretty(..), viaShow)
 
 import           Contracts.ConnectToPABContract      (ConnectToPABSchema, connectToPABPromise)
@@ -73,7 +69,3 @@ instance HasDefinitions PABContracts where
         FrontendContracts MixerStateQuery   -> SomeBuiltin getMixerStatePromise
         FrontendContracts ConnectToPAB      -> SomeBuiltin connectToPABPromise
         
-
-handlers :: Simulator.SimulatorEffectHandlers (Builtin PABContracts)
-handlers =
-    Simulator.mkSimulatorHandlers @(Builtin PABContracts) def $ interpret (contractHandler handleBuiltin)

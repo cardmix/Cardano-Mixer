@@ -6,7 +6,3 @@ cradle:
       component: "cardano-mixer-backend:exe:cardano-mixer-pab"
     - path: "./app"
       component: "cardano-mixer-backend:exe:cardano-mixer-client"
-    - path: "./app"
-      component: "cardano-mixer-backend:exe:cardano-mixer-zksnark-setup"
-    - path: "./app"
-      component: "cardano-mixer-backend:exe:cardano-mixer-qap"

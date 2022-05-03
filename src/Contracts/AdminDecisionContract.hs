@@ -34,7 +34,6 @@ import           Contracts.CurrencyContract       (AsCurrencyError(..), Currency
 import           Tokens.AdminDecisionToken
 import           Tokens.AdminToken                (adminTokenTx)
 
-
 -------------------------------- Off-chain --------------------------------
 
 data AdminDecision = AdminDecision

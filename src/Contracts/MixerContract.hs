@@ -35,7 +35,7 @@ import           Data.Text                                (pack, unpack, Text)
 import           Data.Text.Encoding                       (decodeUtf8)
 import           GHC.Generics                             (Generic)
 import           Ledger                                   hiding (txFee, singleton, validatorHash, unspentOutputs)
-import           Ledger.Constraints.OffChain              (unspentOutputs, typedValidatorLookups, otherScript, UnbalancedTx (unBalancedTxTx))
+import           Ledger.Constraints.OffChain              (unspentOutputs, typedValidatorLookups, otherScript)
 import           Ledger.Constraints.TxConstraints
 import           Ledger.Value                             (geq)
 import           Plutus.ChainIndex.Tx                     (ChainIndexTx (..), ChainIndexTxOutputs(..), fromOnChainTx)
@@ -52,7 +52,7 @@ import           PlutusTx.Prelude                         hiding (Semigroup, (<$
 import           Prelude                                  (String, (<>), show, Show, (<$>))
 
 
-import           Configuration.PABConfig                  (PABConfig (..), pabConfig, pabWalletPKH, pabWalletSKH)
+import           Configuration.PABConfig                  (pabWalletPKH, pabWalletSKH)
 import           Contracts.MixerKeysContract              (getMixerKeys)
 import           Contracts.MixerStateContract             (MixerStateCache (..), getMixerState)
 import           RelayRequest
@@ -96,9 +96,7 @@ deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) ->
     utx' <- balanceTxWithExternalWallet utx (addr, val') (map (lovelaceValueOf . (\i -> 1_100_000 + 20_000 * i)) [0..100])
     -- logInfo utx'
     -- final balancing with PAB wallet
-    ctx <- case pabConfig of
-            Simulator -> pure $ EmulatorTx $ unBalancedTxTx utx'
-            Testnet   -> balanceTx utx'
+    ctx <- balanceTx utx'
     txUnsigned <- case ctx of
         CardanoApiTx (SomeTx tx _) -> pure $ Data.Text.Encoding.decodeUtf8 $ toStrict $ encode $ TxUnsignedCW "1234567890" $ encodeByteString $ serialiseToCBOR tx
         Both _ (SomeTx tx _)       -> pure $ Data.Text.Encoding.decodeUtf8 $ toStrict $ encode $ TxUnsignedCW "1234567890" $ encodeByteString $ serialiseToCBOR tx

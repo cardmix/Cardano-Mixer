@@ -1,6 +1,5 @@
 {
-    "name": "Plutus Starter Project",
-    //"image": "docker.io/inputoutput/plutus-starter-devcontainer:v1.0.14",
+    "name": "Cardano-Mixer Backend Project",
     "image": "plutus-devcontainer:latest",
 
     "remoteUser": "plutus",

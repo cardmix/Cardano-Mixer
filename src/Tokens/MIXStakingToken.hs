@@ -17,7 +17,6 @@
 {-# LANGUAGE TypeSynonymInstances       #-}
 
 
-
 module Tokens.MIXStakingToken (
     mixStakingToken,
     mixStakingTokenSymbol,
@@ -37,7 +36,6 @@ import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), 
 
 import           Tokens.Common
 import           Configuration.PABConfig          (mixStakingTokenPolicyId)
-
 
 ------------------------------------ Collateral Token ---------------------------------------------------
 

@@ -21,12 +21,11 @@ import qualified Data.Map
 import           Data.Maybe                        (catMaybes)
 import qualified Data.Set
 import           Data.Text                         (Text, pack)
-import           Ledger                            (PaymentPubKeyHash, Value, Address, ChainIndexTxOut(..), TxOutRef, AssetClass, unPaymentPrivateKey, interval, minAdaTxOut)
-import           Ledger.CardanoWallet              (paymentPrivateKey, knownMockWallets)
-import           Ledger.Tx                         (Tx(..), TxOut(..), txOutRefId, pubKeyTxIn, toTxOut, addSignature')
+import           Ledger                            (PaymentPubKeyHash, Value, Address, ChainIndexTxOut(..), TxOutRef, AssetClass, minAdaTxOut)
+import           Ledger.Tx                         (Tx(..), TxOut(..), txOutRefId, pubKeyTxIn, toTxOut)
 import           Plutus.ChainIndex                 (ChainIndexTx, Page(..), nextPageQuery)
 import           Plutus.ChainIndex.Api             (TxosResponse(paget), UtxosResponse (page))
-import           Plutus.Contract                   (AsContractError, Contract, ContractError (..), logInfo, mapError, txOutFromRef, throwError, currentSlot)
+import           Plutus.Contract                   (AsContractError, Contract, ContractError (..), logInfo, mapError, txOutFromRef, throwError)
 import           Plutus.Contract.Request           (txoRefsAt, txsFromTxIds, utxoRefsWithCurrency, utxosAt)
 import           Plutus.Contract.StateMachine      (SMContractError(..))
 import           Plutus.V1.Ledger.Ada              (toValue, lovelaceValueOf)
@@ -38,7 +37,6 @@ import           PlutusTx.Prelude                  hiding ((<>))
 import           Prelude                           (Show(..), Char, String, (<>))
 
 
-import           Configuration.PABConfig           (PABConfig (..), pabConfig)
 import           Utils.Common                      (drop)
 
 
@@ -118,20 +116,11 @@ balanceTxWithExternalWallet utx (addr, val) vals = do
                           Nothing -> throwError $ OtherContractError "Cannot balance transaction!"
                           Just r  -> pure r -- We assume that val is equal to the difference between outputs and inputs plus the fee
     logInfo change
-    cs <- case pabConfig of
-            Simulator -> currentSlot
-            Testnet    -> pure 0
     let tx      = unBalancedTxTx utx
         ins     = txInputs tx `Data.Set.union` Data.Set.fromList (map pubKeyTxIn $ keys utxos')
         outs    = txOutputs tx ++ [TxOut addr change Nothing]
         tx'     = tx { txInputs = ins, txOutputs = outs }
-        nInputs = length $ Data.Map.elems utxos'
-        actualFee = vals !! nInputs
-        utx'    = case pabConfig of
-            Simulator -> utx{ unBalancedTxTx = addSignature' (unPaymentPrivateKey $ paymentPrivateKey $ knownMockWallets !! 1) $
-              addSignature' (unPaymentPrivateKey $ paymentPrivateKey $ knownMockWallets !! 2) $
-              tx' {txFee = actualFee, txValidRange = interval (cs-10) (cs+100), txCollateral = [pubKeyTxIn $ head $ keys utxos']} }
-            Testnet -> utx { unBalancedTxTx = tx', unBalancedTxUtxoIndex = Data.Map.map toTxOut utxos' }
+        utx'    = utx { unBalancedTxTx = tx', unBalancedTxUtxoIndex = Data.Map.map toTxOut utxos' }
     return utx'
 
 ---------------------------- Additional Chain Index queries -------------------------

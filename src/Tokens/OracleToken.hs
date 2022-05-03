@@ -17,7 +17,6 @@
 {-# LANGUAGE TypeSynonymInstances       #-}
 
 
-
 module Tokens.OracleToken (
     oracleToken,
     oracleTokenSymbol,

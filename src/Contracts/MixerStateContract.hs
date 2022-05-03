@@ -1,4 +1,6 @@
 {-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -9,9 +11,6 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE NumericUnderscores #-}
 
 
 module Contracts.MixerStateContract where
@@ -21,8 +20,7 @@ import           Data.Semigroup                           (Last (..))
 import           GHC.Generics                             (Generic)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           Ledger.Value                             (geq)
-import           Plutus.ChainIndex.Tx                     (ChainIndexTx)
-import           Plutus.Contract                          (Promise, Contract, ContractError, Endpoint, currentTime, endpoint, tell, logInfo, waitNSlots)
+import           Plutus.Contract                          (Promise, Contract, ContractError, Endpoint, currentTime, endpoint, tell, logInfo)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<>), (<$>), unless, find, toList, fromInteger, check)
 import           Prelude                                  (Show, String)
@@ -31,10 +29,7 @@ import           Crypto
 import           MixerState
 import           Scripts.MixerScript
 import           Tokens.DepositToken                      (depositTokenTargetAddress, depositToken)
-import           Utils.Contracts                          (txosTxTxOutAt, foldTxoRefsAt, txosTxOutAt)
-import Plutus.V1.Ledger.Ada (lovelaceValueOf)
-import Tokens.MIXToken (mixToken)
-import Plutus.ChainIndex (pageItems)
+import           Utils.Contracts                          (txosTxOutAt)
 
 --------------------------- Types -----------------------------------
 
@@ -60,13 +55,13 @@ cacheValidityPeriod = 10000
 getMixerState :: MixerStateCache -> POSIXTime -> Value -> Contract w s ContractError (MixerState, MixerStateCache)
 getMixerState oldCache@(MixerStateCache cTxs cTime) curTime v = do
     let mixer = makeMixerFromFees v
-    
+
     logInfo curTime
     logInfo cTime
     logInfo $ curTime - cTime <= cacheValidityPeriod
     txTxos  <- mixerStateCacheIsValid curTime (pure cTxs) (txosTxOutAt depositTokenTargetAddress)
     cache   <- mixerStateCacheIsValid curTime (pure oldCache) (pure $ MixerStateCache txTxos curTime)
-    
+
     logInfo @String "Got txos and cache"
 
     -- TODO: implement proper sort?

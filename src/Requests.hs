@@ -20,7 +20,6 @@ import           Wallet.Emulator.Wallet                   (Wallet)
 
 import           PABContracts                             (PABContracts)
 
-
 ------------------------------- API Requests -------------------------------------
 
 -- Activate a contract for a given wallet

@@ -12,10 +12,12 @@ import PlutusTx.Prelude              hiding (elem)
 import Prelude                       (String)
 import Wallet.Emulator.Wallet        (Wallet(..), fromBase16)
 
-data PABConfig = Simulator | Testnet
+data PABConfig = Mainnet | Testnet
 
 pabConfig :: PABConfig
 pabConfig = Testnet
+
+--------------------------------- Mainnet --------------------------------------
 
 --------------------------------- Testnet --------------------------------------
 
@@ -51,41 +53,20 @@ mixStakingTokenPolicyId :: [Integer]
 mixStakingTokenPolicyId = [0x18, 0x03, 0x07, 0xc3, 0x48, 0xf6, 0x48, 0x28, 0xb5, 0x8b, 0xa1, 0x19, 0x45, 0x8f, 0x41, 0xd9,
      0x9b, 0xfe, 0xd8, 0x23, 0x72, 0xba, 0xfb, 0xc0, 0x82, 0x9e, 0x05, 0xc6]
 
----------------------------- Simulator / Emulator -----------------------------
-
-pabWalletIdStringSimulator :: String
-pabWalletIdStringSimulator = "1bc5f27d7b4e20083977418e839e429d00cc87f3"
-
-pabWalletPKHBytesSimulator :: [Integer]
-pabWalletPKHBytesSimulator = [0xc6, 0x05, 0x88, 0x8d, 0x3c, 0x40, 0x38, 0x6d, 0x7c, 0x32, 0x3a, 0x46, 0x79, 0xc7, 0x67, 0xe5,
-     0xa0, 0xa7, 0xb6, 0x83, 0x60, 0x5c, 0x3e, 0x5d, 0xf9, 0xa7, 0x6a, 0xee]
-
--- TODO: correct bytes
-dispenserWalletIdStringSimulator :: String
-dispenserWalletIdStringSimulator = "5cd8d83d3de9770ac2970f6238386e183e216854"
-
--- TODO: correct bytes
-dispenserWalletPKHBytesSimulator :: [Integer]
-dispenserWalletPKHBytesSimulator = [238,124,117,213,182,255,103,17,174,19,115,112,145,197,125,26,131,244,146,99,216,28,233,128,221,173,106,2]
-
--- -- TODO: add to config
--- mixTokenPolicyId :: [Integer]
--- mixTokenPolicyId = [234,90,69,0,93,247,236,193,240,29,130,189,8,57,128,143,197,107,192,226,136,118,145,236,43,91,163,42]
-
 ----------------------------- Common -------------------------------
 
 pabWalletIdString :: String
 pabWalletIdString = case pabConfig of
-     Simulator -> pabWalletIdStringSimulator
-     Testnet   -> pabWalletIdStringTestnet
+     Mainnet -> pabWalletIdStringTestnet
+     Testnet -> pabWalletIdStringTestnet
 
 pabWallet :: Wallet
 pabWallet = Wallet (Just "PAB Wallet") $ head $ rights [fromBase16 $ pack pabWalletIdString]
 
 pabWalletPKHBytes :: [Integer]
 pabWalletPKHBytes = case pabConfig of
-     Simulator -> pabWalletPKHBytesSimulator
-     Testnet   -> pabWalletPKHBytesTestnet
+     Mainnet -> pabWalletPKHBytesTestnet
+     Testnet -> pabWalletPKHBytesTestnet
 
 pabWalletPKH :: PaymentPubKeyHash
 pabWalletPKH = PaymentPubKeyHash $ PubKeyHash $ foldr consByteString emptyByteString pabWalletPKHBytes
@@ -98,16 +79,16 @@ pabWalletSKH = PubKeyHash $ foldr consByteString emptyByteString pabWalletSKHByt
 
 dispenserWalletIdString :: String
 dispenserWalletIdString = case pabConfig of
-     Simulator -> dispenserWalletIdStringSimulator
-     Testnet   -> dispenserWalletIdStringTestnet
+     Mainnet -> dispenserWalletIdStringTestnet
+     Testnet -> dispenserWalletIdStringTestnet
 
 dispenserWallet :: Wallet
 dispenserWallet = Wallet (Just "Dispenser Wallet") $ head $ rights [fromBase16 $ pack dispenserWalletIdString]
 
 dispenserWalletPKHBytes :: [Integer]
 dispenserWalletPKHBytes = case pabConfig of
-     Simulator -> dispenserWalletPKHBytesSimulator
-     Testnet   -> dispenserWalletPKHBytesTestnet
+     Mainnet -> dispenserWalletPKHBytesTestnet
+     Testnet -> dispenserWalletPKHBytesTestnet
 
 dispenserWalletPKH :: PaymentPubKeyHash
 dispenserWalletPKH = PaymentPubKeyHash $ PubKeyHash $ foldr consByteString emptyByteString dispenserWalletPKHBytes
