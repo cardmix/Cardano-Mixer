@@ -92,8 +92,9 @@ deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) ->
     utx  <- mkTxConstraints lookups cons
     -- adding user wallet inputs and outputs
     let addr = fromMaybe (pubKeyHashAddress pabWalletPKH (Just $ StakePubKeyHash pabWalletSKH)) $ textToAddress txt
+    logInfo @String "Prebalancing..."
     utx' <- balanceTxWithExternalWallet utx (addr, val') (map (lovelaceValueOf . (\i -> 1_100_000 + 20_000 * i)) [0..100])
-    logInfo utx'
+    -- logInfo utx'
     -- final balancing with PAB wallet
     ctx <- case pabConfig of
             Simulator -> pure $ EmulatorTx $ unBalancedTxTx utx'
@@ -134,7 +135,7 @@ depositSubmit = endpoint @"deposit-submit" @Text $ \txSigned -> handleError erro
           _ -> False
 
 timeToValidateWithdrawal :: POSIXTime
-timeToValidateWithdrawal = POSIXTime 100_000
+timeToValidateWithdrawal = POSIXTime 500_000
 
 -- "withdraw" endpoint implementation
 withdraw :: Promise (Maybe (Last Text)) MixerSchema ContractError ()
@@ -149,7 +150,8 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, 
     -- TODO: fix empty list error
     let (utxo1, utxos'') = selectUTXO $ Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer + mixerAdaUTXO mixer)) utxos
 
-    (state, _) <- getMixerState (MixerStateCache [] 0) v
+    logInfo @String "Querying MixerState..."
+    (state, _) <- getMixerState (MixerStateCache [] 0) ct v
     mKeys <- getMixerKeys v
     case checkRelayRequest state mKeys params of
         RelayRequestAccepted -> do

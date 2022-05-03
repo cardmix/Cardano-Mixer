@@ -47,12 +47,12 @@ metadataServerConfig:
   mdBaseUrl: http://localhost:9085
 
 developmentOptions:
-  pabRollbackHistory: 1
+  pabRollbackHistory: 0
   pabResumeFrom:
     # { "tag" : "PointAtGenesis" }
     { "tag" : "Point"
-    , "pointBlockId" : "fc58a406e6f43f16d8dfe111daaec8817ff20b6c33e65de0b40f146977da2e4e"
-    , "pointSlot" : { "getSlot" : 56709780 }
+    , "pointBlockId" : "66945f7868c44f2952b88bd5804a89f59fa5bcfcea5ccabc197324f1c2f0fbef"
+    , "pointSlot" : { "getSlot" : 57051251 }
     }
 
 # Optional EKG Server Config

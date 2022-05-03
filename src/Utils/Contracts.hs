@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
+{-# LANGUAGE NumericUnderscores         #-}
 {-# LANGUAGE OverloadedLists            #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
@@ -25,10 +26,10 @@ import           Ledger.CardanoWallet              (paymentPrivateKey, knownMock
 import           Ledger.Tx                         (Tx(..), TxOut(..), txOutRefId, pubKeyTxIn, toTxOut, addSignature')
 import           Plutus.ChainIndex                 (ChainIndexTx, Page(..), nextPageQuery)
 import           Plutus.ChainIndex.Api             (TxosResponse(paget), UtxosResponse (page))
-import           Plutus.Contract                   (AsContractError, Contract, ContractError (..), mapError, txOutFromRef, throwError, currentSlot)
+import           Plutus.Contract                   (AsContractError, Contract, ContractError (..), logInfo, mapError, txOutFromRef, throwError, currentSlot)
 import           Plutus.Contract.Request           (txoRefsAt, txsFromTxIds, utxoRefsWithCurrency, utxosAt)
 import           Plutus.Contract.StateMachine      (SMContractError(..))
-import           Plutus.V1.Ledger.Ada              (toValue)
+import           Plutus.V1.Ledger.Ada              (toValue, lovelaceValueOf)
 import           Plutus.V1.Ledger.Value            (geq)
 import           Ledger.Constraints                (mustPayToPubKey)
 import           Ledger.Constraints.OffChain       (UnbalancedTx(..))
@@ -104,12 +105,19 @@ addUTXOUntil utxos val fs = do
 
 --------------------------------- Balancing transactions ----------------------------
 
+removeCollateralUTXO :: Map TxOutRef ChainIndexTxOut -> Map TxOutRef ChainIndexTxOut
+removeCollateralUTXO utxos = Data.Map.difference utxos col
+  where cols = Data.Map.filter (\o -> lovelaceValueOf 10_000_000 `geq` _ciTxOutValue o) utxos
+        col  = if not $ Data.Map.null cols then Data.Map.fromList [head $ Data.Map.toList cols] else Data.Map.empty
+
 balanceTxWithExternalWallet :: UnbalancedTx -> (Address, Value) -> [Value] -> Contract w s ContractError UnbalancedTx
 balanceTxWithExternalWallet utx (addr, val) vals = do
     utxos <- utxosAt addr
+    logInfo utxos
     (change, utxos') <- case addUTXOUntil utxos val vals of
                           Nothing -> throwError $ OtherContractError "Cannot balance transaction!"
                           Just r  -> pure r -- We assume that val is equal to the difference between outputs and inputs plus the fee
+    logInfo change
     cs <- case pabConfig of
             Simulator -> currentSlot
             Testnet    -> pure 0
@@ -143,6 +151,34 @@ txosTxTxOutAt = foldTxoRefsAt f []
       let txIds = txOutRefId <$> txoRefs
       txs <- txsFromTxIds txIds
       pure $ acc <> mapMaybe (\(tx, txo) -> fmap (tx,) txo) (zip txs txOuts)
+
+-- | Get the transactions at an address.
+txosTxOutAt ::
+    forall w s e.
+    ( AsContractError e
+    )
+    => Address
+    -> Contract w s e [ChainIndexTxOut]
+txosTxOutAt = foldTxoRefsAt f []
+  where
+    f acc pg = do
+      let txoRefs = pageItems pg
+      txOuts <- traverse txOutFromRef txoRefs
+      pure $ acc <> catMaybes txOuts
+
+-- | Get the transactions at an address.
+txosTxRefTxOutAt ::
+    forall w s e.
+    ( AsContractError e
+    )
+    => Address
+    -> Contract w s e [(TxOutRef, ChainIndexTxOut)]
+txosTxRefTxOutAt = foldTxoRefsAt f []
+  where
+    f acc pg = do
+      let txoRefs = pageItems pg
+      txOuts <- traverse txOutFromRef txoRefs
+      pure $ acc <> mapMaybe (\(tx, txo) -> fmap (tx,) txo) (zip txoRefs txOuts)
 
 txOutsFromRefs :: forall w s e. (AsContractError e) => [TxOutRef] -> Contract w s e [TxOut]
 txOutsFromRefs refs = map toTxOut <$> (catMaybes <$> traverse txOutFromRef refs)

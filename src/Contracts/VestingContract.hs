@@ -40,8 +40,8 @@ import           Utils.Contracts          (selectUTXO)
 
 retrieveFunds :: (AsVestingError e) => Contract w s e ()
 retrieveFunds = mapError (review _VestingError) $ do
-    utxos <- utxosAt vestingScriptAddress
     pkh   <- ownPaymentPubKeyHash
+    utxos <- utxosAt vestingScriptAddress
     ct    <- currentTime
     let (utxo1, utxos') = selectUTXO $ Data.Map.filter (\txout -> f txout (ct-100000) pkh) utxos
     if Data.Map.null utxos'
@@ -49,7 +49,8 @@ retrieveFunds = mapError (review _VestingError) $ do
         else do
             let lookups = unspentOutputs utxos' <> typedValidatorLookups typedValidator <> otherScript vestingScript
                 cons    = mustSpendScriptOutput utxo1 (Redeemer $ toBuiltinData ()) <> mustValidateIn (Interval.from (ct-100000)) <>
-                    mustBeSignedBy pkh <> mustPayToPubKeyAddress pabWalletPKH (StakePubKeyHash pabWalletSKH) (lovelaceValueOf 10_000_000)
+                    mustBeSignedBy pkh <> mustPayToPubKeyAddress pabWalletPKH (StakePubKeyHash pabWalletSKH) (lovelaceValueOf 1000_000_000)
+                    -- TODO: add normal collateral check
             void $ submitTxConstraintsWith lookups cons
   where f o t h = case _ciTxOutDatum o of
           Left  _ -> False
