@@ -90,6 +90,7 @@ getMixerStatePromise = endpoint @"get-mixer-state" @[Value] $ \vals -> do
     logInfo $ curTime - ct
     states <- mapM (fmap fst . getMixerState cache curTime) vals
     logInfo @String "Retrieved states"
+    logInfo states
     tell $ Just $ Last states
 
     -- mixerStateLoop (MixerStateCache [] 0)

@@ -11,9 +11,6 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
 
-{-# OPTIONS_GHC -Wno-orphans               #-}
-{-# OPTIONS_GHC -Wno-redundant-constraints #-}
-
 module Contracts.VestingContract where
 
 import           Control.Lens             (review)

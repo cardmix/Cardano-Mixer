@@ -1,31 +1,23 @@
 {-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
-{-# LANGUAGE OverloadedLists            #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE NumericUnderscores         #-}
+
 
 module Crypto.Conversions  where
 
-import           Ledger.Address                    (PaymentPubKeyHash (..))
+import           Ledger.Address              (PaymentPubKeyHash (..))
 import           Plutus.V1.Ledger.Api
-import           PlutusTx.AssocMap                 (Map, toList)
-import           PlutusTx.Prelude                  hiding (toList)
+import           PlutusTx.AssocMap           (Map, toList)
+import           PlutusTx.Prelude            hiding (toList)
 
-import           Crypto.Zp                         (Zp(..), FiniteField(..), toZp)
-import           Crypto.MerkleTree                 (mimcHash)
+import           Crypto.MiMC                 (mimcHash)
+import           Crypto.Zp                   (Zp(..), FiniteField(..), toZp)
 
 ----------------------------- DataToZp ------------------------------------------
 

@@ -1,25 +1,12 @@
 cabal-version:      3.0
+
 name:               cardano-mixer-backend
 version:            0.1.0.0
+license:            Apache-2.0
+license-files:      LICENSE
 
--- A short (one-line) description of the package.
--- synopsis:
-
--- A longer description of the package.
--- description:
-
--- A URL where users can report bugs.
--- bug-reports:
-
-license:         Apache-2.0
-license-files:   LICENSE
-author:          Vladimir Sinyakov
-maintainer:      devteam@cardmix.io
-
--- A copyright notice.
--- copyright:
--- category:
--- extra-source-files: CHANGELOG.md
+author:             Vladimir Sinyakov
+maintainer:         devteam@cardmix.io
 
 flag defer-plugin-errors
     description:
@@ -27,26 +14,26 @@ flag defer-plugin-errors
     default: False
     manual: True
 
-flag testnet
-    description:
-        Builds executables for testnet.
-    default: False
-    manual: True
-
+-- Plutus language settings
 common lang
     default-language:   Haskell2010
     ghc-options:
+      -fwarn-redundant-constraints
       -Wall
-      -Wnoncanonical-monad-instances
+      -Widentities
       -Wincomplete-uni-patterns
       -Wincomplete-record-updates
+      -Wnoncanonical-monad-instances
       -Wredundant-constraints
-      -fwarn-redundant-constraints
-      -Widentities -rtsopts
+      
       -- See Plutus Tx readme
-      -fno-specialise -fno-strictness -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
-    -- if flag(defer-plugin-errors)
-    --   ghc-options:
+      -fno-ignore-interface-pragmas
+      -fno-omit-interface-pragmas
+      -fno-specialise
+      -fno-strictness
+      -fobject-code       
+    if flag(defer-plugin-errors)
+      ghc-options:
         -fplugin-opt PlutusTx.Plugin:defer-errors
 
 library
@@ -80,7 +67,6 @@ library
       Tokens.OracleToken
       Tokens.RelayTicketToken
       Tokens.WithdrawToken
-      Types.MixerContractTypes
       Utils.Address
       Utils.Contracts
       Utils.Conversions
@@ -172,6 +158,7 @@ executable cardano-mixer-client
     cardano-mixer-backend                  -any,
     containers                             -any,
     data-default                           -any,
+    directory                              -any,
     freer-extras                           -any,
     freer-simple                           -any,
     plutus-contract                        -any,

@@ -27,6 +27,7 @@ import           Control.Monad                            (void)
 import           Data.Aeson                               (FromJSON(..), ToJSON(..), Value (Object), (.:), encode)
 import           Data.Aeson.Extras                        (encodeByteString, tryDecode)
 import           Data.ByteString.Lazy                     (toStrict)
+import           Data.Default                             (def)
 import           Data.Either                              (fromRight)
 import qualified Data.Map
 import           Data.Semigroup                           (Last (..))
@@ -42,7 +43,7 @@ import           Plutus.ChainIndex.Tx                     (ChainIndexTx (..), Ch
 import           Plutus.Contract                          (Promise, Endpoint, type (.\/), Contract,
                                                             endpoint, selectList, utxosAt, logInfo, mkTxConstraints,
                                                             submitTxConfirmed, currentTime, ownPaymentPubKeyHash,
-                                                            tell, handleError, throwError, submitBalancedTx, balanceTx)
+                                                            tell, handleError, throwError, submitBalancedTx, balanceTx, utxoRefsAt)
 import           Plutus.Contract.CardanoAPI               (fromCardanoTx)
 import           Plutus.Contract.Types                    (ContractError(..))
 import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf, toValue)
@@ -55,14 +56,14 @@ import           Prelude                                  (String, (<>), show, S
 import           Configuration.PABConfig                  (pabWalletPKH, pabWalletSKH)
 import           Contracts.MixerKeysContract              (getMixerKeys)
 import           Contracts.MixerStateContract             (MixerStateCache (..), getMixerState)
+import           MixerContractParams                      (DepositParams(..), WithdrawParams (..))
+import           MixerProofs
 import           RelayRequest
 import           Scripts.MixerScript
 import           Scripts.VestingScript                    (VestingParams(..), vestingScriptHash)
 import           Tokens.DepositToken                      (depositTokenMintTx)
-import           Types.MixerContractTypes
 import           Utils.Address                            (textToAddress, textToKeys)
 import           Utils.Contracts                          (selectUTXO, balanceTxWithExternalWallet, txOutsFromRefs)
-
 
 -- General MixerContract error
 errorMixerContract :: ContractError -> Contract (Maybe (Last Text)) MixerSchema ContractError ()
@@ -92,6 +93,11 @@ deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) ->
     utx  <- mkTxConstraints lookups cons
     -- adding user wallet inputs and outputs
     let addr = fromMaybe (pubKeyHashAddress pabWalletPKH (Just $ StakePubKeyHash pabWalletSKH)) $ textToAddress txt
+    logInfo $ textToAddress txt
+    refs <- utxoRefsAt def $ fromMaybe (pubKeyHashAddress pabWalletPKH (Just $ StakePubKeyHash pabWalletSKH)) $ textToAddress "addr_test1qrh8caw4kmlkwydwzdehpyw905dg8ayjv0vpe6vqmkkk5q3psddwydp9ea0gj3jawxyak3d238jpj9fxx3gnfhk7paxqnw2xmw"
+    logInfo refs
+    utxos <- utxosAt $ fromMaybe (pubKeyHashAddress pabWalletPKH (Just $ StakePubKeyHash pabWalletSKH)) $ textToAddress "addr_test1qrh8caw4kmlkwydwzdehpyw905dg8ayjv0vpe6vqmkkk5q3psddwydp9ea0gj3jawxyak3d238jpj9fxx3gnfhk7paxqnw2xmw"
+    logInfo utxos
     logInfo @String "Prebalancing..."
     utx' <- balanceTxWithExternalWallet utx (addr, val') (map (lovelaceValueOf . (\i -> 1_100_000 + 20_000 * i)) [0..100])
     -- logInfo utx'
@@ -137,7 +143,7 @@ timeToValidateWithdrawal = POSIXTime 500_000
 
 -- "withdraw" endpoint implementation
 withdraw :: Promise (Maybe (Last Text)) MixerSchema ContractError ()
-withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, _) txt subs _) -> handleError errorMixerContract $ do
+withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams txt v _ subs _) -> handleError errorMixerContract $ do
     logInfo @String "withdraw"
     logInfo params
     let (pkhW, skhW) = fromMaybe (pabWalletPKH, StakePubKeyHash pabWalletSKH) $ textToKeys txt
@@ -157,7 +163,7 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams v (_, 
                     cons      = mustPayToPubKeyAddress pkhW skhW (mValue mixer + mixerAdaUTXO mixer) <>
                         mustValidateIn (to $ ct + timeToValidateWithdrawal) <>
                         mustPayToOtherScript vestingScriptHash (Datum $ toBuiltinData $ VestingParams
-                            (ct + hourPOSIX + 100000 + timeToValidateWithdrawal) pkhR utxo1 (subs !! 2)) (mRelayerCollateral mixer) <>
+                            (ct + hourPOSIX + 100000 + timeToValidateWithdrawal) pkhR utxo1 (getWithdrawKeyInput subs)) (mRelayerCollateral mixer) <>
                         mustSpendScriptOutput utxo1 (Redeemer $ toBuiltinData ()) <> mustBeSignedBy pabWalletPKH -- TODO: remove the last constraint after the test
                 utx <- mkTxConstraints lookups cons
                 submitTxConfirmed utx
@@ -180,3 +186,4 @@ newtype TxSignedCW = TxSignedCW { unTxSignedCW :: Text }
 instance FromJSON TxSignedCW where
     parseJSON (Data.Aeson.Object v) = TxSignedCW <$> v .: "transaction"
     parseJSON _ = error ()
+

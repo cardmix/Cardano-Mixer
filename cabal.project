@@ -6,29 +6,29 @@ packages: ./.
 source-repository-package
   type: git
   location: https://github.com/cardmix/Cardano-Mixer-Lib.git
-  tag: bda35e89cfd60ba0b062de18029fb4cde42e3f55
+  tag: a15c0d459ae0eef971bfadb670503915c9394b6a
 
--- Plutus revision from 2021/11/26
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/plutus-apps.git
-  subdir: doc
-          freer-extras
-          playground-common
-          plutus-chain-index
-          plutus-chain-index-core
-          plutus-contract
-          plutus-example
-          plutus-contract-certification
-          plutus-ledger
-          plutus-ledger-constraints
-          plutus-pab
-          plutus-pab-executables
-          plutus-playground-server
-          plutus-use-cases
-          quickcheck-dynamic
-          web-ghc
-  tag: 957b79cb6f0299709cf310d8d9ca2c7c26efe2d8
+  subdir:
+    doc
+    freer-extras
+    playground-common
+    plutus-chain-index
+    plutus-chain-index-core
+    plutus-contract
+    plutus-example
+    plutus-contract-certification
+    plutus-ledger
+    plutus-ledger-constraints
+    plutus-pab
+    plutus-pab-executables
+    plutus-playground-server
+    plutus-use-cases
+    quickcheck-dynamic
+    web-ghc  
+  tag: fdb0eec477fc0f99f5edfdbc11c041dbd35ca6bb
 
 -- We never, ever, want this.
 write-ghc-environment-files: never

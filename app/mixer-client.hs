@@ -14,23 +14,25 @@ module Main
         main
     ) where
 
+import           Data.Aeson                                   (encode, decode)
 import           Data.ByteString                              (ByteString, writeFile, readFile)
+import           Data.ByteString.Lazy                         (fromStrict, toStrict)
 import           Data.Text                                    (Text, pack)
 import           Ledger                                       (PaymentPubKeyHash, Value)
 import           Plutus.V1.Ledger.Ada                         (lovelaceValueOf)
 import           PlutusTx.Prelude                             hiding ((<$>))
-import           Prelude                                      (IO, String, print)
+import           Prelude                                      (IO, Show(..), String, FilePath, (<$>), print)
+import           System.Directory                             
 import           System.Environment                           (getArgs)
 import           Wallet.Emulator.Wallet                       (Wallet)
 
-import           ClientLog                                    (getSecrets, logSecrets)
-import           Crypto                                       (Fr, mimcHash, generateProofSecret)
+import           Crypto                                       (Fr, PublicInputs(..), mimcHash, generateProofSecret)
+import           MixerContractParams
 import           MixerProofs                                  (generateSimulatedWithdrawProof)
 import           MixerState                                   (MixerState)
 import           MixerUserData
 import           PABContracts                                 (PABContracts(..), MixerFrontendContracts (..))
 import           Requests
-import           Types.MixerContractTypes                     (DepositParams(..), WithdrawParams (..))
 
 
 pabIP :: Text
@@ -83,7 +85,7 @@ withdrawProcedure str = do
         state <- mixerStateProcedure
         randomness <- generateProofSecret
         let (lastDeposit, subs, proof) = generateSimulatedWithdrawProof randomness a ds sas state
-            params = WithdrawParams mixVal lastDeposit (pack str) subs proof
+            params = WithdrawParams (pack str) mixVal lastDeposit subs proof
         cidMixerUse <- activateRequest pabIP (FrontendContracts MixerUse) (Just w)
         endpointRequest pabIP "withdraw" cidMixerUse params
 
@@ -100,3 +102,36 @@ mixerStateProcedure = do
     cidQueryMixer <- activateRequest pabIP (FrontendContracts MixerStateQuery) (Nothing :: Maybe Wallet)
     endpointRequest pabIP "Get Mixer state" cidQueryMixer mixVal
     awaitStatusUpdate pabIP cidQueryMixer
+
+------------------------------------ File logging ----------------------------------
+
+fileDS :: FilePath
+fileDS  = "testnet/Deposits/DepositSecret"
+
+fileSAS :: FilePath
+fileSAS = "testnet/Deposits/ShieldedAccountSecret"
+
+logSecrets :: DepositSecret -> ShieldedAccountSecret -> IO ()
+logSecrets ds sas = do
+    i <- findLastFile
+    writeFile (fileDS ++ show i) (toStrict $ encode ds)
+    writeFile (fileSAS ++ show i) (toStrict $ encode sas)
+
+getSecrets :: IO (Maybe (DepositSecret, ShieldedAccountSecret))
+getSecrets = do
+    i <- findLastFile
+    if i > 0
+        then do
+            Just ds <- decode . fromStrict <$> readFile (fileDS ++ show (i-1))
+            Just sas <- decode . fromStrict <$> readFile (fileSAS ++ show (i-1))
+            removeFile (fileDS ++ show (i-1))
+            removeFile (fileSAS ++ show (i-1))
+            return $ Just (ds, sas)
+        else return Nothing
+
+findLastFile :: IO Integer
+findLastFile = go 0
+    where
+        go i = do
+            b <- doesFileExist $ fileDS ++ show i
+            if b then go (i+1) else return i

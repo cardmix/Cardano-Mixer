@@ -33,8 +33,8 @@ import           Data.FileEmbed         (embedFile)
 import           Data.Text              (unpack)
 import           Ledger.Constraints     (UnbalancedTx)
 import           Plutus.Contract.Wallet (ExportTx (..), export)
-import           PlutusTx.Prelude        hiding ((<>))
-import           Prelude                 (String)
+import           PlutusTx.Prelude       hiding ((<>))
+import           Prelude                (String)
 
 
 testnetId :: NetworkId

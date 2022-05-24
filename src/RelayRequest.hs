@@ -5,7 +5,6 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE OverloadedLists            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeFamilies               #-}
 
@@ -20,9 +19,8 @@ import           Prelude                     (Show)
 import           Contracts.MixerKeysContract (MixerKeys)
 import           Crypto
 import           Crypto.Conversions          (dataToZp)
-import           Types.MixerContractTypes    (WithdrawParams(..))
-
-import           MixerProofs                 (verifyWithdraw)
+import           MixerContractParams         (WithdrawParams (..))
+import           MixerProofs
 import           MixerState                  (MixerState, MerkleTree(..), getMerkleTree)
 import           Utils.Address               (textToAddress)
 import           Utils.Common                (last)
@@ -44,28 +42,28 @@ checkRelayRequest state keys params
   | otherwise                          = RelayRequestAccepted
 
 checkWrongRootValue :: MixerState -> WithdrawParams -> Bool
-checkWrongRootValue state (WithdrawParams _ pos@(k, m) _ subs _)
-  | null subs                           = True
+checkWrongRootValue state (WithdrawParams _ _ pos@(k, m) subs _)
+  | not $ isWithdrawPublicInputs subs   = True
   | isNothing $ getMerkleTree state pos = True
-  | otherwise                           = head subs /= root
+  | otherwise                           = getWithdrawRootInput subs /= root
     where MerkleTree _ leafs = state !! k
           coPath             = getMerkleCoPath leafs m
           root               = last coPath
 
 -- TODO: make sure this cannot fail with error()
 checkWrongWithdrawalAddress :: WithdrawParams -> Bool
-checkWrongWithdrawalAddress (WithdrawParams _ _ txt subs _)
-  | length subs < 2                                 = True
+checkWrongWithdrawalAddress (WithdrawParams txt _ _ subs _)
+  | not $ isWithdrawPublicInputs subs               = True
   | isNothing $ textToAddress txt >>= toPubKeyHash  = True
-  | otherwise                                       = dataToZp pkh /= subs !! 1
+  | otherwise                                       = dataToZp pkh /= getWithdrawPKHInput subs
   where pkh = PaymentPubKeyHash $ fromJust $ textToAddress txt >>= toPubKeyHash
 
 checkWrongProof :: WithdrawParams -> Bool
-checkWrongProof (WithdrawParams _ _ _ subs proof) = not $ verifyWithdraw pubParams proof
-    where pubParams = [one, zero, zero, zero, zero, zero] ++ subs
+checkWrongProof (WithdrawParams _ _ _ subs proof) = not $ verifyWithdraw pubSignals proof
+    where pubSignals = toWithdrawPublicSignals subs
 
 checkDuplicateKey :: MixerKeys -> WithdrawParams -> Bool
 checkDuplicateKey keys (WithdrawParams _ _ _ subs _)
-  | length subs < 3                   = True
-  | null $ filter (== subs !! 2) keys = False
-  | otherwise                         = True
+  | not $ isWithdrawPublicInputs subs                = True
+  | null $ filter (== getWithdrawKeyInput subs) keys = False
+  | otherwise                                        = True
