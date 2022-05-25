@@ -63,7 +63,8 @@ import           Scripts.MixerScript
 import           Scripts.VestingScript                    (VestingParams(..), vestingScriptHash)
 import           Tokens.DepositToken                      (depositTokenMintTx)
 import           Utils.Address                            (textToAddress, textToKeys)
-import           Utils.Contracts                          (selectUTXO, balanceTxWithExternalWallet, txOutsFromRefs)
+import           Utils.ChainIndex                         (txOutsFromRefs)
+import           Utils.BalanceTx                          (selectUTXO, balanceTxWithExternalWallet)
 
 -- General MixerContract error
 errorMixerContract :: ContractError -> Contract (Maybe (Last Text)) MixerSchema ContractError ()

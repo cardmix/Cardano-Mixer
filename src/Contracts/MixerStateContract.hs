@@ -29,7 +29,7 @@ import           Crypto
 import           MixerState
 import           Scripts.MixerScript
 import           Tokens.DepositToken                      (depositTokenTargetAddress, depositToken)
-import           Utils.Contracts                          (txosTxOutAt)
+import           Utils.ChainIndex                         (txosTxOutAt)
 
 --------------------------- Types -----------------------------------
 

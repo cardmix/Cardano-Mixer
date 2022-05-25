@@ -31,7 +31,7 @@ import           PlutusTx.Prelude         hiding ((<>), Eq, Semigroup, fold, mem
 
 import           Configuration.PABConfig  (pabWalletPKH, pabWalletSKH)
 import           Scripts.VestingScript
-import           Utils.Contracts          (selectUTXO)
+import           Utils.BalanceTx          (selectUTXO)
 
 
 retrieveFunds :: (AsVestingError e) => Contract w s e ()

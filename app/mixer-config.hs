@@ -17,7 +17,7 @@ import           Prelude                             (IO, print)
 
 import           Scripts.VestingScript               (vestingScriptHash)
 import           Utils.Address                       (textToAddress)
-import           Utils.Contracts                     (byteStringToList, buildByteString)
+import           Utils.ByteString                     (byteStringToList, buildByteString)
 
 
 main :: IO ()

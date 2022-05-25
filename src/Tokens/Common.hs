@@ -24,7 +24,7 @@ import           Plutus.Contract                  (Contract)
 import           Plutus.Contract.Types            (AsContractError)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
 
-import           Utils.Contracts                  (utxosWithCurrency)
+import           Utils.ChainIndex                 (utxosWithCurrency)
 
 
 --------------------------- On-Chain -----------------------------

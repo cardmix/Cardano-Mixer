@@ -24,7 +24,7 @@ import           PlutusTx.Prelude                         hiding ((<>), mempty, 
 import           Crypto
 import           Scripts.MixerScript
 import           Scripts.VestingScript                    (vestingScriptAddress, VestingParams (..))
-import           Utils.Contracts                          (txosTxTxOutAt)
+import           Utils.ChainIndex                         (txosTxOutTxAt)
 
 type MixerKeys = [Fr]
 
@@ -42,12 +42,12 @@ type MixerKeys = [Fr]
 getMixerKeys :: Value -> Contract w s ContractError MixerKeys
 getMixerKeys v = do
     let mixer = makeMixerFromFees v
-    txTxos <- txosTxTxOutAt vestingScriptAddress
-    let f (tx, _) = 
+    txoTxs <- txosTxOutTxAt vestingScriptAddress
+    let f (_, tx) = 
             let ValidatorHash h = mixerValidatorHash mixer
             in ScriptHash h `member` _citxScripts tx
-        txTxos' = filter f txTxos
-        keys    = mapMaybe (getTxKeys . snd) txTxos'
+        txoTxs' = filter f txoTxs
+        keys    = mapMaybe (getTxKeys . fst) txoTxs'
     return keys
 
 getTxKeys :: ChainIndexTxOut -> Maybe Fr

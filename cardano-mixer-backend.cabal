@@ -8,12 +8,6 @@ license-files:      LICENSE
 author:             Vladimir Sinyakov
 maintainer:         devteam@cardmix.io
 
-flag defer-plugin-errors
-    description:
-        Defer errors from the plugin, useful for things like Haddock that can't handle it.
-    default: False
-    manual: True
-
 -- Plutus language settings
 common lang
     default-language:   Haskell2010
@@ -32,9 +26,7 @@ common lang
       -fno-specialise
       -fno-strictness
       -fobject-code       
-    if flag(defer-plugin-errors)
-      ghc-options:
-        -fplugin-opt PlutusTx.Plugin:defer-errors
+      -fplugin-opt PlutusTx.Plugin:defer-errors
 
 library
     import: lang
@@ -68,8 +60,10 @@ library
       Tokens.RelayTicketToken
       Tokens.WithdrawToken
       Utils.Address
-      Utils.Contracts
-      Utils.Conversions
+      Utils.BalanceTx
+      Utils.ByteString
+      Utils.ChainIndex
+      Utils.Tx
     build-depends:
       base                          >= 4.9 && < 5,
       base16-bytestring                      -any,

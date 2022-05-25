@@ -1,9 +1,14 @@
 {-# LANGUAGE NoImplicitPrelude  #-}
 {-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE TemplateHaskell    #-}
 
 module Configuration.PABConfig where
 
+import Data.Aeson                    (decode)
+import Data.ByteString.Lazy          (fromStrict)
 import Data.Either                   (rights)
+import Data.FileEmbed                (embedFile)
+import Data.Maybe                    (fromJust)
 import Data.Text                     (pack)
 import Ledger                        (PubKeyHash(..))
 import Ledger.Address                (PaymentPubKeyHash(..))
@@ -11,11 +16,12 @@ import Plutus.V1.Ledger.Api          (ValidatorHash (..))
 import PlutusTx.Prelude              hiding (elem)
 import Prelude                       (String)
 import Wallet.Emulator.Wallet        (Wallet(..), fromBase16)
+import Cardano.Api.Shelley           (ProtocolParameters, NetworkId(..), NetworkMagic (..))
 
-data PABConfig = Mainnet | Testnet
+data PABConfig = PABMainnet | PABTestnet
 
 pabConfig :: PABConfig
-pabConfig = Testnet
+pabConfig = PABTestnet
 
 --------------------------------- Mainnet --------------------------------------
 
@@ -53,20 +59,26 @@ mixStakingTokenPolicyId :: [Integer]
 mixStakingTokenPolicyId = [0x18, 0x03, 0x07, 0xc3, 0x48, 0xf6, 0x48, 0x28, 0xb5, 0x8b, 0xa1, 0x19, 0x45, 0x8f, 0x41, 0xd9,
      0x9b, 0xfe, 0xd8, 0x23, 0x72, 0xba, 0xfb, 0xc0, 0x82, 0x9e, 0x05, 0xc6]
 
+testnetId :: NetworkId
+testnetId = Testnet $ NetworkMagic 1097911063
+
+testnetParams :: ProtocolParameters
+testnetParams = fromJust $ decode $ fromStrict $(embedFile "testnet/protocol-parameters.json")
+
 ----------------------------- Common -------------------------------
 
 pabWalletIdString :: String
 pabWalletIdString = case pabConfig of
-     Mainnet -> pabWalletIdStringTestnet
-     Testnet -> pabWalletIdStringTestnet
+     PABMainnet -> pabWalletIdStringTestnet
+     PABTestnet -> pabWalletIdStringTestnet
 
 pabWallet :: Wallet
 pabWallet = Wallet (Just "PAB Wallet") $ head $ rights [fromBase16 $ pack pabWalletIdString]
 
 pabWalletPKHBytes :: [Integer]
 pabWalletPKHBytes = case pabConfig of
-     Mainnet -> pabWalletPKHBytesTestnet
-     Testnet -> pabWalletPKHBytesTestnet
+     PABMainnet -> pabWalletPKHBytesTestnet
+     PABTestnet -> pabWalletPKHBytesTestnet
 
 pabWalletPKH :: PaymentPubKeyHash
 pabWalletPKH = PaymentPubKeyHash $ PubKeyHash $ foldr consByteString emptyByteString pabWalletPKHBytes
@@ -79,16 +91,16 @@ pabWalletSKH = PubKeyHash $ foldr consByteString emptyByteString pabWalletSKHByt
 
 dispenserWalletIdString :: String
 dispenserWalletIdString = case pabConfig of
-     Mainnet -> dispenserWalletIdStringTestnet
-     Testnet -> dispenserWalletIdStringTestnet
+     PABMainnet -> dispenserWalletIdStringTestnet
+     PABTestnet -> dispenserWalletIdStringTestnet
 
 dispenserWallet :: Wallet
 dispenserWallet = Wallet (Just "Dispenser Wallet") $ head $ rights [fromBase16 $ pack dispenserWalletIdString]
 
 dispenserWalletPKHBytes :: [Integer]
 dispenserWalletPKHBytes = case pabConfig of
-     Mainnet -> dispenserWalletPKHBytesTestnet
-     Testnet -> dispenserWalletPKHBytesTestnet
+     PABMainnet -> dispenserWalletPKHBytesTestnet
+     PABTestnet -> dispenserWalletPKHBytesTestnet
 
 dispenserWalletPKH :: PaymentPubKeyHash
 dispenserWalletPKH = PaymentPubKeyHash $ PubKeyHash $ foldr consByteString emptyByteString dispenserWalletPKHBytes
