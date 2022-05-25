@@ -13,17 +13,20 @@ module Utils.Tx where
 import           Cardano.Api.Shelley     (serialiseToCBOR)
 import           Data.Aeson.Extras       (encodeByteString)
 import           Data.Default            (def)
-import           Data.Either             (fromRight)
 import           Data.Text               (Text)
 import           Ledger.Constraints      (UnbalancedTx)
+import           Ledger.Tx.CardanoAPI    (ToCardanoError)
 import           Plutus.Contract.Wallet  (ExportTx (..), export)
 import           PlutusTx.Prelude        hiding ((<>))
 import           Prelude                 (undefined)
 
 import           Configuration.PABConfig
 
-unbalancedTxToCBOR :: UnbalancedTx -> Text
-unbalancedTxToCBOR = encodeByteString . serialiseToCBOR . partialTx . fromRight (error ()) . f
+------------------------ Export/Import of transactions -------------------------
+
+-- UnbalancedTx to CBOR conversion
+unbalancedTxToText :: UnbalancedTx -> Either ToCardanoError Text
+unbalancedTxToText = fmap (encodeByteString . serialiseToCBOR . partialTx) . f
     where f utx = case pabConfig of
             PABMainnet -> undefined
             PABTestnet -> export testnetParams testnetId def utx

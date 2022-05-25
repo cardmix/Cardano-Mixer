@@ -12,7 +12,7 @@
 
 module Contracts.MixerKeysContract where
 
-import           Data.Map                                 (member)
+import           Data.Map                                 (member, elems)
 import           Data.Maybe                               (mapMaybe)
 import           Data.Semigroup                           (Last (..))
 import           Ledger                                   hiding (member, singleton, validatorHash, unspentOutputs)
@@ -20,11 +20,12 @@ import           Plutus.ChainIndex.Tx                     (ChainIndexTx(..))
 import           Plutus.Contract                          (Promise, ContractError, Endpoint, endpoint, tell, Contract)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
+import           Prelude                                  ((<$>))
 
 import           Crypto
 import           Scripts.MixerScript
 import           Scripts.VestingScript                    (vestingScriptAddress, VestingParams (..))
-import           Utils.ChainIndex                         (txosTxOutTxAt)
+import           Utils.ChainIndex                         (getUtxosAt)
 
 type MixerKeys = [Fr]
 
@@ -38,11 +39,11 @@ type MixerKeys = [Fr]
 --             t1 = ivTo $ _citxValidRange tx1
 --             t2 = ivTo $ _citxValidRange tx2
 
--- TODO: Fix possible exploits
+-- TODO: THIS IS NOT WORKING PROPERLY NOW. We should get the keys from the NFTs
 getMixerKeys :: Value -> Contract w s ContractError MixerKeys
 getMixerKeys v = do
     let mixer = makeMixerFromFees v
-    txoTxs <- txosTxOutTxAt vestingScriptAddress
+    txoTxs <- elems <$> getUtxosAt vestingScriptAddress
     let f (_, tx) = 
             let ValidatorHash h = mixerValidatorHash mixer
             in ScriptHash h `member` _citxScripts tx

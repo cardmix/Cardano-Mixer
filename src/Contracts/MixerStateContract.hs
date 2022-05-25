@@ -23,13 +23,14 @@ import           Ledger.Value                             (geq)
 import           Plutus.Contract                          (Promise, Contract, ContractError, Endpoint, currentTime, endpoint, tell, logInfo)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<>), (<$>), unless, find, toList, fromInteger, check)
-import           Prelude                                  (Show, String)
+import           Prelude                                  (Show, String, (<$>))
 
 import           Crypto
 import           MixerState
 import           Scripts.MixerScript
 import           Tokens.DepositToken                      (depositTokenTargetAddress, depositToken)
-import           Utils.ChainIndex                         (txosTxOutAt)
+import           Utils.ChainIndex                         (getUtxosAt)
+import qualified Data.Map
 
 --------------------------- Types -----------------------------------
 
@@ -59,7 +60,7 @@ getMixerState oldCache@(MixerStateCache cTxs cTime) curTime v = do
     logInfo curTime
     logInfo cTime
     logInfo $ curTime - cTime <= cacheValidityPeriod
-    txTxos  <- mixerStateCacheIsValid curTime (pure cTxs) (txosTxOutAt depositTokenTargetAddress)
+    txTxos  <- mixerStateCacheIsValid curTime (pure cTxs) (map fst . Data.Map.elems <$> getUtxosAt depositTokenTargetAddress)
     cache   <- mixerStateCacheIsValid curTime (pure oldCache) (pure $ MixerStateCache txTxos curTime)
 
     logInfo @String "Got txos and cache"

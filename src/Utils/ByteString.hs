@@ -17,7 +17,7 @@ import           Prelude                           (Char, String)
 
 import           Utils.Common                      (drop)
 
-{-# INLINABLE buildByteString #-}
+
 buildByteString :: String -> BuiltinByteString
 buildByteString str = foldr (consByteString . g) emptyByteString (f str)
     where f s = if length s > 1 then take 2 s : f (drop 2 s) else []

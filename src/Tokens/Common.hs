@@ -16,6 +16,7 @@ module Tokens.Common (
     tokensMintTx
 ) where
 
+import qualified Data.Map
 import           Ledger                           hiding (singleton, unspentOutputs)
 import           Ledger.Constraints.TxConstraints (TxConstraints, mustSpendAtLeast, mustMintCurrencyWithRedeemer)
 import           Ledger.Constraints.OffChain      (ScriptLookups, unspentOutputs, mintingPolicy)
@@ -23,9 +24,9 @@ import           Ledger.Value                     (geq, assetClassValue)
 import           Plutus.Contract                  (Contract)
 import           Plutus.Contract.Types            (AsContractError)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
+import           Prelude                          ((<$>))
 
-import           Utils.ChainIndex                 (utxosWithCurrency)
-
+import           Utils.ChainIndex                 (getUtxosWithCurrency)
 
 --------------------------- On-Chain -----------------------------
 
@@ -49,7 +50,7 @@ tokensBurned v ctx = vIns `geq` (vOuts + v)
 -- TxConstraints that the tokens are consumed by the transaction
 tokensTx :: (AsContractError e) => AssetClass -> Integer -> Contract w s e (ScriptLookups a, TxConstraints i o)
 tokensTx ac n = do
-    utxos <- utxosWithCurrency ac
+    utxos <- Data.Map.map fst <$> getUtxosWithCurrency ac
     return (unspentOutputs utxos, mustSpendAtLeast $ assetClassValue ac n)
 
 -- TxConstraints that the tokens are minted in the transaction
