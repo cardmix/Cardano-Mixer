@@ -62,7 +62,7 @@ import           RelayRequest
 import           Scripts.MixerScript
 import           Scripts.VestingScript                    (VestingParams(..), vestingScriptHash)
 import           Tokens.DepositToken                      (depositTokenMintTx)
-import           Utils.Address                            (textToAddress, textToKeys)
+import           Utils.Address                            (bech32ToAddress, bech32ToKeyHashes)
 import           Utils.ChainIndex                         (txOutsFromRefs)
 import           Utils.BalanceTx                          (selectUTXO, balanceTxWithExternalWallet)
 
@@ -93,11 +93,11 @@ deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) ->
     -- unbalanced transaction
     utx  <- mkTxConstraints lookups cons
     -- adding user wallet inputs and outputs
-    let addr = fromMaybe (pubKeyHashAddress pabWalletPKH (Just $ StakePubKeyHash pabWalletSKH)) $ textToAddress txt
-    logInfo $ textToAddress txt
-    refs <- utxoRefsAt def $ fromMaybe (pubKeyHashAddress pabWalletPKH (Just $ StakePubKeyHash pabWalletSKH)) $ textToAddress "addr_test1qrh8caw4kmlkwydwzdehpyw905dg8ayjv0vpe6vqmkkk5q3psddwydp9ea0gj3jawxyak3d238jpj9fxx3gnfhk7paxqnw2xmw"
+    let addr = fromMaybe (pubKeyHashAddress pabWalletPKH (Just $ StakePubKeyHash pabWalletSKH)) $ bech32ToAddress txt
+    logInfo $ bech32ToAddress txt
+    refs <- utxoRefsAt def $ fromMaybe (pubKeyHashAddress pabWalletPKH (Just $ StakePubKeyHash pabWalletSKH)) $ bech32ToAddress "addr_test1qrh8caw4kmlkwydwzdehpyw905dg8ayjv0vpe6vqmkkk5q3psddwydp9ea0gj3jawxyak3d238jpj9fxx3gnfhk7paxqnw2xmw"
     logInfo refs
-    utxos <- utxosAt $ fromMaybe (pubKeyHashAddress pabWalletPKH (Just $ StakePubKeyHash pabWalletSKH)) $ textToAddress "addr_test1qrh8caw4kmlkwydwzdehpyw905dg8ayjv0vpe6vqmkkk5q3psddwydp9ea0gj3jawxyak3d238jpj9fxx3gnfhk7paxqnw2xmw"
+    utxos <- utxosAt $ fromMaybe (pubKeyHashAddress pabWalletPKH (Just $ StakePubKeyHash pabWalletSKH)) $ bech32ToAddress "addr_test1qrh8caw4kmlkwydwzdehpyw905dg8ayjv0vpe6vqmkkk5q3psddwydp9ea0gj3jawxyak3d238jpj9fxx3gnfhk7paxqnw2xmw"
     logInfo utxos
     logInfo @String "Prebalancing..."
     utx' <- balanceTxWithExternalWallet utx (addr, val') (map (lovelaceValueOf . (\i -> 1_100_000 + 20_000 * i)) [0..100])
@@ -147,7 +147,7 @@ withdraw :: Promise (Maybe (Last Text)) MixerSchema ContractError ()
 withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams txt v _ subs _) -> handleError errorMixerContract $ do
     logInfo @String "withdraw"
     logInfo params
-    let (pkhW, skhW) = fromMaybe (pabWalletPKH, StakePubKeyHash pabWalletSKH) $ textToKeys txt
+    let (pkhW, skhW) = fromMaybe (pabWalletPKH, StakePubKeyHash pabWalletSKH) $ bech32ToKeyHashes txt
         mixer = makeMixerFromFees v
     pkhR   <- ownPaymentPubKeyHash
     utxos  <- utxosAt (mixerAddress mixer)

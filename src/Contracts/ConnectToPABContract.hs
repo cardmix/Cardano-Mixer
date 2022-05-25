@@ -20,7 +20,7 @@ import           Wallet.Emulator.Types     (Wallet)
 import           Configuration.PABConfig   (pabWallet, pabWalletPKH)
 import           Crypto                    (Fr)
 import           Crypto.Conversions        (dataToZp)
-import           Utils.Address             (textToPKH)
+import           Utils.Address             (bech32ToKeyHashes)
 
 ---------------------------------------------------------------------
 --------------------------- Off-Chain -------------------------------
@@ -30,7 +30,7 @@ type ConnectToPABSchema = Endpoint "connect-to-pab" Text
 
 connectToPABPromise :: Promise (Maybe (Last (PaymentPubKeyHash, Fr, Wallet))) ConnectToPABSchema ContractError ()
 connectToPABPromise = endpoint @"connect-to-pab" @Text $ \txt -> do
-    let pkh = fromMaybe pabWalletPKH $ textToPKH txt
+    let pkh = maybe pabWalletPKH fst $ bech32ToKeyHashes txt
         a   = dataToZp pkh
         w   = pabWallet
     tell $ Just $ Last (pkh, a, w)

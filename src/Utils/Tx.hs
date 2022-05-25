@@ -25,8 +25,8 @@ import           Configuration.PABConfig
 ------------------------ Export/Import of transactions -------------------------
 
 -- UnbalancedTx to CBOR conversion
-unbalancedTxToText :: UnbalancedTx -> Either ToCardanoError Text
-unbalancedTxToText = fmap (encodeByteString . serialiseToCBOR . partialTx) . f
+unbalancedTxToCBOR :: UnbalancedTx -> Either ToCardanoError Text
+unbalancedTxToCBOR = fmap (encodeByteString . serialiseToCBOR . partialTx) . f
     where f utx = case pabConfig of
             PABMainnet -> undefined
             PABTestnet -> export testnetParams testnetId def utx

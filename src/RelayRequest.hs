@@ -22,7 +22,7 @@ import           Crypto.Conversions          (dataToZp)
 import           MixerContractParams         (WithdrawParams (..))
 import           MixerProofs
 import           MixerState                  (MixerState, MerkleTree(..), getMerkleTree)
-import           Utils.Address               (textToAddress)
+import           Utils.Address               (bech32ToAddress)
 import           Utils.Common                (last)
 
 
@@ -53,10 +53,10 @@ checkWrongRootValue state (WithdrawParams _ _ pos@(k, m) subs _)
 -- TODO: make sure this cannot fail with error()
 checkWrongWithdrawalAddress :: WithdrawParams -> Bool
 checkWrongWithdrawalAddress (WithdrawParams txt _ _ subs _)
-  | not $ isWithdrawPublicInputs subs               = True
-  | isNothing $ textToAddress txt >>= toPubKeyHash  = True
-  | otherwise                                       = dataToZp pkh /= getWithdrawPKHInput subs
-  where pkh = PaymentPubKeyHash $ fromJust $ textToAddress txt >>= toPubKeyHash
+  | not $ isWithdrawPublicInputs subs                = True
+  | isNothing $ bech32ToAddress txt >>= toPubKeyHash = True
+  | otherwise                                        = dataToZp pkh /= getWithdrawPKHInput subs
+  where pkh = PaymentPubKeyHash $ fromJust $ bech32ToAddress txt >>= toPubKeyHash
 
 checkWrongProof :: WithdrawParams -> Bool
 checkWrongProof (WithdrawParams _ _ _ subs proof) = not $ verifyWithdraw pubSignals proof
