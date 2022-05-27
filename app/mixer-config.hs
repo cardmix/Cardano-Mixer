@@ -16,13 +16,13 @@ import           PlutusTx.Prelude                    hiding (Eq, Ord, (<$>))
 import           Prelude                             (IO, print)
 
 import           Scripts.VestingScript               (vestingScriptHash)
-import           Utils.Address                       (textToAddress)
-import           Utils.ByteString                     (byteStringToList, buildByteString)
+import           Utils.Address                       (bech32ToAddress)
+import           Utils.ByteString                    (byteStringToList, buildByteString)
 
 
 main :: IO ()
 main = do
-    print $ textToAddress "addr_test1qrh8caw4kmlkwydwzdehpyw905dg8ayjv0vpe6vqmkkk5q3psddwydp9ea0gj3jawxyak3d238jpj9fxx3gnfhk7paxqnw2xmw"
+    print $ bech32ToAddress "addr_test1qrh8caw4kmlkwydwzdehpyw905dg8ayjv0vpe6vqmkkk5q3psddwydp9ea0gj3jawxyak3d238jpj9fxx3gnfhk7paxqnw2xmw"
     print $ byteStringToList $ buildByteString "ee7c75d5b6ff6711ae13737091c57d1a83f49263d81ce980ddad6a02"
     print $ byteStringToList $ buildByteString "f3a414dfd440869130c75fde00d16a5aa381f2029fc4764cf907b721"
 

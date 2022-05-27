@@ -27,10 +27,6 @@ import           Ledger.Constraints.OffChain       (UnbalancedTx(..))
 import           PlutusTx.Prelude                  hiding ((<>))
 
 
-selectUTXO :: Map TxOutRef ChainIndexTxOut -> (TxOutRef, Map TxOutRef ChainIndexTxOut)
-selectUTXO utxos = (key, filterWithKey (\k _ -> k == key) utxos)
-  where key = head $ keys utxos
-
 selectUTXOWithValue :: Map TxOutRef ChainIndexTxOut -> Value -> (TxOutRef, Value, Map TxOutRef ChainIndexTxOut)
 selectUTXOWithValue utxos val = (key, v, filterWithKey (\k _ -> k == key) utxos')
   where utxos' = Data.Map.filter (\o -> _ciTxOutValue o `geq` val) utxos

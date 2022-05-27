@@ -18,7 +18,7 @@ import           Data.Aeson                                   (encode, decode)
 import           Data.ByteString                              (ByteString, writeFile, readFile)
 import           Data.ByteString.Lazy                         (fromStrict, toStrict)
 import           Data.Text                                    (Text, pack)
-import           Ledger                                       (PaymentPubKeyHash, Value)
+import           Ledger                                       (PaymentPubKeyHash)
 import           Plutus.V1.Ledger.Ada                         (lovelaceValueOf)
 import           PlutusTx.Prelude                             hiding ((<$>))
 import           Prelude                                      (IO, Show(..), String, FilePath, (<$>), print)
@@ -26,7 +26,7 @@ import           System.Directory
 import           System.Environment                           (getArgs)
 import           Wallet.Emulator.Wallet                       (Wallet)
 
-import           Crypto                                       (Fr, PublicInputs(..), mimcHash, generateProofSecret)
+import           Crypto                                       (Fr, mimcHash, generateProofSecret)
 import           MixerContractParams
 import           MixerProofs                                  (generateSimulatedWithdrawProof)
 import           MixerState                                   (MixerState)

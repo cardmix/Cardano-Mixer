@@ -64,6 +64,7 @@ library
       Utils.ByteString
       Utils.ChainIndex
       Utils.Tx
+      Utils.UTXO
     build-depends:
       base                          >= 4.9 && < 5,
       base16-bytestring                      -any,

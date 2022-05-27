@@ -16,6 +16,7 @@
 module Contracts.MixerStateContract where
 
 import           Cardano.Api                              (FromJSON, ToJSON)
+import qualified Data.Map
 import           Data.Semigroup                           (Last (..))
 import           GHC.Generics                             (Generic)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
@@ -30,7 +31,6 @@ import           MixerState
 import           Scripts.MixerScript
 import           Tokens.DepositToken                      (depositTokenTargetAddress, depositToken)
 import           Utils.ChainIndex                         (getUtxosAt)
-import qualified Data.Map
 
 --------------------------- Types -----------------------------------
 

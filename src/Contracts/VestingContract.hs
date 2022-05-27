@@ -15,6 +15,7 @@ module Contracts.VestingContract where
 
 import           Control.Lens             (review)
 import           Control.Monad            (void)
+import           Data.Map                 (keys)
 import qualified Data.Map
 import           Ledger                   (Redeemer (..), StakePubKeyHash (..))
 import           Ledger.Constraints       (mustBeSignedBy, mustValidateIn, unspentOutputs,
@@ -31,7 +32,7 @@ import           PlutusTx.Prelude         hiding ((<>), Eq, Semigroup, fold, mem
 
 import           Configuration.PABConfig  (pabWalletPKH, pabWalletSKH)
 import           Scripts.VestingScript
-import           Utils.BalanceTx          (selectUTXO)
+import           Utils.UTXO               (selectUTXO)
 
 
 retrieveFunds :: (AsVestingError e) => Contract w s e ()
@@ -39,7 +40,8 @@ retrieveFunds = mapError (review _VestingError) $ do
     pkh   <- ownPaymentPubKeyHash
     utxos <- utxosAt vestingScriptAddress
     ct    <- currentTime
-    let (utxo1, utxos') = selectUTXO $ Data.Map.filter (\txout -> f txout (ct-100000) pkh) utxos
+    let utxos' = selectUTXO $ Data.Map.filter (\txout -> f txout (ct-100000) pkh) utxos
+        utxo1  = head $ keys utxos'
     if Data.Map.null utxos'
         then return ()
         else do

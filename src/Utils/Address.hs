@@ -21,23 +21,23 @@ import           PlutusTx.Prelude
 
 ------------------------ Export/Import of addresses -------------------------
 
--- Convert bech32 Shelley address to a pair of hashes. Must contain StakePubKeyHash.
-bech32ToKeyHashes :: Text -> Maybe (PaymentPubKeyHash, StakePubKeyHash)
+-- Extract key hashes from bech32 Shelley address
+bech32ToKeyHashes :: Text -> Maybe (PaymentPubKeyHash, Maybe StakePubKeyHash)
 bech32ToKeyHashes txt = do
         Shelley.ShelleyAddress _ payCred stakeRef  <- either (const Nothing) Just $ deserialiseFromBech32 AsShelleyAddress txt
         pkh <- case payCred of
                 KeyHashObj    h1 -> Just $ PaymentPubKeyHash $ transKeyHash h1
                 ScriptHashObj _  -> Nothing
-        skh <- case fromShelleyStakeReference stakeRef of
+        let skh = case fromShelleyStakeReference stakeRef of
                 StakeAddressByValue (StakeCredentialByKey (StakeKeyHash h2)) -> Just $ StakePubKeyHash $ transKeyHash h2
                 _  -> Nothing
         return (pkh, skh)
 
--- Convert bech32 Shelley address to a Plutus address. Must contain StakePubKeyHash.
+-- Convert bech32 Shelley address to Plutus Address
 bech32ToAddress :: Text -> Maybe Address
 bech32ToAddress txt = do
         (pkh, skh) <- bech32ToKeyHashes txt
-        return $ pubKeyHashAddress pkh (Just skh)
+        return $ pubKeyHashAddress pkh skh
 
 -- Convert bech32 Stake address to a Plutus StakePubKeyHash.
 bech32ToStakePubKeyHash :: Text -> Maybe StakePubKeyHash

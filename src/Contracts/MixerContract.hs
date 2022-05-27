@@ -29,7 +29,9 @@ import           Data.Aeson.Extras                        (encodeByteString, try
 import           Data.ByteString.Lazy                     (toStrict)
 import           Data.Default                             (def)
 import           Data.Either                              (fromRight)
+import           Data.Map                                 (keys)
 import qualified Data.Map
+import           Data.Maybe                               (fromJust)
 import           Data.Semigroup                           (Last (..))
 import qualified Data.Set
 import           Data.Text                                (pack, unpack, Text)
@@ -64,7 +66,8 @@ import           Scripts.VestingScript                    (VestingParams(..), ve
 import           Tokens.DepositToken                      (depositTokenMintTx)
 import           Utils.Address                            (bech32ToAddress, bech32ToKeyHashes)
 import           Utils.ChainIndex                         (txOutsFromRefs)
-import           Utils.BalanceTx                          (selectUTXO, balanceTxWithExternalWallet)
+import           Utils.BalanceTx                          (balanceTxWithExternalWallet)
+import           Utils.UTXO                               (selectUTXO)
 
 -- General MixerContract error
 errorMixerContract :: ContractError -> Contract (Maybe (Last Text)) MixerSchema ContractError ()
@@ -147,13 +150,17 @@ withdraw :: Promise (Maybe (Last Text)) MixerSchema ContractError ()
 withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams txt v _ subs _) -> handleError errorMixerContract $ do
     logInfo @String "withdraw"
     logInfo params
-    let (pkhW, skhW) = fromMaybe (pabWalletPKH, StakePubKeyHash pabWalletSKH) $ bech32ToKeyHashes txt
-        mixer = makeMixerFromFees v
+    let mixer = makeMixerFromFees v
+    (pkhW, skhW) <- maybe (throwError $ OtherContractError "Wallet address is not correct!") pure $ bech32ToKeyHashes txt
+    let payConstr    = if isJust skhW
+            then mustPayToPubKeyAddress pkhW (fromJust skhW) (mValue mixer + mixerAdaUTXO mixer)
+            else mustPayToPubKey pkhW (mValue mixer + mixerAdaUTXO mixer)
     pkhR   <- ownPaymentPubKeyHash
     utxos  <- utxosAt (mixerAddress mixer)
     ct     <- currentTime
     -- TODO: fix empty list error
-    let (utxo1, utxos'') = selectUTXO $ Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer + mixerAdaUTXO mixer)) utxos
+    let utxos'' = selectUTXO $ Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer + mixerAdaUTXO mixer)) utxos
+        utxo1   = head $ keys utxos''
 
     logInfo @String "Querying MixerState..."
     (state, _) <- getMixerState (MixerStateCache [] 0) ct v
@@ -161,8 +168,7 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams txt v 
     case checkRelayRequest state mKeys params of
         RelayRequestAccepted -> do
                 let lookups   = unspentOutputs utxos'' <> typedValidatorLookups (mixerInst mixer) <> otherScript (mixerValidator mixer)
-                    cons      = mustPayToPubKeyAddress pkhW skhW (mValue mixer + mixerAdaUTXO mixer) <>
-                        mustValidateIn (to $ ct + timeToValidateWithdrawal) <>
+                    cons      = payConstr <> mustValidateIn (to $ ct + timeToValidateWithdrawal) <>
                         mustPayToOtherScript vestingScriptHash (Datum $ toBuiltinData $ VestingParams
                             (ct + hourPOSIX + 100000 + timeToValidateWithdrawal) pkhR utxo1 (getWithdrawKeyInput subs)) (mRelayerCollateral mixer) <>
                         mustSpendScriptOutput utxo1 (Redeemer $ toBuiltinData ()) <> mustBeSignedBy pabWalletPKH -- TODO: remove the last constraint after the test
