@@ -2,7 +2,6 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE NoImplicitPrelude  #-}
-{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RankNTypes         #-}
 {-# LANGUAGE TypeFamilies       #-}
@@ -16,7 +15,6 @@ module Main
 import           Control.Monad                                (void)
 import           Data.Text                                    (Text)
 import           Ledger.Value                                 (TokenName(..), Value)
-import           Plutus.V1.Ledger.Ada                         (lovelaceValueOf)
 import           PlutusTx.Builtins.Class                      (stringToBuiltinByteString)
 import           PlutusTx.Prelude                             hiding ((<$>))
 import           Prelude                                      (IO, String, print, read)
@@ -26,7 +24,7 @@ import           Wallet.Emulator.Wallet                       (Wallet(..))
 import           Configuration.PABConfig                      (pabWallet, dispenserWallet)
 import           Contracts.CurrencyContract                   (SimpleMPS(SimpleMPS))
 import           PABContracts                                 (PABContracts(..), MixerBackendContracts(..), MixerFrontendContracts(..))
-import           Requests
+import           Requests                                     (activateRequest, endpointRequest)
 
 
 pabIP :: Text
@@ -38,7 +36,6 @@ main = do
     case args of
         ["mint", strTokenName, strAmount] -> mintCurrencyProcedure pabWallet 
             (TokenName $ stringToBuiltinByteString strTokenName) (read strAmount)  -- for testing purposes
-        ["tickets", str]                  -> mintRelayTicketsProcedure $ read str
         ["retrieve"]                      -> retrieveTimeLockedProcedure
         ["dispense"]                      -> dispenseProcedure
         ["state"]                         -> stateProcedure
@@ -53,11 +50,6 @@ mintCurrencyProcedure :: Wallet -> TokenName -> Integer -> IO ()
 mintCurrencyProcedure w tn n = do
     cidCurrency <- activateRequest pabIP (BackendContracts MintCurrency) (Just w)
     endpointRequest pabIP "Create native token" cidCurrency (SimpleMPS tn n)
-
-mintRelayTicketsProcedure :: Integer -> IO ()
-mintRelayTicketsProcedure n = do
-    cidMintTickets <- activateRequest pabIP (BackendContracts MixerRelay) (Just pabWallet)
-    endpointRequest pabIP "Mint Relay Tickets" cidMintTickets (lovelaceValueOf 400_000, n)
 
 retrieveTimeLockedProcedure :: IO ()
 retrieveTimeLockedProcedure = do

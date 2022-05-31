@@ -15,8 +15,9 @@ module Contracts.VestingContract where
 
 import           Control.Lens             (review)
 import           Control.Monad            (void)
-import           Data.Map                 (keys)
+import           Data.Map                 (minViewWithKey)
 import qualified Data.Map
+import           Data.Maybe               (fromJust)
 import           Ledger                   (Redeemer (..), StakePubKeyHash (..))
 import           Ledger.Constraints       (mustBeSignedBy, mustValidateIn, unspentOutputs,
                                             otherScript, typedValidatorLookups, mustSpendScriptOutput, mustPayToPubKeyAddress)
@@ -32,7 +33,6 @@ import           PlutusTx.Prelude         hiding ((<>), Eq, Semigroup, fold, mem
 
 import           Configuration.PABConfig  (pabWalletPKH, pabWalletSKH)
 import           Scripts.VestingScript
-import           Utils.UTXO               (selectUTXO)
 
 
 retrieveFunds :: (AsVestingError e) => Contract w s e ()
@@ -40,12 +40,12 @@ retrieveFunds = mapError (review _VestingError) $ do
     pkh   <- ownPaymentPubKeyHash
     utxos <- utxosAt vestingScriptAddress
     ct    <- currentTime
-    let utxos' = selectUTXO $ Data.Map.filter (\txout -> f txout (ct-100000) pkh) utxos
-        utxo1  = head $ keys utxos'
+    let utxos' = Data.Map.filter (\txout -> f txout (ct-100000) pkh) utxos
     if Data.Map.null utxos'
         then return ()
         else do
-            let lookups = unspentOutputs utxos' <> typedValidatorLookups typedValidator <> otherScript vestingScript
+            let ((utxo1, _), utxos'') = fromJust $ minViewWithKey utxos'
+                lookups = unspentOutputs utxos'' <> typedValidatorLookups typedValidator <> otherScript vestingScript
                 cons    = mustSpendScriptOutput utxo1 (Redeemer $ toBuiltinData ()) <> mustValidateIn (Interval.from (ct-100000)) <>
                     mustBeSignedBy pkh <> mustPayToPubKeyAddress pabWalletPKH (StakePubKeyHash pabWalletSKH) (lovelaceValueOf 1000_000_000)
                     -- TODO: add normal collateral check

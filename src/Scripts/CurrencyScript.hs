@@ -96,7 +96,7 @@ checkPolicy c@(OneShotCurrency (refHash, refIdx) _) _ ctx@V.ScriptContext{V.scri
 
 curPolicy :: OneShotCurrency -> MintingPolicy
 curPolicy cur = mkMintingPolicyScript $
-    $$(PlutusTx.compile [|| \c -> Scripts.wrapMintingPolicy (checkPolicy c) ||])
+    $$(PlutusTx.compile [|| Scripts.wrapMintingPolicy . checkPolicy ||])
         `PlutusTx.applyCode`
             PlutusTx.liftCode cur
 

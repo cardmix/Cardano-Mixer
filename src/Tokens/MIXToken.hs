@@ -18,18 +18,19 @@ module Tokens.MIXToken (
     mixTokenTx
 ) where
 
+import qualified Data.Map
+import           Data.Maybe                       (fromJust)
 import           Ledger                           hiding (singleton, unspentOutputs)
 import           Ledger.Constraints.OffChain      (ScriptLookups)
 import           Ledger.Tokens                    (token)
-import           Ledger.Value                     (AssetClass(..), TokenName (..), CurrencySymbol (..))
+import           Ledger.Value                     (AssetClass(..), TokenName (..), CurrencySymbol (..), geq)
 import           Plutus.Contract                  (Contract)
 import           Plutus.Contract.StateMachine
-import           Plutus.Contract.Types            (AsContractError)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
 
-import           Tokens.Common
 import           Configuration.PABConfig          (mixTokenPolicyId)
-
+import           Scripts.Constraints              (utxoSpent, utxoSpentPublicKeyTx)
+import           Types.TxConstructor              (TxConstructor(..))
 
 ------------------------------------ MIX Token ---------------------------------------------------
 
@@ -56,11 +57,12 @@ mixTokenInSimulator = token $ AssetClass (CurrencySymbol $ foldr consByteString 
 --------------------------- On-Chain -----------------------------
 
 {-# INLINABLE mixTokenRequired #-}
-mixTokenRequired :: ScriptContext -> Bool
-mixTokenRequired = tokensRequired mixToken
+mixTokenRequired :: TxInfo -> Bool
+mixTokenRequired = utxoSpent (\o -> txOutValue o `geq` mixToken)
 
 -------------------------- Off-Chain -----------------------------
 
 -- TxConstraints that MIX Token is consumed by transaction
-mixTokenTx :: (AsContractError e) => Contract w s e (ScriptLookups a, TxConstraints i o)
-mixTokenTx = tokensTx mixTokenAssetClass 1
+mixTokenTx :: ( Monoid (ScriptLookups a)) =>Contract w s e (ScriptLookups a, TxConstraints i o)
+mixTokenTx = pure $ fromJust $ txConstructorResult constr
+    where constr = utxoSpentPublicKeyTx (\o -> txOutValue o `geq` mixToken) $ TxConstructor Data.Map.empty $ Just (mempty, mempty)

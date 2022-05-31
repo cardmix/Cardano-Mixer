@@ -20,24 +20,24 @@
 
 module Scripts.VestingScript where
 
-import           Control.Lens             (makeClassyPrisms, review)
-import           Data.Aeson               (FromJSON, ToJSON)
-import           GHC.Generics             (Generic)
-import           Ledger                   (Address, POSIXTime, PaymentPubKeyHash (..), ValidatorHash, TxOutRef)
-import           Ledger.Constraints       (ScriptLookups(..), TxConstraints(..), mustPayToOtherScript,
-                                 unspentOutputs, otherScript)
-import           Ledger.Contexts          (ScriptContext (..), TxInfo (..), txSignedBy)
-import qualified Ledger.Interval          as Interval
-import           Ledger.Scripts           (Datum(..))
+import           Control.Lens                   (makeClassyPrisms, review)
+import           Data.Aeson                     (FromJSON, ToJSON)
+import           GHC.Generics                   (Generic)
+import           Ledger                         (Address, POSIXTime, PaymentPubKeyHash (..), ValidatorHash, TxOutRef)
+import           Ledger.Constraints             (ScriptLookups(..), TxConstraints(..), mustPayToOtherScript,
+                                                    unspentOutputs, otherScript)
+import           Ledger.Contexts                (ScriptContext (..), TxInfo (..), txSignedBy)
+import qualified Ledger.Interval                as Interval
+import           Ledger.Scripts                 (Datum(..))
 import           Ledger.Typed.Scripts     
-import           Ledger.Value             (Value)
-import           Prelude                  (Semigroup (..), Eq, Show)
+import           Ledger.Value                   (Value)
+import           Prelude                        (Semigroup (..), Eq, Show)
 import           Plutus.Contract
 import           PlutusTx
-import           PlutusTx.Prelude         hiding ((<>), Eq, Semigroup, fold, mempty)
+import           PlutusTx.Prelude               hiding ((<>), Eq, Semigroup, fold, mempty)
 
 import           Crypto
-import           Tokens.OracleToken       (oracleTokenRequired)
+import           Tokens.GovernanceDecisionToken (governanceDecisionTokenRequired)
 
 
 {- |
@@ -86,8 +86,8 @@ instance ValidatorTypes Vesting where
 
 {-# INLINABLE validate #-}
 validate :: VestingParams -> () -> ScriptContext -> Bool
-validate (VestingParams d o _ _) () ctx@ScriptContext{scriptContextTxInfo=txInfo@TxInfo{txInfoValidRange}} =
-    (isUnlocked && isSignedByOwner) || oracleTokenRequired ctx
+validate (VestingParams d o _ _) () ScriptContext{scriptContextTxInfo=txInfo@TxInfo{txInfoValidRange}} =
+    (isUnlocked && isSignedByOwner) || governanceDecisionTokenRequired txInfo
   where
       validRange      = Interval.from d
       isUnlocked      = validRange `Interval.contains` txInfoValidRange

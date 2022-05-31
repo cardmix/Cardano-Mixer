@@ -9,7 +9,6 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 
-
 module Contracts.MixerKeysContract where
 
 import           Data.Map                                 (member, elems)
@@ -22,10 +21,10 @@ import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  ((<$>))
 
+import           Contracts.ChainIndex                     (getUtxosAt)
 import           Crypto
 import           Scripts.MixerScript
 import           Scripts.VestingScript                    (vestingScriptAddress, VestingParams (..))
-import           Utils.ChainIndex                         (getUtxosAt)
 
 type MixerKeys = [Fr]
 

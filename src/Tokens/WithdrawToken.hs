@@ -18,6 +18,8 @@
 
 module Tokens.WithdrawToken where
 
+import qualified Data.Map
+import           Data.Maybe                       (fromJust)
 import           Ledger                           hiding (singleton, unspentOutputs)
 import           Ledger.Constraints.OffChain      (ScriptLookups)
 import           Ledger.Constraints.TxConstraints (TxConstraints, mustPayToOtherScript, mustValidateIn)
@@ -27,13 +29,14 @@ import           Ledger.Value                     (AssetClass(..), TokenName (..
 import           Plutus.V1.Ledger.Ada             (lovelaceValueOf)
 import           Plutus.V1.Ledger.Value           (geq)
 import           PlutusTx                         (compile, toBuiltinData, applyCode, liftCode)
-import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
-import           Prelude                          ((<>))
+import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, mempty)
+import           Prelude                          ((<>), mempty)
 
 import           Configuration.PABConfig          (vestingScriptPermanentHash)
 import           Crypto
 import           Scripts.VestingScript            ()
-import           Tokens.Common
+import           Scripts.Constraints              (tokensMintedTx)
+import           Types.TxConstructor              (TxConstructor(..))
 
 ------------------------------------ Deposit Token -----------------------------------------------
 
@@ -98,8 +101,10 @@ curPolicy par = mkMintingPolicyScript $
 
 -- TxConstraints that Relay Token is minted and sent by the transaction
 withdrawTokenMintTx :: (Address, Value) -> (Fr, POSIXTime) -> (ScriptLookups a, TxConstraints i o)
-withdrawTokenMintTx par red@(Zp a, ct@(POSIXTime b)) = 
-    let (lookups, cons) = tokensMintTx (curPolicy par) (Redeemer $ toBuiltinData red) (withdrawTokenName (a, b)) 1
-    in (lookups, cons <> 
+withdrawTokenMintTx par red@(_, ct) = (lookups, cons <> 
       mustPayToOtherScript withdrawTokenTargetValidatorHash (Datum $ toBuiltinData (par, red)) (withdrawToken par red + lovelaceValueOf 2_000_000) <>
       mustValidateIn (interval (ct-100_000) (ct+200_000)))
+  where
+    (lookups, cons) = fromJust $ txConstructorResult constr
+    constr = tokensMintedTx (curPolicy par) (Redeemer $ toBuiltinData red) (withdrawToken par red) $
+        TxConstructor Data.Map.empty $ Just (mempty, mempty)

@@ -18,6 +18,8 @@
 
 module Tokens.DepositToken where
 
+import qualified Data.Map
+import           Data.Maybe                       (fromJust)
 import           Ledger                           hiding (singleton, unspentOutputs)
 import           Ledger.Constraints.OffChain      (ScriptLookups)
 import           Ledger.Constraints.TxConstraints (TxConstraints, mustPayToOtherScript, mustValidateIn)
@@ -27,13 +29,13 @@ import           Ledger.Value                     (AssetClass(..), TokenName (..
 import           Plutus.V1.Ledger.Ada             (toValue)
 import           Plutus.V1.Ledger.Value           (geq)
 import           PlutusTx                         (compile, toBuiltinData, applyCode, liftCode)
-import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
-import           Prelude                          ((<>))
+import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, mempty)
+import           Prelude                          ((<>), mempty)
 
 import           Crypto                           (Zp(..), Fr)
 import           Scripts.MixerScript
-import           Scripts.VestingScript            ()
-import           Tokens.Common                    (tokensMintTx)
+import           Scripts.Constraints              (tokensMintedTx)
+import           Types.TxConstructor              (TxConstructor(..))
 
 ------------------------------------ Deposit Token -----------------------------------------------
 
@@ -101,8 +103,10 @@ curPolicy par = mkMintingPolicyScript $
 
 -- TxConstraints that Deposit Token is minted and sent by the transaction
 depositTokenMintTx :: (Address, Value) -> (Fr, POSIXTime) -> (ScriptLookups a, TxConstraints i o)
-depositTokenMintTx par red@(Zp a, ct@(POSIXTime b)) = 
-    let (lookups, cons) = tokensMintTx (curPolicy par) (Redeemer $ toBuiltinData red) (depositTokenName (a, b)) 1
-    in (lookups, cons <> 
+depositTokenMintTx par red@(_, ct) = (lookups, cons <> 
       mustPayToOtherScript depositTokenTargetValidatorHash (Datum $ toBuiltinData (par, red)) (depositToken par red + toValue minAdaTxOut) <>
       mustValidateIn (interval (ct-100_000) (ct+200_000)))
+  where
+    (lookups, cons) = fromJust $ txConstructorResult constr
+    constr = tokensMintedTx (curPolicy par) (Redeemer $ toBuiltinData red) (depositToken par red) $
+        TxConstructor Data.Map.empty $ Just (mempty, mempty)

@@ -12,7 +12,6 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 
-
 module Contracts.MixerStateContract where
 
 import           Cardano.Api                              (FromJSON, ToJSON)
@@ -26,11 +25,11 @@ import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<>), (<$>), unless, find, toList, fromInteger, check)
 import           Prelude                                  (Show, String, (<$>))
 
+import           Contracts.ChainIndex                     (getUtxosAt)
 import           Crypto
-import           MixerState
-import           Scripts.MixerScript
+import           MixerState                               (MixerState, constructStateFromList)
+import           Scripts.MixerScript                      (makeMixerFromFees, mixerAddress)
 import           Tokens.DepositToken                      (depositTokenTargetAddress, depositToken)
-import           Utils.ChainIndex                         (getUtxosAt)
 
 --------------------------- Types -----------------------------------
 

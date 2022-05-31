@@ -1,4 +1,6 @@
 {-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -11,9 +13,6 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass #-}
-
 
 module Contracts.MixerContract (
     DepositParams(..),
@@ -29,7 +28,7 @@ import           Data.Aeson.Extras                        (encodeByteString, try
 import           Data.ByteString.Lazy                     (toStrict)
 import           Data.Default                             (def)
 import           Data.Either                              (fromRight)
-import           Data.Map                                 (keys)
+import           Data.Map                                 (minViewWithKey)
 import qualified Data.Map
 import           Data.Maybe                               (fromJust)
 import           Data.Semigroup                           (Last (..))
@@ -51,8 +50,8 @@ import           Plutus.Contract.Types                    (ContractError(..))
 import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf, toValue)
 import           Plutus.V1.Ledger.Api                     (Credential(..), StakingCredential (..))
 import           PlutusTx
-import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
-import           Prelude                                  (String, (<>), show, Show, (<$>))
+import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check, null)
+import           Prelude                                  (String, (<>), show, Show, (<$>), null)
 
 
 import           Configuration.PABConfig                  (pabWalletPKH, pabWalletSKH)
@@ -65,9 +64,8 @@ import           Scripts.MixerScript
 import           Scripts.VestingScript                    (VestingParams(..), vestingScriptHash)
 import           Tokens.DepositToken                      (depositTokenMintTx)
 import           Utils.Address                            (bech32ToAddress, bech32ToKeyHashes)
-import           Utils.ChainIndex                         (txOutsFromRefs)
+import           Contracts.ChainIndex                         (txOutsFromRefs)
 import           Utils.BalanceTx                          (balanceTxWithExternalWallet)
-import           Utils.UTXO                               (selectUTXO)
 
 -- General MixerContract error
 errorMixerContract :: ContractError -> Contract (Maybe (Last Text)) MixerSchema ContractError ()
@@ -159,8 +157,10 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams txt v 
     utxos  <- utxosAt (mixerAddress mixer)
     ct     <- currentTime
     -- TODO: fix empty list error
-    let utxos'' = selectUTXO $ Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer + mixerAdaUTXO mixer)) utxos
-        utxo1   = head $ keys utxos''
+    let utxos' = Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer + mixerAdaUTXO mixer)) utxos
+    ((utxo1, _), utxos'') <- if null utxos'
+        then throwError $ OtherContractError "The mixing pool is empty!"
+        else pure $ fromJust $ minViewWithKey utxos'
 
     logInfo @String "Querying MixerState..."
     (state, _) <- getMixerState (MixerStateCache [] 0) ct v

@@ -33,13 +33,12 @@ library
     exposed-modules:
       Configuration.MixerConfig
       Configuration.PABConfig
-      Contracts.AdminDecisionContract
       Contracts.ConnectToPABContract
       Contracts.CurrencyContract
       Contracts.DispenserContract
+      Contracts.GovernanceDecisionContract
       Contracts.MixerContract
       Contracts.MixerKeysContract
-      Contracts.MixerRelayerContract
       Contracts.MixerStateContract
       Contracts.VestingContract
       Crypto.Conversions
@@ -49,22 +48,11 @@ library
       Scripts.CurrencyScript
       Scripts.MixerScript
       Scripts.VestingScript
-      Tokens.AdminDecisionToken
-      Tokens.AdminToken
       Tokens.DepositToken
-      Tokens.RelayToken
-      Tokens.Common
-      Tokens.MIXStakingToken
+      Tokens.GovernanceBeaconToken
+      Tokens.GovernanceDecisionToken
       Tokens.MIXToken
-      Tokens.OracleToken
-      Tokens.RelayTicketToken
       Tokens.WithdrawToken
-      Utils.Address
-      Utils.BalanceTx
-      Utils.ByteString
-      Utils.ChainIndex
-      Utils.Tx
-      Utils.UTXO
     build-depends:
       base                          >= 4.9 && < 5,
       base16-bytestring                      -any,
@@ -87,6 +75,7 @@ library
       mtl                                    -any,
       openapi3                               -any,
       playground-common                      -any,
+      plutus-common                          -any,
       plutus-contract                        -any,
       plutus-chain-index                     -any,
       plutus-chain-index-core                -any,
@@ -216,6 +205,7 @@ executable cardano-mixer-config
     freer-extras                           -any,
     freer-simple                           -any,
     openapi3                               -any,
+    plutus-common                          -any,
     plutus-contract                        -any,
     plutus-ledger                          -any,
     plutus-ledger-api                      -any,

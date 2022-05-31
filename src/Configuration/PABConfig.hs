@@ -4,6 +4,7 @@
 
 module Configuration.PABConfig where
 
+import Cardano.Api.Shelley           (ProtocolParameters, NetworkId(..), NetworkMagic (..))
 import Data.Aeson                    (decode)
 import Data.ByteString.Lazy          (fromStrict)
 import Data.Either                   (rights)
@@ -14,9 +15,10 @@ import Ledger                        (PubKeyHash(..))
 import Ledger.Address                (PaymentPubKeyHash(..))
 import Plutus.V1.Ledger.Api          (ValidatorHash (..))
 import PlutusTx.Prelude              hiding (elem)
-import Prelude                       (String)
+import Prelude                       (String, undefined)
 import Wallet.Emulator.Wallet        (Wallet(..), fromBase16)
-import Cardano.Api.Shelley           (ProtocolParameters, NetworkId(..), NetworkMagic (..))
+
+import Utils.Network                 (NetworkConfig (..))
 
 data PABConfig = PABMainnet | PABTestnet
 
@@ -41,8 +43,8 @@ dispenserWalletPKHBytesTestnet :: [Integer]
 dispenserWalletPKHBytesTestnet = [238,124,117,213,182,255,103,17,174,19,115,112,145,197,125,26,131,244,146,99,216,28,233,128,221,173,106,2]
 
 -- TODO: add to config
-adminTokenPolicyId :: [Integer]
-adminTokenPolicyId = [0x14, 0xca, 0x69, 0xe5, 0x9f, 0x3e, 0xa7, 0xcb, 0x8d, 0x74,
+governanceBeaconTokenPolicyId :: [Integer]
+governanceBeaconTokenPolicyId = [0x14, 0xca, 0x69, 0xe5, 0x9f, 0x3e, 0xa7, 0xcb, 0x8d, 0x74,
      0x83, 0x0c, 0xc1, 0x8d, 0x52, 0x86, 0x60, 0xcd, 0xa0, 0xc4, 0x5e, 0xe7, 0x84, 0xdf, 0xb3, 0x2c, 0x95, 0xbf]
 
 -- TODO: add to config
@@ -67,9 +69,14 @@ testnetParams = fromJust $ decode $ fromStrict $(embedFile "testnet/protocol-par
 
 ----------------------------- Common -------------------------------
 
+networkConfig :: NetworkConfig
+networkConfig = case pabConfig of
+     PABMainnet -> undefined
+     PABTestnet -> NetworkConfig testnetId testnetParams
+
 pabWalletIdString :: String
 pabWalletIdString = case pabConfig of
-     PABMainnet -> pabWalletIdStringTestnet
+     PABMainnet -> undefined
      PABTestnet -> pabWalletIdStringTestnet
 
 pabWallet :: Wallet
