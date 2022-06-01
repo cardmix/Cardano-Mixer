@@ -64,7 +64,7 @@ governanceDecisionTokenRequired info = utxoSpent (\o -> txOutValue o `geq` gover
 
 -------------------------- Off-Chain -----------------------------
 
--- TxConstraints that Oracle Token is consumed by transaction
+-- TxConstraints that Governance Decision Token is spent by the transaction
 governanceDecisionTokenTx :: TxId -> (ScriptLookups a, TxConstraints i o)
 governanceDecisionTokenTx tx = fromJust $ txConstructorResult constr
     where constr = utxoSpentPublicKeyTx (\o -> txOutValue o `geq` governanceDecisionToken tx) $ TxConstructor Data.Map.empty $ Just (mempty, mempty)

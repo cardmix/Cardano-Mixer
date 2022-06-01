@@ -31,7 +31,7 @@ module Scripts.CurrencyScript (
 
 import           Data.Aeson                      (FromJSON, ToJSON)
 import           GHC.Generics                    (Generic)
-import           Ledger                          (CurrencySymbol, TxId, TxOutRef (..), scriptCurrencySymbol)
+import           Ledger                          (CurrencySymbol, TxOutRef (..), scriptCurrencySymbol)
 import qualified Ledger.Contexts                 as V
 import           Ledger.Scripts
 import qualified Ledger.Typed.Scripts            as Scripts
@@ -46,7 +46,7 @@ import qualified Prelude                         as Haskell
 
 -- | A currency that can be created exactly once
 data OneShotCurrency = OneShotCurrency
-  { curRefTransactionOutput :: (TxId, Integer)
+  { curRefTransactionOutput :: TxOutRef
   -- ^ Transaction input that must be spent when
   --   the currency is minted.
   , curAmounts              :: AssocMap.Map TokenName Integer
@@ -65,14 +65,14 @@ currencyValue s OneShotCurrency{curAmounts = amts} =
     in fold values
 
 mkCurrency :: TxOutRef -> [(TokenName, Integer)] -> OneShotCurrency
-mkCurrency (TxOutRef h i) amts =
+mkCurrency ref amts =
     OneShotCurrency
-        { curRefTransactionOutput = (h, i)
+        { curRefTransactionOutput = ref
         , curAmounts              = AssocMap.fromList amts
         }
 
 checkPolicy :: OneShotCurrency -> () -> V.ScriptContext -> Bool
-checkPolicy c@(OneShotCurrency (refHash, refIdx) _) _ ctx@V.ScriptContext{V.scriptContextTxInfo=txinfo} =
+checkPolicy c@(OneShotCurrency (TxOutRef refHash refIdx) _) _ ctx@V.ScriptContext{V.scriptContextTxInfo=txinfo} =
     let
         -- see note [Obtaining the currency symbol]
         ownSymbol = V.ownCurrencySymbol ctx

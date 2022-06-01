@@ -35,7 +35,7 @@ governanceBeaconTokenName = TokenName "Cardano Mixer Admin Token"
 
 {-# INLINABLE governanceBeaconCurrencySymbol #-}
 governanceBeaconCurrencySymbol :: CurrencySymbol
-governanceBeaconCurrencySymbol = CurrencySymbol $ foldr consByteString emptyByteString governanceBeaconTokenPolicyId
+governanceBeaconCurrencySymbol = CurrencySymbol governanceBeaconTokenPolicyId
 
 {-# INLINABLE governanceBeaconAssetClass #-}
 governanceBeaconAssetClass :: AssetClass

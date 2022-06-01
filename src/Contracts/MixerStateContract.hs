@@ -29,6 +29,7 @@ import           Contracts.ChainIndex                     (getUtxosAt)
 import           Crypto
 import           MixerState                               (MixerState, constructStateFromList)
 import           Scripts.MixerScript                      (makeMixerFromFees, mixerAddress)
+import           Scripts.VestingScript                    (vestingScriptHash)
 import           Tokens.DepositToken                      (depositTokenTargetAddress, depositToken)
 
 --------------------------- Types -----------------------------------
@@ -54,7 +55,8 @@ cacheValidityPeriod = 10000
 
 getMixerState :: MixerStateCache -> POSIXTime -> Value -> Contract w s ContractError (MixerState, MixerStateCache)
 getMixerState oldCache@(MixerStateCache cTxs cTime) curTime v = do
-    let mixer = makeMixerFromFees v
+    let mixer = makeMixerFromFees vestingScriptHash v
+        addr  = mixerAddress mixer
 
     logInfo curTime
     logInfo cTime
@@ -68,11 +70,9 @@ getMixerState oldCache@(MixerStateCache cTxs cTime) curTime v = do
     let outs  = txTxos
     let f o = do
             d  <- either (const Nothing) Just $ _ciTxOutDatum o
-            ((addr, mv), (leaf, t)) <- fromBuiltinData $ getDatum d :: Maybe ((Address, Value), (Fr, POSIXTime))
-            let tokenCheck = _ciTxOutValue o `geq` depositToken (addr, mv) (leaf, t)
-                addrCheck  = addr == mixerAddress mixer
-                valCheck   = mv   == v
-            if tokenCheck && addrCheck && valCheck then Just leaf else Nothing
+            (leaf, t) <- fromBuiltinData $ getDatum d :: Maybe (Fr, POSIXTime)
+            let tokenCheck = _ciTxOutValue o `geq` depositToken (mixer, addr) (leaf, t)
+            if tokenCheck then Just leaf else Nothing
         leafs = mapMaybe f outs
         state = snd $ constructStateFromList (leafs, [])
     return (state, cache)

@@ -81,11 +81,11 @@ deposit :: Promise (Maybe (Last Text)) MixerSchema ContractError ()
 deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) -> handleError errorMixerContract $ do
     logInfo @String "deposit"
     logInfo dp
-    let mixer = makeMixerFromFees v
+    let mixer = makeMixerFromFees vestingScriptHash v
         -- value sent to the mixer script
         val   = mValue mixer + mTotalFees mixer + mixerAdaUTXO mixer
     ct <- currentTime
-    let (lookups', cons') = depositTokenMintTx (mixerAddress mixer, v) (leaf, ct)
+    let (lookups', cons') = depositTokenMintTx (mixer, mixerAddress mixer) (leaf, ct)
         -- total ADA value of all outputs
         val'              = val + toValue minAdaTxOut
         lookups           = typedValidatorLookups (mixerInst mixer) <> lookups'
@@ -148,7 +148,7 @@ withdraw :: Promise (Maybe (Last Text)) MixerSchema ContractError ()
 withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams txt v _ subs _) -> handleError errorMixerContract $ do
     logInfo @String "withdraw"
     logInfo params
-    let mixer = makeMixerFromFees v
+    let mixer = makeMixerFromFees vestingScriptHash v
     (pkhW, skhW) <- maybe (throwError $ OtherContractError "Wallet address is not correct!") pure $ bech32ToKeyHashes txt
     let payConstr    = if isJust skhW
             then mustPayToPubKeyAddress pkhW (fromJust skhW) (mValue mixer + mixerAdaUTXO mixer)

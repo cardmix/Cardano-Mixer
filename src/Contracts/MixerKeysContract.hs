@@ -24,7 +24,7 @@ import           Prelude                                  ((<$>))
 import           Contracts.ChainIndex                     (getUtxosAt)
 import           Crypto
 import           Scripts.MixerScript
-import           Scripts.VestingScript                    (vestingScriptAddress, VestingParams (..))
+import           Scripts.VestingScript                    (VestingParams (..), vestingScriptAddress, vestingScriptHash)
 
 type MixerKeys = [Fr]
 
@@ -41,7 +41,7 @@ type MixerKeys = [Fr]
 -- TODO: THIS IS NOT WORKING PROPERLY NOW. We should get the keys from the NFTs
 getMixerKeys :: Value -> Contract w s ContractError MixerKeys
 getMixerKeys v = do
-    let mixer = makeMixerFromFees v
+    let mixer = makeMixerFromFees vestingScriptHash v
     txoTxs <- elems <$> getUtxosAt vestingScriptAddress
     let f (_, tx) = 
             let ValidatorHash h = mixerValidatorHash mixer

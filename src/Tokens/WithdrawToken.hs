@@ -32,16 +32,16 @@ import           PlutusTx                         (compile, toBuiltinData, apply
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, mempty)
 import           Prelude                          ((<>), mempty)
 
-import           Configuration.PABConfig          (vestingScriptPermanentHash)
 import           Crypto
 import           Scripts.VestingScript            ()
 import           Scripts.Constraints              (tokensMintedTx)
+import           Tokens.DepositToken              (depositTokenTargetValidatorHash)
 import           Types.TxConstructor              (TxConstructor(..))
 
 ------------------------------------ Deposit Token -----------------------------------------------
 
 withdrawTokenTargetValidatorHash :: ValidatorHash
-withdrawTokenTargetValidatorHash = vestingScriptPermanentHash
+withdrawTokenTargetValidatorHash = depositTokenTargetValidatorHash
 
 withdrawTokenTargetAddress :: Address
 withdrawTokenTargetAddress = scriptHashAddress withdrawTokenTargetValidatorHash

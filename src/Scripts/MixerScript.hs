@@ -37,13 +37,14 @@ import           Plutus.V1.Ledger.Value                   (geq)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
-import           Configuration.PABConfig                  (vestingScriptPermanentHash, pabWalletPKH)
+import           Configuration.PABConfig                  (pabWalletPKH)
 import           Scripts.VestingScript                    (VestingParams(..))
 
 
 ----------------------- Data types, instances, and constants -----------------------------
 
 data Mixer = Mixer {
+    mVestingHash        :: !ValidatorHash,    -- ValidatorHash of the vesting script
     mValue              :: !Value,            -- Mixing value
     mRelayerCollateral  :: !Value,            -- Relayer collateral
     mTotalFees          :: !Value             -- Total fees that relayer collects
@@ -59,8 +60,8 @@ mixerAdaUTXO mixer = if toValue minAdaTxOut `geq` adaInMixingValue
         then toValue minAdaTxOut - adaInMixingValue else zero
     where adaInMixingValue = toValue $ fromValue (mValue mixer)
 
-makeMixerFromFees :: Value -> Mixer
-makeMixerFromFees v = Mixer (scale 500 v) (scale 1000 v + toValue minAdaTxOut) (v + mixerFixedFee)
+makeMixerFromFees :: ValidatorHash -> Value -> Mixer
+makeMixerFromFees vh v = Mixer vh (scale 500 v) (scale 1000 v + toValue minAdaTxOut) (v + mixerFixedFee)
 
 type MixerDatum = ()
 type MixerRedeemer = ()
@@ -78,14 +79,14 @@ hourPOSIX = POSIXTime 3_600
 
 {-# INLINABLE mkMixerValidator #-}
 mkMixerValidator :: Mixer -> MixerDatum -> MixerRedeemer -> ScriptContext -> Bool
-mkMixerValidator mixer _ _ ctx = vestingOK &&
+mkMixerValidator (Mixer vh _ col _) _ _ ctx = vestingOK &&
                                 --  paymentOK &&
                                  isSignedByPAB
     where
         txinfo = scriptContextTxInfo ctx
         outs   = txInfoOutputs txinfo
-        outs'  = head $ filter (\o -> (txOutValue o `geq` mRelayerCollateral mixer) &&
-            (txOutAddress o == Address (ScriptCredential vestingScriptPermanentHash) Nothing)) outs
+        outs'  = head $ filter (\o -> (txOutValue o `geq` col) &&
+            (txOutAddress o == Address (ScriptCredential vh) Nothing)) outs
 
         VestingParams vTime _ ref _ = unsafeFromBuiltinData $ getDatum $ fromMaybe (error ()) $
             findDatum (fromMaybe (error ()) $ txOutDatumHash outs') txinfo

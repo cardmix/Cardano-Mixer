@@ -50,13 +50,13 @@ depositTokenTargetAddress = scriptHashAddress depositTokenTargetValidatorHash
 depositTokenName :: (Integer, Integer) -> TokenName
 depositTokenName (a, b) = TokenName $ depositTokenHash (a, b)
 
-depositTokenSymbol :: (Address, Value) -> CurrencySymbol
+depositTokenSymbol :: (Mixer, Address) -> CurrencySymbol
 depositTokenSymbol par = scriptCurrencySymbol $ curPolicy par
 
-depositTokenAssetClass :: (Address, Value) -> (Fr, POSIXTime) -> AssetClass
+depositTokenAssetClass :: (Mixer, Address) -> (Fr, POSIXTime) -> AssetClass
 depositTokenAssetClass par (Zp a, POSIXTime b) = AssetClass (depositTokenSymbol par, depositTokenName (a, b))
 
-depositToken :: (Address, Value) -> (Fr, POSIXTime) -> Value
+depositToken :: (Mixer, Address) -> (Fr, POSIXTime) -> Value
 depositToken par d = token $ depositTokenAssetClass par d
 
 --------------------------- On-Chain -----------------------------
@@ -69,8 +69,8 @@ depositTokenHash :: (Integer, Integer) -> BuiltinByteString
 depositTokenHash (a, b) = sha2_256 $ integerToBuiltinByteString a `appendByteString` integerToBuiltinByteString b
 
 -- TODO: fix possible exploits here
-checkPolicy :: (Address, Value) -> (Fr, POSIXTime) -> ScriptContext -> Bool
-checkPolicy (addr, val) (Zp a, dTime@(POSIXTime b)) ctx@ScriptContext{scriptContextTxInfo=txinfo} = mintOK && sentOK && txOK && timeOK
+checkPolicy :: (Mixer, Address) -> (Fr, POSIXTime) -> ScriptContext -> Bool
+checkPolicy (Mixer _ val _ vFees, addr) (Zp a, dTime@(POSIXTime b)) ctx@ScriptContext{scriptContextTxInfo=txinfo} = mintOK && sentOK && txOK && timeOK
   where hash      = depositTokenHash (a, b)
         ownSymbol = ownCurrencySymbol ctx
         t         = token $ AssetClass (ownSymbol, TokenName hash)
@@ -86,14 +86,13 @@ checkPolicy (addr, val) (Zp a, dTime@(POSIXTime b)) ctx@ScriptContext{scriptCont
         sentOK = sum (map txOutValue outs') `geq` t
 
         outs'' = filter (\o -> txOutAddress o == addr) outs
-        mixer  = makeMixerFromFees val
-        txOK = sum (map txOutValue outs'') `geq` (mValue mixer + mTotalFees mixer)
+        txOK   = sum (map txOutValue outs'') `geq` (val + vFees)
 
         int    = txInfoValidRange txinfo
         int'   = interval (dTime-600_000) (dTime+600_000)
         timeOK = int' `contains` int
 
-curPolicy :: (Address, Value) -> MintingPolicy
+curPolicy :: (Mixer, Address) -> MintingPolicy
 curPolicy par = mkMintingPolicyScript $
     $$(PlutusTx.compile [|| wrapMintingPolicy . checkPolicy ||])
         `PlutusTx.applyCode`
@@ -102,9 +101,9 @@ curPolicy par = mkMintingPolicyScript $
 -------------------------- Off-Chain -----------------------------
 
 -- TxConstraints that Deposit Token is minted and sent by the transaction
-depositTokenMintTx :: (Address, Value) -> (Fr, POSIXTime) -> (ScriptLookups a, TxConstraints i o)
+depositTokenMintTx :: (Mixer, Address) -> (Fr, POSIXTime) -> (ScriptLookups a, TxConstraints i o)
 depositTokenMintTx par red@(_, ct) = (lookups, cons <> 
-      mustPayToOtherScript depositTokenTargetValidatorHash (Datum $ toBuiltinData (par, red)) (depositToken par red + toValue minAdaTxOut) <>
+      mustPayToOtherScript depositTokenTargetValidatorHash (Datum $ toBuiltinData red) (depositToken par red + toValue minAdaTxOut) <>
       mustValidateIn (interval (ct-100_000) (ct+200_000)))
   where
     (lookups, cons) = fromJust $ txConstructorResult constr
