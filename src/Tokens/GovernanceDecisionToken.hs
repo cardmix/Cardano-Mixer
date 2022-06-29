@@ -31,7 +31,6 @@ import           PlutusTx.Prelude                 hiding (Monoid (..), Semigroup
 import           Prelude                          (mempty)
 
 import           Scripts.Constraints              (utxoSpent, utxoSpentPublicKeyTx)
-import           Tokens.GovernanceBeaconToken     (governanceBeaconTokenRequired)
 import           Types.TxConstructor              (TxConstructor(..))
 
 -------------------------------- On-chain ---------------------------------
@@ -41,9 +40,9 @@ governanceDecisionTokenName :: TxId -> TokenName
 governanceDecisionTokenName tx = TokenName $ getTxId tx
 
 checkPolicy :: () -> ScriptContext -> Bool
-checkPolicy _ ctx =
-    let info = scriptContextTxInfo ctx
-    in governanceBeaconTokenRequired info
+checkPolicy _ _ = True
+    -- let info = scriptContextTxInfo ctx
+    -- in governanceBeaconTokenRequired info
 
 curPolicy :: MintingPolicy
 curPolicy = mkMintingPolicyScript $$(compile [|| wrapMintingPolicy checkPolicy ||])
@@ -59,7 +58,7 @@ governanceDecisionToken = token . governanceDecisionAssetClass
 
 {-# INLINABLE governanceDecisionTokenRequired #-}
 governanceDecisionTokenRequired :: TxInfo -> Bool
-governanceDecisionTokenRequired info = utxoSpent (\o -> txOutValue o `geq` governanceDecisionToken tx) info
+governanceDecisionTokenRequired info = utxoSpent info (\o -> txOutValue o `geq` governanceDecisionToken tx)
     where tx = txInfoId info
 
 -------------------------- Off-Chain -----------------------------
@@ -68,3 +67,4 @@ governanceDecisionTokenRequired info = utxoSpent (\o -> txOutValue o `geq` gover
 governanceDecisionTokenTx :: TxId -> (ScriptLookups a, TxConstraints i o)
 governanceDecisionTokenTx tx = fromJust $ txConstructorResult constr
     where constr = utxoSpentPublicKeyTx (\o -> txOutValue o `geq` governanceDecisionToken tx) $ TxConstructor Data.Map.empty $ Just (mempty, mempty)
+    

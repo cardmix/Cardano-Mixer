@@ -39,7 +39,7 @@ import           GHC.Generics                             (Generic)
 import           Ledger                                   hiding (txFee, singleton, validatorHash, unspentOutputs)
 import           Ledger.Constraints.OffChain              (unspentOutputs, typedValidatorLookups, otherScript)
 import           Ledger.Constraints.TxConstraints
-import           Ledger.Value                             (geq)
+import           Ledger.Value                             (geq, TokenName (..))
 import           Plutus.ChainIndex.Tx                     (ChainIndexTx (..), ChainIndexTxOutputs(..), fromOnChainTx)
 import           Plutus.Contract                          (Promise, Endpoint, type (.\/), Contract,
                                                             endpoint, selectList, utxosAt, logInfo, mkTxConstraints,
@@ -51,7 +51,7 @@ import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf, toVa
 import           Plutus.V1.Ledger.Api                     (Credential(..), StakingCredential (..))
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check, null)
-import           Prelude                                  (String, (<>), show, Show, (<$>), null)
+import           Prelude                                  (String, (<>), show, Show, (<$>), null, Monoid (mempty))
 
 
 import           Configuration.PABConfig                  (pabWalletPKH, pabWalletSKH)
@@ -61,11 +61,13 @@ import           MixerContractParams                      (DepositParams(..), Wi
 import           MixerProofs
 import           RelayRequest
 import           Scripts.MixerScript
-import           Scripts.VestingScript                    (VestingParams(..), vestingScriptHash)
+-- import           Scripts.VestingScript                    (VestingParams(..), vestingScriptHash)
 import           Tokens.DepositToken                      (depositTokenMintTx)
 import           Utils.Address                            (bech32ToAddress, bech32ToKeyHashes)
 import           Contracts.ChainIndex                         (txOutsFromRefs)
 import           Utils.BalanceTx                          (balanceTxWithExternalWallet)
+import Scripts.VestingScript (vestingValidatorHash)
+import Scripts.FailScript (failAddress)
 
 -- General MixerContract error
 errorMixerContract :: ContractError -> Contract (Maybe (Last Text)) MixerSchema ContractError ()
@@ -81,14 +83,15 @@ deposit :: Promise (Maybe (Last Text)) MixerSchema ContractError ()
 deposit = endpoint @"deposit" @DepositParams $ \dp@(DepositParams txt v leaf) -> handleError errorMixerContract $ do
     logInfo @String "deposit"
     logInfo dp
-    let mixer = makeMixerFromFees vestingScriptHash v
+    let mixer = Mixer v vestingValidatorHash vestingValidatorHash failAddress
         -- value sent to the mixer script
-        val   = mValue mixer + mTotalFees mixer + mixerAdaUTXO mixer
+        -- val   = mValue mixer + mTotalFees mixer + mixerAdaUTXO mixer
+        val = lovelaceValueOf 100_000
     ct <- currentTime
-    let (lookups', cons') = depositTokenMintTx (mixer, mixerAddress mixer) (leaf, ct)
+    let (lookups', cons') = (mempty, mempty) --depositTokenMintTx (mixer, mixerAddress mixer) ((ct, leaf), zero, TokenName "", PaymentPubKeyHash $ PubKeyHash "")
         -- total ADA value of all outputs
         val'              = val + toValue minAdaTxOut
-        lookups           = typedValidatorLookups (mixerInst mixer) <> lookups'
+        lookups           = typedValidatorLookups (mixerTypedValidator mixer) <> lookups'
         -- must send value to the mixer script and mint deposit token
         cons              = mustPayToTheScript () val <> cons'
     -- unbalanced transaction
@@ -148,16 +151,17 @@ withdraw :: Promise (Maybe (Last Text)) MixerSchema ContractError ()
 withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams txt v _ subs _) -> handleError errorMixerContract $ do
     logInfo @String "withdraw"
     logInfo params
-    let mixer = makeMixerFromFees vestingScriptHash v
+    let mixer = Mixer v vestingValidatorHash vestingValidatorHash failAddress
     (pkhW, skhW) <- maybe (throwError $ OtherContractError "Wallet address is not correct!") pure $ bech32ToKeyHashes txt
-    let payConstr    = if isJust skhW
-            then mustPayToPubKeyAddress pkhW (fromJust skhW) (mValue mixer + mixerAdaUTXO mixer)
-            else mustPayToPubKey pkhW (mValue mixer + mixerAdaUTXO mixer)
+    let payConstr    = mempty --if isJust skhW
+            -- then mustPayToPubKeyAddress pkhW (fromJust skhW) (mValue mixer + mixerAdaUTXO mixer)
+            -- else mustPayToPubKey pkhW (mValue mixer + mixerAdaUTXO mixer)
     pkhR   <- ownPaymentPubKeyHash
     utxos  <- utxosAt (mixerAddress mixer)
     ct     <- currentTime
     -- TODO: fix empty list error
-    let utxos' = Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer + mixerAdaUTXO mixer)) utxos
+    -- let utxos' = Data.Map.filter (\o -> _ciTxOutValue o `geq` (mValue mixer + mTotalFees mixer + mixerAdaUTXO mixer)) utxos
+    let utxos' = utxos
     ((utxo1, _), utxos'') <- if null utxos'
         then throwError $ OtherContractError "The mixing pool is empty!"
         else pure $ fromJust $ minViewWithKey utxos'
@@ -167,10 +171,11 @@ withdraw = endpoint @"withdraw" @WithdrawParams $ \params@(WithdrawParams txt v 
     mKeys <- getMixerKeys v
     case checkRelayRequest state mKeys params of
         RelayRequestAccepted -> do
-                let lookups   = unspentOutputs utxos'' <> typedValidatorLookups (mixerInst mixer) <> otherScript (mixerValidator mixer)
+                let lookups   = unspentOutputs utxos'' <> typedValidatorLookups (mixerTypedValidator mixer) <> otherScript (mixerValidator mixer)
                     cons      = payConstr <> mustValidateIn (to $ ct + timeToValidateWithdrawal) <>
-                        mustPayToOtherScript vestingScriptHash (Datum $ toBuiltinData $ VestingParams
-                            (ct + hourPOSIX + 100000 + timeToValidateWithdrawal) pkhR utxo1 (getWithdrawKeyInput subs)) (mRelayerCollateral mixer) <>
+                        mustPayToOtherScript vestingValidatorHash (Datum $ toBuiltinData (ct + 3_600_000 + 100000 + timeToValidateWithdrawal, pkhR))
+                            -- (ct + hourPOSIX + 100000 + timeToValidateWithdrawal) pkhR utxo1 (getWithdrawKeyInput subs))
+                            (mixerCollateral ) <>
                         mustSpendScriptOutput utxo1 (Redeemer $ toBuiltinData ()) <> mustBeSignedBy pabWalletPKH -- TODO: remove the last constraint after the test
                 utx <- mkTxConstraints lookups cons
                 submitTxConfirmed utx

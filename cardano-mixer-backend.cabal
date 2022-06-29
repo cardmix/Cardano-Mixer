@@ -46,12 +46,23 @@ library
       RelayRequest
       Requests
       Scripts.CurrencyScript
+      Scripts.DepositVestingScript
+      Scripts.WithdrawVestingScript
+      Scripts.FailScript
       Scripts.MixerScript
       Scripts.VestingScript
+      Tokens.DepositBeaconToken
       Tokens.DepositToken
       Tokens.GovernanceBeaconToken
       Tokens.GovernanceDecisionToken
+      Tokens.InvalidDepositToken
+      Tokens.InvalidWithdrawToken
+      Tokens.MixerBeaconToken
+      Tokens.MixerProfitsBeaconToken
       Tokens.MIXToken
+      Tokens.RealDepositToken
+      Tokens.RealWithdrawToken
+      Tokens.WithdrawBeaconToken
       Tokens.WithdrawToken
     build-depends:
       base                          >= 4.9 && < 5,
@@ -186,32 +197,4 @@ executable cardano-mixer-pab-client
     req                               ^>= 3.9.0,
     text                                   -any,
     uuid                                   -any,
-
-executable cardano-mixer-config
-  import: lang
-  main-is: mixer-config.hs
-  hs-source-dirs: app
-  ghc-options:
-    -threaded
-  build-depends:
-    aeson                                  -any,
-    base                          >= 4.9 && < 5,
-    bytestring                             -any,
-    cardano-api                            -any,
-    cardano-mixer-common                   -any,
-    cardano-mixer-backend                  -any,
-    containers                             -any,
-    data-default                           -any,
-    freer-extras                           -any,
-    freer-simple                           -any,
-    openapi3                               -any,
-    plutus-common                          -any,
-    plutus-contract                        -any,
-    plutus-ledger                          -any,
-    plutus-ledger-api                      -any,
-    plutus-ledger-constraints              -any,
-    plutus-pab                             -any,
-    plutus-tx                              -any,
-    plutus-use-cases                       -any,
-    prettyprinter                          -any,    
-    text                                   -any
+    

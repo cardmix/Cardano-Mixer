@@ -22,76 +22,69 @@ import qualified Data.Map
 import           Data.Maybe                       (fromJust)
 import           Ledger                           hiding (singleton, unspentOutputs)
 import           Ledger.Constraints.OffChain      (ScriptLookups)
-import           Ledger.Constraints.TxConstraints (TxConstraints, mustPayToOtherScript, mustValidateIn)
+import           Ledger.Constraints.TxConstraints (TxConstraints, mustPayToOtherScript)
 import           Ledger.Typed.Scripts             (wrapMintingPolicy)
 import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..))
 import           Plutus.V1.Ledger.Ada             (lovelaceValueOf)
-import           Plutus.V1.Ledger.Value           (geq)
+import           Plutus.V1.Ledger.Api             (Credential(..))
 import           PlutusTx                         (compile, toBuiltinData, applyCode, liftCode)
+import           PlutusTx.AssocMap                (singleton)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, mempty)
 import           Prelude                          ((<>), mempty)
 
 import           Crypto
+import           Scripts.Constraints              (tokensMinted, utxoSpent, utxoProduced, tokensMintedTx, getUpperTimeEstimate, checkDatum, findUtxoProduced)
+import           Scripts.MixerScript
 import           Scripts.VestingScript            ()
-import           Scripts.Constraints              (tokensMintedTx)
-import           Tokens.DepositToken              (depositTokenTargetValidatorHash)
 import           Types.TxConstructor              (TxConstructor(..))
+import           Utils.ByteString                 (ToBuiltinByteString(..))
+import           Utils.Common                     (ToIntegerData(..))
 
 ------------------------------------ Deposit Token -----------------------------------------------
 
-withdrawTokenTargetValidatorHash :: ValidatorHash
-withdrawTokenTargetValidatorHash = depositTokenTargetValidatorHash
+type WithdrawTokenParams = (Mixer, Address, CurrencySymbol, CurrencySymbol)
 
-withdrawTokenTargetAddress :: Address
-withdrawTokenTargetAddress = scriptHashAddress withdrawTokenTargetValidatorHash
+type WithdrawComputationData = (Address, [Fr], Proof)
+
+type WithdrawTokenRedeemer = (WithdrawComputationData, TokenName, TokenName)
 
 {-# INLINABLE withdrawTokenName #-}
-withdrawTokenName :: (Integer, Integer) -> TokenName
-withdrawTokenName (a, b) = TokenName $ withdrawTokenHash (a, b)
-
-withdrawTokenSymbol :: (Address, Value) -> CurrencySymbol
-withdrawTokenSymbol par = scriptCurrencySymbol $ curPolicy par
-
-withdrawTokenAssetClass :: (Address, Value) -> (Fr, POSIXTime) -> AssetClass
-withdrawTokenAssetClass par (Zp a, POSIXTime b) = AssetClass (withdrawTokenSymbol par, withdrawTokenName (a, b))
-
-withdrawToken :: (Address, Value) -> (Fr, POSIXTime) -> Value
-withdrawToken par d = token $ withdrawTokenAssetClass par d
+withdrawTokenName :: WithdrawTokenRedeemer -> TokenName
+withdrawTokenName ((Address (PubKeyCredential (PubKeyHash pkh)) _, subs, proof), TokenName ttName, TokenName dtName) =
+    TokenName $ sha2_256 $ pkh
+    `appendByteString` toBytes (map fromZp subs)
+    `appendByteString` toBytes (toIntegerData proof)
+    `appendByteString` ttName `appendByteString` dtName
+withdrawTokenName _ = error ()
 
 --------------------------- On-Chain -----------------------------
 
-integerToBuiltinByteString :: Integer -> BuiltinByteString
-integerToBuiltinByteString n = consByteString r $ if q > 0 then integerToBuiltinByteString q else emptyByteString
-  where (q, r) = divMod n 256
+-- The script must:
+-- 0) have the token name that is a result of hashing (public inputs and proof)
+-- 1) mint the exact amount of the asset class as expected
+-- 2) spend the corresponding mixer script output
+-- 3) produce output in the vesting script and send the withdraw token there (check vesting time)
+-- 4) produce output at the corresponding user address
+-- 5) reference the deposit token with the correct root value
+checkPolicy :: WithdrawTokenParams -> WithdrawTokenRedeemer -> ScriptContext -> Bool
+checkPolicy (mixer, addr, ttCur, depCur) red@((uAddr, _, _), ttName, dtName) ctx@ScriptContext{scriptContextTxInfo=info} =
+    cond1 && cond2 && cond3 && cond4
+  where name      = withdrawTokenName red
+        vMixer    = mixerDepositValue mixer
+        vTime     = token $ AssetClass (ttCur, ttName)
+        vDep      = token $ AssetClass (depCur, dtName)
+        vWD       = token $ AssetClass (ownCurrencySymbol ctx, name)
+        ct        = getUpperTimeEstimate info
+        f o       = txOutAddress o == mixerWithdrawVestingAddress mixer && txOutValue o == mixerVestingValue vMixer + vTime + vDep + vWD
+        g (t, _)  = t == ct + vestingDuration
 
-withdrawTokenHash :: (Integer, Integer) -> BuiltinByteString
-withdrawTokenHash (a, b) = sha2_256 $ integerToBuiltinByteString a `appendByteString` integerToBuiltinByteString b
+        cond1     = tokensMinted ctx (singleton name 1) -- we make restriction of one deposit token minted per mixer per transaction
+        cond2     = utxoSpent info (== TxOut addr (vMixer + vTime) Nothing)
+        cond3     = checkDatum info (g :: (POSIXTime, PaymentPubKeyHash) -> Bool) $ findUtxoProduced info f
+        cond4     = utxoProduced info (\o -> txOutValue o == mixerPureValue mixer && txOutAddress o == uAddr)
 
-checkPolicy :: (Address, Value) -> (Fr, POSIXTime) -> ScriptContext -> Bool
-checkPolicy (addr, val) (Zp a, dTime@(POSIXTime b)) ctx@ScriptContext{scriptContextTxInfo=txinfo} = mintOK && sentOK && txOK && timeOK
-  where hash      = withdrawTokenHash (a, b)
-        ownSymbol = ownCurrencySymbol ctx
-        t         = token $ AssetClass (ownSymbol, TokenName hash)
-        minted    = txInfoMint txinfo
-
-        -- True if the pending transaction mints the amount of
-        -- currency that we expect
-        mintOK = minted == t
-
-        outs   = txInfoOutputs txinfo
-
-        outs'  = filter (\o -> txOutAddress o == withdrawTokenTargetAddress) outs
-        sentOK = sum (map txOutValue outs') `geq` t
-
-        outs'' = filter (\o -> txOutAddress o == addr) outs
-        txOK = sum (map txOutValue outs'') `geq` val
-
-        int    = txInfoValidRange txinfo
-        int'   = interval (dTime-600_000) (dTime+600_000)
-        timeOK = int' `contains` int
-
-curPolicy :: (Address, Value) -> MintingPolicy
+curPolicy :: WithdrawTokenParams -> MintingPolicy
 curPolicy par = mkMintingPolicyScript $
     $$(PlutusTx.compile [|| wrapMintingPolicy . checkPolicy ||])
         `PlutusTx.applyCode`
@@ -99,11 +92,19 @@ curPolicy par = mkMintingPolicyScript $
 
 -------------------------- Off-Chain -----------------------------
 
+withdrawTokenSymbol :: WithdrawTokenParams -> CurrencySymbol
+withdrawTokenSymbol par = scriptCurrencySymbol $ curPolicy par
+
+withdrawTokenAssetClass :: WithdrawTokenParams -> WithdrawTokenRedeemer -> AssetClass
+withdrawTokenAssetClass par red = AssetClass (withdrawTokenSymbol par, withdrawTokenName red)
+
+withdrawToken :: WithdrawTokenParams -> WithdrawTokenRedeemer -> Value
+withdrawToken par red = token $ withdrawTokenAssetClass par red
+
 -- TxConstraints that Relay Token is minted and sent by the transaction
-withdrawTokenMintTx :: (Address, Value) -> (Fr, POSIXTime) -> (ScriptLookups a, TxConstraints i o)
-withdrawTokenMintTx par red@(_, ct) = (lookups, cons <> 
-      mustPayToOtherScript withdrawTokenTargetValidatorHash (Datum $ toBuiltinData (par, red)) (withdrawToken par red + lovelaceValueOf 2_000_000) <>
-      mustValidateIn (interval (ct-100_000) (ct+200_000)))
+withdrawTokenMintTx :: WithdrawTokenParams -> WithdrawTokenRedeemer -> (ScriptLookups a, TxConstraints i o)
+withdrawTokenMintTx par@(mixer, _, _, _) red = (lookups, cons <>
+      mustPayToOtherScript (mWithdrawVestingHash mixer) (Datum $ toBuiltinData ()) (withdrawToken par red + lovelaceValueOf 2_000_000))
   where
     (lookups, cons) = fromJust $ txConstructorResult constr
     constr = tokensMintedTx (curPolicy par) (Redeemer $ toBuiltinData red) (withdrawToken par red) $

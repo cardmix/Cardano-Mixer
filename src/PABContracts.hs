@@ -26,8 +26,8 @@ import           Contracts.CurrencyContract          (CurrencySchema, mintCurren
 import           Contracts.DispenserContract         (dispenserProgram)
 import           Contracts.MixerContract             (mixerProgram)
 import           Contracts.MixerStateContract        (MixerStateSchema, getMixerStatePromise)
-import           Contracts.VestingContract           (retrieveFundsLoop)
-import           Scripts.VestingScript               (VestingError)
+import           Contracts.VestingContract           (retrieveFundsLoop, VestingError)
+-- import           Scripts.VestingScript               (VestingError)
 
 --------------------------------------- PAB Contracts -------------------------------------------
 

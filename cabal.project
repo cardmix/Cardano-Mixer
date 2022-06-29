@@ -6,12 +6,12 @@ packages: ./.
 source-repository-package
   type: git
   location: https://github.com/cardmix/plutus-common.git
-  tag: 0b03c4b37fcb1b46757669811ddc952ad1a2b6dd
+  tag: 7237ba58563a04a6f55aeed1d141328d5e27c715
 
 source-repository-package
   type: git
   location: https://github.com/cardmix/Cardano-Mixer-Lib.git
-  tag: a15c0d459ae0eef971bfadb670503915c9394b6a
+  tag: 30d4079227b93dac3637c7b65101940cb52af793
 
 source-repository-package
   type: git

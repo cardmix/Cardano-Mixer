@@ -20,11 +20,10 @@ module Tokens.GovernanceBeaconToken (
 import           Ledger                           hiding (singleton, unspentOutputs)
 import           Ledger.Constraints               (mustSpendAtLeast)
 import           Ledger.Tokens                    (token)
-import           Ledger.Value                     (AssetClass(..), TokenName (..), CurrencySymbol (..), geq)
+import           Ledger.Value                     (AssetClass(..), TokenName (..), CurrencySymbol (..))
 import           Plutus.Contract.StateMachine
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
 
-import           Scripts.Constraints
 import           Configuration.PABConfig          (governanceBeaconTokenPolicyId)
 
 ------------------------------------ Admin Token ---------------------------------------------------
@@ -47,9 +46,11 @@ governanceBeaconToken = token governanceBeaconAssetClass
 
 --------------------------- On-Chain -----------------------------
 
+-- TODO: implement this
 {-# INLINABLE governanceBeaconTokenRequired #-}
 governanceBeaconTokenRequired :: TxInfo -> Bool
-governanceBeaconTokenRequired = utxoSpent (\o -> txOutValue o `geq` governanceBeaconToken)
+governanceBeaconTokenRequired _ = True
+    --utxoSpent info (\o -> txOutValue o `geq` governanceBeaconToken)
 
 -------------------------- Off-Chain -----------------------------
 

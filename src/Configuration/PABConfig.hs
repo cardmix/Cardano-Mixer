@@ -18,7 +18,7 @@ import Prelude                       (String, undefined)
 import Wallet.Emulator.Wallet        (Wallet(..), fromBase16)
 
 import Utils.Address                 (bech32ToKeyHashes)
-import Utils.ByteString              (buildByteString)
+import Utils.ByteString              (toBytes)
 import Utils.Network                 (NetworkConfig (..))
 
 -- TODO: Replace PolicyId with TxOutRef
@@ -36,7 +36,7 @@ governanceBeaconTokenPolicyId :: BuiltinByteString
 governanceBeaconTokenPolicyId = undefined
 
 mixTokenPolicyId :: BuiltinByteString
-mixTokenPolicyId = buildByteString "f21f17dd8a772ada1ead262823a224f1ec9dafad65dc6939cf3c4848"
+mixTokenPolicyId = toBytes ("f21f17dd8a772ada1ead262823a224f1ec9dafad65dc6939cf3c4848" :: String)
 
 networkId :: NetworkId
 networkId = Testnet $ NetworkMagic 1097911063

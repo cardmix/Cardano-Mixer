@@ -55,7 +55,7 @@ checkWrongWithdrawalAddress :: WithdrawParams -> Bool
 checkWrongWithdrawalAddress (WithdrawParams txt _ _ subs _)
   | not $ isWithdrawPublicInputs subs                = True
   | isNothing $ bech32ToAddress txt >>= toPubKeyHash = True
-  | otherwise                                        = dataToZp pkh /= getWithdrawPKHInput subs
+  | otherwise                                        = dataToZp pkh /= getWithdrawAddressInput subs
   where pkh = PaymentPubKeyHash $ fromJust $ bech32ToAddress txt >>= toPubKeyHash
 
 checkWrongProof :: WithdrawParams -> Bool

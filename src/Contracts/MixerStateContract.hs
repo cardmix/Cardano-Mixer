@@ -19,7 +19,6 @@ import qualified Data.Map
 import           Data.Semigroup                           (Last (..))
 import           GHC.Generics                             (Generic)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
-import           Ledger.Value                             (geq)
 import           Plutus.Contract                          (Promise, Contract, ContractError, Endpoint, currentTime, endpoint, tell, logInfo)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<>), (<$>), unless, find, toList, fromInteger, check)
@@ -28,9 +27,9 @@ import           Prelude                                  (Show, String, (<$>))
 import           Contracts.ChainIndex                     (getUtxosAt)
 import           Crypto
 import           MixerState                               (MixerState, constructStateFromList)
-import           Scripts.MixerScript                      (makeMixerFromFees, mixerAddress)
-import           Scripts.VestingScript                    (vestingScriptHash)
-import           Tokens.DepositToken                      (depositTokenTargetAddress, depositToken)
+import           Scripts.FailScript                       (failAddress)
+import           Scripts.MixerScript                      (Mixer (..), mixerAddress)
+import           Scripts.VestingScript                    (vestingValidatorHash, vestingValidatorAddress)
 
 --------------------------- Types -----------------------------------
 
@@ -53,15 +52,16 @@ cacheValidityPeriod = 10000
 
 --------------------------- Off-Chain -------------------------------
 
+-- TODO: update the implementation
 getMixerState :: MixerStateCache -> POSIXTime -> Value -> Contract w s ContractError (MixerState, MixerStateCache)
 getMixerState oldCache@(MixerStateCache cTxs cTime) curTime v = do
-    let mixer = makeMixerFromFees vestingScriptHash v
+    let mixer = Mixer v vestingValidatorHash vestingValidatorHash failAddress
         addr  = mixerAddress mixer
 
     logInfo curTime
     logInfo cTime
     logInfo $ curTime - cTime <= cacheValidityPeriod
-    txTxos  <- mixerStateCacheIsValid curTime (pure cTxs) (map fst . Data.Map.elems <$> getUtxosAt depositTokenTargetAddress)
+    txTxos  <- mixerStateCacheIsValid curTime (pure cTxs) (map fst . Data.Map.elems <$> getUtxosAt vestingValidatorAddress)
     cache   <- mixerStateCacheIsValid curTime (pure oldCache) (pure $ MixerStateCache txTxos curTime)
 
     logInfo @String "Got txos and cache"
@@ -71,8 +71,10 @@ getMixerState oldCache@(MixerStateCache cTxs cTime) curTime v = do
     let f o = do
             d  <- either (const Nothing) Just $ _ciTxOutDatum o
             (leaf, t) <- fromBuiltinData $ getDatum d :: Maybe (Fr, POSIXTime)
-            let tokenCheck = _ciTxOutValue o `geq` depositToken (mixer, addr) (leaf, t)
-            if tokenCheck then Just leaf else Nothing
+            -- TODO: change here!
+            -- let tokenCheck = _ciTxOutValue o `geq` depositToken (mixer, addr) ((t, leaf), zero, TokenName "", PaymentPubKeyHash $ PubKeyHash "")
+            -- if tokenCheck then Just leaf else Nothing
+            Just leaf
         leafs = mapMaybe f outs
         state = snd $ constructStateFromList (leafs, [])
     return (state, cache)
