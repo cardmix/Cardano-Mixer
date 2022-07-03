@@ -21,16 +21,10 @@
 -- | Implements a custom currency with a minting policy that allows
 --   the minting of a fixed amount of units.
 module Contracts.CurrencyContract (
-      OneShotCurrency(..)
-    , CurrencySchema
+    CurrencySchema
     , CurrencyError(..)
     , AsCurrencyError(..)
-    , curPolicy
-    -- * Actions etc
     , mintContract
-    , mintedValue
-    , currencySymbol
-    -- * Simple minting policy currency
     , SimpleMPS(..)
     , mintCurrency
     ) where
@@ -51,7 +45,7 @@ import           Prelude                         (Semigroup (..))
 import qualified Prelude                         as Haskell
 import           Schema                          (ToSchema)
 
-import           Scripts.CurrencyScript
+import           Tokens.OneShotCurrency
 
 newtype CurrencyError =
     CurContractError ContractError
@@ -68,17 +62,17 @@ instance AsContractError CurrencyError where
 --   If @k == 0@ then no value is minted. A one-shot minting policy
 --   script is used to ensure that no more units of the currency can
 --   be minted afterwards.
-mintContract :: forall w s e. AsCurrencyError e => SimpleMPS -> Contract w s e OneShotCurrency
+mintContract :: forall w s e. AsCurrencyError e => SimpleMPS -> Contract w s e OneShotCurrencyParams
 mintContract SimpleMPS{tokenName, amount} = mapError (review _CurrencyError) $ do
     txOutRef <- getUnspentOutput
     ciTxOut <- txOutFromRef txOutRef
     let utxos       = maybe Haskell.mempty (Data.Map.singleton txOutRef) ciTxOut
         theCurrency = mkCurrency txOutRef [(tokenName, amount)]
-        curVali     = curPolicy theCurrency
+        curVali     = oneShotCurrencyPolicy theCurrency
         lookups     = Constraints.mintingPolicy curVali
                         <> Constraints.unspentOutputs utxos
         mintTx      = Constraints.mustSpendPubKeyOutput txOutRef
-                        <> Constraints.mustMintValue (mintedValue theCurrency)
+                        <> Constraints.mustMintValue (currencyValue theCurrency)
     tx <- submitTxConstraintsWith @Scripts.Any lookups mintTx
     _ <- awaitTxConfirmed (getCardanoTxId tx)
     pure theCurrency
@@ -96,7 +90,7 @@ data SimpleMPS = SimpleMPS
 type CurrencySchema = Endpoint "create-native-token" SimpleMPS
 
 -- | Use 'mintContract' to create the currency specified by a 'SimpleMPS'
-mintCurrency :: Promise (Maybe (Last OneShotCurrency)) CurrencySchema CurrencyError OneShotCurrency
+mintCurrency :: Promise (Maybe (Last OneShotCurrencyParams)) CurrencySchema CurrencyError OneShotCurrencyParams
 mintCurrency = endpoint @"create-native-token" $ \simpleMPS -> do
     cur <- mintContract simpleMPS
     tell (Just (Last cur))

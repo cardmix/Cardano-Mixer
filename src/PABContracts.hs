@@ -24,8 +24,8 @@ import           Prettyprinter                       (Pretty(..), viaShow)
 import           Contracts.ConnectToPABContract      (ConnectToPABSchema, connectToPABPromise)
 import           Contracts.CurrencyContract          (CurrencySchema, mintCurrency)
 import           Contracts.DispenserContract         (dispenserProgram)
-import           Contracts.MixerContract             (mixerProgram)
-import           Contracts.MixerStateContract        (MixerStateSchema, getMixerStatePromise)
+-- import           Contracts.MixerContract             (mixerProgram)
+-- import           Contracts.MixerStateContract        (MixerStateSchema, getMixerStatePromise)
 import           Contracts.VestingContract           (retrieveFundsLoop, VestingError)
 -- import           Scripts.VestingScript               (VestingError)
 
@@ -56,13 +56,13 @@ instance HasDefinitions PABContracts where
         BackendContracts RetrieveTimeLocked -> endpointsToSchemas @EmptySchema
         BackendContracts Dispense           -> endpointsToSchemas @EmptySchema
         FrontendContracts MixerUse          -> [] --endpointsToSchemas  @MixerSchema
-        FrontendContracts MixerStateQuery   -> endpointsToSchemas @MixerStateSchema
+        -- FrontendContracts MixerStateQuery   -> endpointsToSchemas @MixerStateSchema
         FrontendContracts ConnectToPAB      -> endpointsToSchemas @ConnectToPABSchema
     getContract = \case
         BackendContracts MintCurrency       -> SomeBuiltin mintCurrency
         BackendContracts RetrieveTimeLocked -> SomeBuiltin (retrieveFundsLoop :: Contract (Maybe (Last Text)) EmptySchema VestingError ())
         BackendContracts Dispense           -> SomeBuiltin dispenserProgram
-        FrontendContracts MixerUse          -> SomeBuiltin mixerProgram
-        FrontendContracts MixerStateQuery   -> SomeBuiltin getMixerStatePromise
+        -- FrontendContracts MixerUse          -> SomeBuiltin mixerProgram
+        -- FrontendContracts MixerStateQuery   -> SomeBuiltin getMixerStatePromise
         FrontendContracts ConnectToPAB      -> SomeBuiltin connectToPABPromise
         

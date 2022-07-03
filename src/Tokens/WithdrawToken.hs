@@ -18,71 +18,109 @@
 
 module Tokens.WithdrawToken where
 
-import qualified Data.Map
-import           Data.Maybe                       (fromJust)
 import           Ledger                           hiding (singleton, unspentOutputs)
-import           Ledger.Constraints.OffChain      (ScriptLookups)
-import           Ledger.Constraints.TxConstraints (TxConstraints, mustPayToOtherScript)
 import           Ledger.Typed.Scripts             (wrapMintingPolicy)
 import           Ledger.Tokens                    (token)
-import           Ledger.Value                     (AssetClass(..), TokenName (..))
-import           Plutus.V1.Ledger.Ada             (lovelaceValueOf)
+import           Ledger.Value                     (AssetClass(..), TokenName (..), geq)
 import           Plutus.V1.Ledger.Api             (Credential(..))
-import           PlutusTx                         (compile, toBuiltinData, applyCode, liftCode)
-import           PlutusTx.AssocMap                (singleton)
+import           PlutusTx                         (compile, applyCode, liftCode)
+import           PlutusTx.AssocMap                (fromList)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, mempty)
-import           Prelude                          ((<>), mempty)
 
 import           Crypto
-import           Scripts.Constraints              (tokensMinted, utxoSpent, utxoProduced, tokensMintedTx, getUpperTimeEstimate, checkDatum, findUtxoProduced)
-import           Scripts.MixerScript
+import           Crypto.Conversions (dataToZp)
+import           Mixer
+import           Scripts.Constraints              (tokensMinted, utxoProduced, utxoReferenced, tokensBurnedTx, utxoProducedScriptTx,
+                                                    tokensMintedTx, utxoReferencedTx, utxoProducedPublicKeyTx, utxoSpentPublicKeyTx)
+import           Scripts.MixerDepositScript       (MixerDepositDatum)
 import           Scripts.VestingScript            ()
-import           Types.TxConstructor              (TxConstructor(..))
+import           Tokens.DepositToken              (depositTokenName)
+import           Types.TxConstructor              (TxConstructor (..))
 import           Utils.ByteString                 (ToBuiltinByteString(..))
-import           Utils.Common                     (ToIntegerData(..))
 
------------------------------------- Deposit Token -----------------------------------------------
+------------------------------------ Sigma protocol ----------------------------------------------
 
-type WithdrawTokenParams = (Mixer, Address, CurrencySymbol, CurrencySymbol)
+-- leafs, key, addrExp, and addrValue
+type SigmaProtocolInput = ([Fr], Fr, Fr, Fr)
 
-type WithdrawComputationData = (Address, [Fr], Proof)
+-- triple of commitments, errors, and responses
+type SigmaProtocolCommit = ([Fr], [Fr], [Fr])
 
-type WithdrawTokenRedeemer = (WithdrawComputationData, TokenName, TokenName)
+type SigmaProtocolProof = (SigmaProtocolCommit, [Fr], [Fr])
 
-{-# INLINABLE withdrawTokenName #-}
-withdrawTokenName :: WithdrawTokenRedeemer -> TokenName
-withdrawTokenName ((Address (PubKeyCredential (PubKeyHash pkh)) _, subs, proof), TokenName ttName, TokenName dtName) =
-    TokenName $ sha2_256 $ pkh
-    `appendByteString` toBytes (map fromZp subs)
-    `appendByteString` toBytes (toIntegerData proof)
-    `appendByteString` ttName `appendByteString` dtName
-withdrawTokenName _ = error ()
+g1 :: Fr
+g1 = Zp 3
+
+g2 :: Fr
+g2 = Zp 5
+
+g3 :: Fr
+g3 = Zp 7
+
+{-# INLINABLE sigmaProtocolChallenge #-}
+sigmaProtocolChallenge :: SigmaProtocolProof -> Fr
+sigmaProtocolChallenge ((as, bs, cs), _, xs) = dataToZp $ sha2_256 $ toBytes $ map fromZp (as ++ bs ++ cs ++ xs)
+
+-- TODO: check lengths of the arrays
+{-# INLINABLE sigmaProtocolVerify #-}
+sigmaProtocolVerify :: SigmaProtocolInput -> SigmaProtocolProof -> Bool
+sigmaProtocolVerify (leafs, key, addrExp, addr) proof@((as, bs, cs), es, xs) = eq1 && eq2 && eq3 && eq4
+    where
+        ys  = xs
+        zs  = map (addr *) xs
+        s   = sigmaProtocolChallenge proof
+        eq1 = all (\(a, (e, (x, l))) -> pow g1 (fromZp x) == a * pow l (fromZp e)) $ zip as $ zip es $ zip xs leafs
+        eq2 = all (\(b, (e, y)) -> pow g2 (fromZp y) == b * pow key (fromZp e)) $ zip bs $ zip es ys
+        eq3 = all (\(c, (e, z)) -> pow g3 (fromZp z) == c * pow addrExp (fromZp e)) $ zip cs $ zip es zs
+        eq4 = s == sum es
+
 
 --------------------------- On-Chain -----------------------------
 
--- The script must:
--- 0) have the token name that is a result of hashing (public inputs and proof)
--- 1) mint the exact amount of the asset class as expected
--- 2) spend the corresponding mixer script output
--- 3) produce output in the vesting script and send the withdraw token there (check vesting time)
--- 4) produce output at the corresponding user address
--- 5) reference the deposit token with the correct root value
-checkPolicy :: WithdrawTokenParams -> WithdrawTokenRedeemer -> ScriptContext -> Bool
-checkPolicy (mixer, addr, ttCur, depCur) red@((uAddr, _, _), ttName, dtName) ctx@ScriptContext{scriptContextTxInfo=info} =
-    cond1 && cond2 && cond3 && cond4
-  where name      = withdrawTokenName red
-        vMixer    = mixerDepositValue mixer
-        vTime     = token $ AssetClass (ttCur, ttName)
-        vDep      = token $ AssetClass (depCur, dtName)
-        vWD       = token $ AssetClass (ownCurrencySymbol ctx, name)
-        ct        = getUpperTimeEstimate info
-        f o       = txOutAddress o == mixerWithdrawVestingAddress mixer && txOutValue o == mixerVestingValue vMixer + vTime + vDep + vWD
-        g (t, _)  = t == ct + vestingDuration
+-- Deposit token symbol, Withdraw token symbol, ADAWithdraw script address, and TxOutRef of initial mint
+type WithdrawTokenParams = (Mixer, CurrencySymbol, Address, TxOutRef)
 
-        cond1     = tokensMinted ctx (singleton name 1) -- we make restriction of one deposit token minted per mixer per transaction
-        cond2     = utxoSpent info (== TxOut addr (vMixer + vTime) Nothing)
-        cond3     = checkDatum info (g :: (POSIXTime, PaymentPubKeyHash) -> Bool) $ findUtxoProduced info f
-        cond4     = utxoProduced info (\o -> txOutValue o == mixerPureValue mixer && txOutAddress o == uAddr)
+type WithdrawTokenRedeemer = (SigmaProtocolInput, SigmaProtocolProof, (Fr, Fr, Address), Bool)
+
+type WithdrawTokenNameParams = (Fr, Fr)
+
+{-# INLINABLE withdrawTokenName #-}
+withdrawTokenName :: WithdrawTokenNameParams -> TokenName
+withdrawTokenName (Zp cur, Zp next) = TokenName $ toBytes cur `appendByteString` toBytes next
+
+checkPolicy :: WithdrawTokenParams -> WithdrawTokenRedeemer -> ScriptContext -> Bool
+checkPolicy (mixer, dSymb, adaWithdrawAddr, _) (sigmaInput@(leafs, cur, _, aVal), sigmaProof, (prev, next, addr), False)
+    ctx@ScriptContext{scriptContextTxInfo=info} = cond1 && cond2 && cond3 && cond4 && cond5 && cond6
+  where
+      wSymb    = ownCurrencySymbol ctx
+      nameBurn = withdrawTokenName (prev, next)
+      namePrev = withdrawTokenName (prev, cur)
+      nameCur  = withdrawTokenName (cur, next)
+      vPrev    = token $ AssetClass (wSymb, namePrev)
+      vCur     = token $ AssetClass (wSymb, nameCur)
+      f leaf   = utxoReferenced info (\o -> txOutValue o `geq` token (AssetClass (dSymb, depositTokenName leaf)))
+
+      -- tokens are minted and burned correctly
+      cond1 = tokensMinted ctx $ fromList [(nameBurn, -1), (namePrev, 1), (nameCur, 1)]
+      -- the newly minted tokens are sent to the correct script address
+      cond2 = utxoProduced info (\o -> txOutAddress o == adaWithdrawAddr && txOutValue o `geq` (vPrev + vCur))
+      -- the correct value us payed to the correct address
+      cond3 = utxoProduced info (\o -> txOutAddress o == addr && txOutValue o `geq` mixerValueAfterWithdraw mixer)
+      -- sigma protocol proof is correct
+      cond4 = sigmaProtocolVerify sigmaInput sigmaProof
+      -- the address is converted to a number correctly
+      cond5 = aVal == dataToZp addr
+      -- all leafs used in the protocol are presented
+      cond6 = all f leafs
+checkPolicy (_, _, adaWithdrawAddr, ref) (_, _, _, True)
+    ctx@ScriptContext{scriptContextTxInfo=info} = cond1 && cond2 && cond3
+  where
+      nameCur  = withdrawTokenName (Zp 0, toZp (-1))
+      vCur     = token $ AssetClass (ownCurrencySymbol ctx, nameCur)
+
+      cond1 = tokensMinted ctx $ fromList [(nameCur, 1)]
+      cond2 = utxoProduced info (\o -> txOutAddress o == adaWithdrawAddr && txOutValue o `geq` vCur)
+      cond3 = isJust $ findTxInByTxOutRef ref info -- TODO: check that this finds only utxos that are spent
 
 curPolicy :: WithdrawTokenParams -> MintingPolicy
 curPolicy par = mkMintingPolicyScript $
@@ -95,17 +133,43 @@ curPolicy par = mkMintingPolicyScript $
 withdrawTokenSymbol :: WithdrawTokenParams -> CurrencySymbol
 withdrawTokenSymbol par = scriptCurrencySymbol $ curPolicy par
 
-withdrawTokenAssetClass :: WithdrawTokenParams -> WithdrawTokenRedeemer -> AssetClass
-withdrawTokenAssetClass par red = AssetClass (withdrawTokenSymbol par, withdrawTokenName red)
+withdrawTokenAssetClass :: WithdrawTokenParams -> WithdrawTokenNameParams -> AssetClass
+withdrawTokenAssetClass par nParams = AssetClass (withdrawTokenSymbol par, withdrawTokenName nParams)
 
-withdrawToken :: WithdrawTokenParams -> WithdrawTokenRedeemer -> Value
-withdrawToken par red = token $ withdrawTokenAssetClass par red
+withdrawToken :: WithdrawTokenParams -> WithdrawTokenNameParams -> Value
+withdrawToken par nParams = token $ withdrawTokenAssetClass par nParams
 
--- TxConstraints that Relay Token is minted and sent by the transaction
-withdrawTokenMintTx :: WithdrawTokenParams -> WithdrawTokenRedeemer -> (ScriptLookups a, TxConstraints i o)
-withdrawTokenMintTx par@(mixer, _, _, _) red = (lookups, cons <>
-      mustPayToOtherScript (mWithdrawVestingHash mixer) (Datum $ toBuiltinData ()) (withdrawToken par red + lovelaceValueOf 2_000_000))
-  where
-    (lookups, cons) = fromJust $ txConstructorResult constr
-    constr = tokensMintedTx (curPolicy par) (Redeemer $ toBuiltinData red) (withdrawToken par red) $
-        TxConstructor Data.Map.empty $ Just (mempty, mempty)
+-- Constraints that Withdraw Token is minted in the transaction
+withdrawTokenMintTx :: WithdrawTokenParams -> WithdrawTokenRedeemer -> MixerDepositDatum -> TxConstructor a i o -> TxConstructor a i o
+withdrawTokenMintTx par@(mixer, dSymb, adaWithdrawAddr, _)
+    red@((leafs, cur, _, _), _, (prev, next, addr), False) leaf constr =
+    case res of
+        Just vh ->
+            tokensMintedTx (curPolicy par) red (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) $
+            tokensBurnedTx (curPolicy par) red (withdrawToken par (prev, next)) $
+            utxoProducedScriptTx vh Nothing (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) () $
+            case addr of
+                Address (PubKeyCredential pkh) _ ->
+                    utxoProducedPublicKeyTx (PaymentPubKeyHash pkh) Nothing (mixerValueAfterWithdraw mixer) ()
+                -- If the address is a script address, we assume that it is a MixerDepositScript address
+                Address (ScriptCredential valHash) _ ->
+                    utxoProducedScriptTx valHash Nothing (mixerValueAfterWithdraw mixer) leaf
+            $ foldr ((.) . (\l -> utxoReferencedTx (\o -> txOutValue o `geq` token (AssetClass (dSymb, depositTokenName l))))) id leafs constr
+        Nothing -> constr { txConstructorResult = Nothing }
+    where
+        res = case adaWithdrawAddr of
+            Address (ScriptCredential vh) _ -> Just vh
+            _                               -> Nothing
+withdrawTokenMintTx par@(_, _, adaWithdrawAddr, ref)
+    red@((_, cur, _, _), _, (prev, next, _), True) _ constr = 
+    case res of
+        Just vh ->
+            tokensMintedTx (curPolicy par) red (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) $
+            utxoProducedScriptTx vh Nothing (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) () $
+            -- TODO: add spent TxOutRef function
+            utxoSpentPublicKeyTx (\r _ -> r == ref) constr
+        Nothing -> constr { txConstructorResult = Nothing }
+    where
+        res = case adaWithdrawAddr of
+            Address (ScriptCredential vh) _ -> Just vh
+            _                               -> Nothing

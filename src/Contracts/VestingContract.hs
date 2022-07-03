@@ -97,3 +97,5 @@ vestingContract = selectList [vest, retrieve]
         (lookups, cons) <- timelockTx p v
         void $ submitTxConstraintsWith (lookups <> typedValidatorLookups vestingTypedValidator) cons
     retrieve = endpoint @"retrieve-funds" $ \() -> retrieveFunds
+
+    

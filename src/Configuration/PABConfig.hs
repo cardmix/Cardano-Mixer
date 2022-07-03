@@ -11,14 +11,13 @@ import Data.Either                   (rights)
 import Data.FileEmbed                (embedFile)
 import Data.Maybe                    (fromJust)
 import Data.Text                     (Text, pack)
-import Ledger                        (PubKeyHash(..))
+import Ledger                        (PubKeyHash(..), TxOutRef (TxOutRef), TxId (..))
 import Ledger.Address                (PaymentPubKeyHash(..), StakePubKeyHash (..))
 import PlutusTx.Prelude              hiding (elem)
 import Prelude                       (String, undefined)
 import Wallet.Emulator.Wallet        (Wallet(..), fromBase16)
 
 import Utils.Address                 (bech32ToKeyHashes)
-import Utils.ByteString              (toBytes)
 import Utils.Network                 (NetworkConfig (..))
 
 -- TODO: Replace PolicyId with TxOutRef
@@ -35,8 +34,14 @@ dispenserWalletAddressText = "addr_test1qrh8caw4kmlkwydwzdehpyw905dg8ayjv0vpe6vq
 governanceBeaconTokenPolicyId :: BuiltinByteString
 governanceBeaconTokenPolicyId = undefined
 
-mixTokenPolicyId :: BuiltinByteString
-mixTokenPolicyId = toBytes ("f21f17dd8a772ada1ead262823a224f1ec9dafad65dc6939cf3c4848" :: String)
+mixTokenTxOutRef :: TxOutRef
+mixTokenTxOutRef = TxOutRef (TxId emptyByteString) 0 
+
+mixerBeaconTxOutRef :: TxOutRef
+mixerBeaconTxOutRef = TxOutRef (TxId emptyByteString) 0
+
+mixProfitsBeaconTxOutRef :: TxOutRef
+mixProfitsBeaconTxOutRef = TxOutRef (TxId emptyByteString) 0
 
 networkId :: NetworkId
 networkId = Testnet $ NetworkMagic 1097911063

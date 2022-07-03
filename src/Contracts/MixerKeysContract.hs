@@ -34,35 +34,35 @@ type MixerKeys = [Fr]
 --------------------------- Off-Chain -------------------------------
 ---------------------------------------------------------------------
 
--- instance Ord (ChainIndexTx, ChainIndexTxOut) where
---     (compare) (tx1, txo1) (tx2, txo2) = t1 `compare` t2
---         where
---             t1 = ivTo $ _citxValidRange tx1
---             t2 = ivTo $ _citxValidRange tx2
+-- -- instance Ord (ChainIndexTx, ChainIndexTxOut) where
+-- --     (compare) (tx1, txo1) (tx2, txo2) = t1 `compare` t2
+-- --         where
+-- --             t1 = ivTo $ _citxValidRange tx1
+-- --             t2 = ivTo $ _citxValidRange tx2
 
--- TODO: THIS IS NOT WORKING PROPERLY NOW. We should get the keys from the NFTs
-getMixerKeys :: Value -> Contract w s ContractError MixerKeys
-getMixerKeys v = do
-    let mixer = Mixer v vestingValidatorHash vestingValidatorHash failAddress
-    txoTxs <- elems <$> getUtxosAt vestingValidatorAddress
-    let f (_, tx) = 
-            let ValidatorHash h = mixerValidatorHash mixer
-            in ScriptHash h `member` _citxScripts tx
-        txoTxs' = filter f txoTxs
-        keys    = mapMaybe (getTxKeys . fst) txoTxs'
-    return keys
+-- -- TODO: THIS IS NOT WORKING PROPERLY NOW. We should get the keys from the NFTs
+-- getMixerKeys :: Value -> Contract w s ContractError MixerKeys
+-- getMixerKeys v = do
+--     let mixer = Mixer v vestingValidatorHash vestingValidatorHash failAddress
+--     txoTxs <- elems <$> getUtxosAt vestingValidatorAddress
+--     let f (_, tx) = 
+--             let ValidatorHash h = mixerValidatorHash mixer
+--             in ScriptHash h `member` _citxScripts tx
+--         txoTxs' = filter f txoTxs
+--         keys    = mapMaybe (getTxKeys . fst) txoTxs'
+--     return keys
 
-getTxKeys :: ChainIndexTxOut -> Maybe Fr
-getTxKeys tx = do
-        d <- either (const Nothing) Just $ _ciTxOutDatum tx
-        p <- fromBuiltinData $ getDatum d :: Maybe VestingDatum
-        -- return $ vestingWHash p
-        return $ Zp 0
+-- getTxKeys :: ChainIndexTxOut -> Maybe Fr
+-- getTxKeys tx = do
+--         d <- either (const Nothing) Just $ _ciTxOutDatum tx
+--         p <- fromBuiltinData $ getDatum d :: Maybe VestingDatum
+--         -- return $ vestingWHash p
+--         return $ Zp 0
 
-type MixerKeysSchema = Endpoint "get-mixer-keys" Value
+-- type MixerKeysSchema = Endpoint "get-mixer-keys" Value
 
-getMixerKeysPromise :: Promise (Maybe (Last MixerKeys)) MixerKeysSchema ContractError ()
-getMixerKeysPromise = endpoint @"get-mixer-keys" @Value $ \v -> do
-    mKeys <- getMixerKeys v
-    tell $ Just $ Last mKeys
+-- getMixerKeysPromise :: Promise (Maybe (Last MixerKeys)) MixerKeysSchema ContractError ()
+-- getMixerKeysPromise = endpoint @"get-mixer-keys" @Value $ \v -> do
+--     mKeys <- getMixerKeys v
+--     tell $ Just $ Last mKeys
 

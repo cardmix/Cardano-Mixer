@@ -26,9 +26,10 @@ import           Prelude                                  (Show, String, (<$>))
 
 import           Contracts.ChainIndex                     (getUtxosAt)
 import           Crypto
+import           Mixer
 import           MixerState                               (MixerState, constructStateFromList)
 import           Scripts.FailScript                       (failAddress)
-import           Scripts.MixerScript                      (Mixer (..), mixerAddress)
+import           Scripts.MixerScript                      (mixerAddress)
 import           Scripts.VestingScript                    (vestingValidatorHash, vestingValidatorAddress)
 
 --------------------------- Types -----------------------------------
@@ -52,57 +53,57 @@ cacheValidityPeriod = 10000
 
 --------------------------- Off-Chain -------------------------------
 
--- TODO: update the implementation
-getMixerState :: MixerStateCache -> POSIXTime -> Value -> Contract w s ContractError (MixerState, MixerStateCache)
-getMixerState oldCache@(MixerStateCache cTxs cTime) curTime v = do
-    let mixer = Mixer v vestingValidatorHash vestingValidatorHash failAddress
-        addr  = mixerAddress mixer
+-- -- TODO: update the implementation
+-- getMixerState :: MixerStateCache -> POSIXTime -> Value -> Contract w s ContractError (MixerState, MixerStateCache)
+-- getMixerState oldCache@(MixerStateCache cTxs cTime) curTime v = do
+--     let mixer = Mixer v failAddress
+--         addr  = mixerAddress mixer
 
-    logInfo curTime
-    logInfo cTime
-    logInfo $ curTime - cTime <= cacheValidityPeriod
-    txTxos  <- mixerStateCacheIsValid curTime (pure cTxs) (map fst . Data.Map.elems <$> getUtxosAt vestingValidatorAddress)
-    cache   <- mixerStateCacheIsValid curTime (pure oldCache) (pure $ MixerStateCache txTxos curTime)
+--     logInfo curTime
+--     logInfo cTime
+--     logInfo $ curTime - cTime <= cacheValidityPeriod
+--     txTxos  <- mixerStateCacheIsValid curTime (pure cTxs) (map fst . Data.Map.elems <$> getUtxosAt vestingValidatorAddress)
+--     cache   <- mixerStateCacheIsValid curTime (pure oldCache) (pure $ MixerStateCache txTxos curTime)
 
-    logInfo @String "Got txos and cache"
+--     logInfo @String "Got txos and cache"
 
-    -- TODO: implement proper sort?
-    let outs  = txTxos
-    let f o = do
-            d  <- either (const Nothing) Just $ _ciTxOutDatum o
-            (leaf, t) <- fromBuiltinData $ getDatum d :: Maybe (Fr, POSIXTime)
-            -- TODO: change here!
-            -- let tokenCheck = _ciTxOutValue o `geq` depositToken (mixer, addr) ((t, leaf), zero, TokenName "", PaymentPubKeyHash $ PubKeyHash "")
-            -- if tokenCheck then Just leaf else Nothing
-            Just leaf
-        leafs = mapMaybe f outs
-        state = snd $ constructStateFromList (leafs, [])
-    return (state, cache)
-  where
-      mixerStateCacheIsValid :: POSIXTime -> Contract w s ContractError a -> Contract w s ContractError a -> Contract w s ContractError a
-      mixerStateCacheIsValid ct y n = if ct - cTime <= cacheValidityPeriod then y else n
+--     -- TODO: implement proper sort?
+--     let outs  = txTxos
+--     let f o = do
+--             d  <- either (const Nothing) Just $ _ciTxOutDatum o
+--             (leaf, t) <- fromBuiltinData $ getDatum d :: Maybe (Fr, POSIXTime)
+--             -- TODO: change here!
+--             -- let tokenCheck = _ciTxOutValue o `geq` depositToken (mixer, addr) ((t, leaf), zero, TokenName "", PaymentPubKeyHash $ PubKeyHash "")
+--             -- if tokenCheck then Just leaf else Nothing
+--             Just leaf
+--         leafs = mapMaybe f outs
+--         state = snd $ constructStateFromList (leafs, [])
+--     return (state, cache)
+--   where
+--       mixerStateCacheIsValid :: POSIXTime -> Contract w s ContractError a -> Contract w s ContractError a -> Contract w s ContractError a
+--       mixerStateCacheIsValid ct y n = if ct - cTime <= cacheValidityPeriod then y else n
 
-type MixerStateSchema = Endpoint "get-mixer-state" [Value]
+-- type MixerStateSchema = Endpoint "get-mixer-state" [Value]
 
-getMixerStatePromise :: Promise (Maybe (Last [MixerState])) MixerStateSchema ContractError ()
-getMixerStatePromise = endpoint @"get-mixer-state" @[Value] $ \vals -> do
-    curTime <- currentTime
-    (_, cache@(MixerStateCache _ ct)) <- getMixerState (MixerStateCache [] 0) curTime zero
-    logInfo @String "Cached txos"
-    logInfo $ curTime - ct
-    states <- mapM (fmap fst . getMixerState cache curTime) vals
-    logInfo @String "Retrieved states"
-    logInfo states
-    tell $ Just $ Last states
+-- getMixerStatePromise :: Promise (Maybe (Last [MixerState])) MixerStateSchema ContractError ()
+-- getMixerStatePromise = endpoint @"get-mixer-state" @[Value] $ \vals -> do
+--     curTime <- currentTime
+--     (_, cache@(MixerStateCache _ ct)) <- getMixerState (MixerStateCache [] 0) curTime zero
+--     logInfo @String "Cached txos"
+--     logInfo $ curTime - ct
+--     states <- mapM (fmap fst . getMixerState cache curTime) vals
+--     logInfo @String "Retrieved states"
+--     logInfo states
+--     tell $ Just $ Last states
 
-    -- mixerStateLoop (MixerStateCache [] 0)
-    -- where defVals = map lovelaceValueOf [40_000, 60_000, 80_000, 100_000] ++ map (`scale` mixToken) [20, 40, 60]
-    --       mixerStateLoop oldCache = do
-    --         logInfo @String "Enter mixerStateLoop"
-    --         curTime <- currentTime
-    --         (_, cache) <- getMixerState oldCache curTime zero
-    --         states <- mapM (fmap fst . getMixerState cache curTime) defVals
-    --         tell $ Just $ Last states
-    --         logInfo @String "Exit mixerStateLoop"
-    --         _ <- waitNSlots 30
-    --         mixerStateLoop cache
+--     -- mixerStateLoop (MixerStateCache [] 0)
+--     -- where defVals = map lovelaceValueOf [40_000, 60_000, 80_000, 100_000] ++ map (`scale` mixToken) [20, 40, 60]
+--     --       mixerStateLoop oldCache = do
+--     --         logInfo @String "Enter mixerStateLoop"
+--     --         curTime <- currentTime
+--     --         (_, cache) <- getMixerState oldCache curTime zero
+--     --         states <- mapM (fmap fst . getMixerState cache curTime) defVals
+--     --         tell $ Just $ Last states
+--     --         logInfo @String "Exit mixerStateLoop"
+--     --         _ <- waitNSlots 30
+--     --         mixerStateLoop cache

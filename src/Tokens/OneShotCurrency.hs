@@ -20,13 +20,14 @@
 
 -- | Implements a custom currency with a minting policy that allows
 --   the minting of a fixed amount of units.
-module Scripts.CurrencyScript (
-      OneShotCurrency(..)
-    , curPolicy
+module Tokens.OneShotCurrency (
+    OneShotCurrencyParams(..),
+    oneShotCurrencyPolicy,
     -- * Actions etc
-    , mkCurrency
-    , mintedValue
-    , currencySymbol
+    mkCurrency,
+    currencySymbol,
+    currencyValue,    
+    oneShotCurrencyMintTx
     ) where
 
 import           Data.Aeson                      (FromJSON, ToJSON)
@@ -42,43 +43,38 @@ import qualified PlutusTx.AssocMap               as AssocMap
 import           PlutusTx.Prelude                hiding (Monoid (..), Semigroup (..))
 import qualified Prelude                         as Haskell
 
+import           Scripts.Constraints             (tokensMintedTx, utxoSpentPublicKeyTx)
+import           Types.TxConstructor             (TxConstructor)
+
+
 {- HLINT ignore "Use uncurry" -}
 
--- | A currency that can be created exactly once
-data OneShotCurrency = OneShotCurrency
-  { curRefTransactionOutput :: TxOutRef
-  -- ^ Transaction input that must be spent when
-  --   the currency is minted.
-  , curAmounts              :: AssocMap.Map TokenName Integer
-  -- ^ How many units of each 'TokenName' are to
-  --   be minted.
-  }
+-------------------------------- On-Chain ------------------------------------
+
+data OneShotCurrencyParams = OneShotCurrencyParams
+    {
+        curRef         :: TxOutRef,
+        curAmounts     :: AssocMap.Map TokenName Integer
+    }
   deriving stock (Generic, Haskell.Show, Haskell.Eq)
   deriving anyclass (ToJSON, FromJSON)
 
-PlutusTx.makeLift ''OneShotCurrency
+PlutusTx.makeLift ''OneShotCurrencyParams
 
-currencyValue :: CurrencySymbol -> OneShotCurrency -> Value
-currencyValue s OneShotCurrency{curAmounts = amts} =
+oneShotCurrencyValue :: CurrencySymbol -> OneShotCurrencyParams -> Value
+oneShotCurrencyValue s OneShotCurrencyParams{curAmounts = amts} =
     let
         values = map (\(tn, i) -> Value.singleton s tn i) (AssocMap.toList amts)
     in fold values
 
-mkCurrency :: TxOutRef -> [(TokenName, Integer)] -> OneShotCurrency
-mkCurrency ref amts =
-    OneShotCurrency
-        { curRefTransactionOutput = ref
-        , curAmounts              = AssocMap.fromList amts
-        }
-
-checkPolicy :: OneShotCurrency -> () -> V.ScriptContext -> Bool
-checkPolicy c@(OneShotCurrency (TxOutRef refHash refIdx) _) _ ctx@V.ScriptContext{V.scriptContextTxInfo=txinfo} =
+checkPolicy :: OneShotCurrencyParams -> () -> V.ScriptContext -> Bool
+checkPolicy c@(OneShotCurrencyParams (TxOutRef refHash refIdx) _) _ ctx@V.ScriptContext{V.scriptContextTxInfo=txinfo} =
     let
         -- see note [Obtaining the currency symbol]
         ownSymbol = V.ownCurrencySymbol ctx
 
         minted = V.txInfoMint txinfo
-        expected = currencyValue ownSymbol c
+        expected = oneShotCurrencyValue ownSymbol c
 
         -- True if the pending transaction mints the amount of
         -- currency that we expect
@@ -94,28 +90,29 @@ checkPolicy c@(OneShotCurrency (TxOutRef refHash refIdx) _) _ ctx@V.ScriptContex
 
     in mintOK && txOutputSpent
 
-curPolicy :: OneShotCurrency -> MintingPolicy
-curPolicy cur = mkMintingPolicyScript $
+oneShotCurrencyPolicy :: OneShotCurrencyParams -> MintingPolicy
+oneShotCurrencyPolicy cur = mkMintingPolicyScript $
     $$(PlutusTx.compile [|| Scripts.wrapMintingPolicy . checkPolicy ||])
         `PlutusTx.applyCode`
             PlutusTx.liftCode cur
 
-{- note [Obtaining the currency symbol]
+-------------------------------- Off-Chain -----------------------------------
 
-The currency symbol is the address (hash) of the validator. That is why
-we can use 'Ledger.scriptAddress' here to get the symbol  in off-chain code,
-for example in 'mintedValue'.
+mkCurrency :: TxOutRef -> [(TokenName, Integer)] -> OneShotCurrencyParams
+mkCurrency ref amts =
+    OneShotCurrencyParams
+        { curRef     = ref
+        , curAmounts = AssocMap.fromList amts
+        }
 
-Inside the validator script (on-chain) we can't use 'Ledger.scriptAddress',
-because at that point we don't know the hash of the script yet. That
-is why we use 'V.ownCurrencySymbol', which obtains the hash from the
-'PolicyCtx' value.
+currencySymbol :: OneShotCurrencyParams -> CurrencySymbol
+currencySymbol = scriptCurrencySymbol . oneShotCurrencyPolicy
 
--}
+currencyValue :: OneShotCurrencyParams -> Value
+currencyValue cur = oneShotCurrencyValue (currencySymbol cur) cur
 
--- | The 'Value' minted by the 'OneShotCurrency' contract
-mintedValue :: OneShotCurrency -> Value
-mintedValue cur = currencyValue (currencySymbol cur) cur
-
-currencySymbol :: OneShotCurrency -> CurrencySymbol
-currencySymbol = scriptCurrencySymbol . curPolicy
+-- TODO: add spending a TxOutRef here!!
+-- Constraints that the OneShotCurrency is minted in the transaction
+oneShotCurrencyMintTx :: OneShotCurrencyParams -> TxConstructor a i o -> TxConstructor a i o
+oneShotCurrencyMintTx par@(OneShotCurrencyParams ref _) = tokensMintedTx (oneShotCurrencyPolicy par) () (currencyValue par) .
+    utxoSpentPublicKeyTx (\r _ -> r == ref)

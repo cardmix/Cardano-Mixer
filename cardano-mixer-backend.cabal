@@ -42,27 +42,21 @@ library
       Contracts.MixerStateContract
       Contracts.VestingContract
       Crypto.Conversions
+      Mixer
       PABContracts
-      RelayRequest
       Requests
-      Scripts.CurrencyScript
-      Scripts.DepositVestingScript
-      Scripts.WithdrawVestingScript
+      Scripts.ADAWithdrawScript
       Scripts.FailScript
+      Scripts.MixerDepositScript
       Scripts.MixerScript
       Scripts.VestingScript
-      Tokens.DepositBeaconToken
       Tokens.DepositToken
       Tokens.GovernanceBeaconToken
       Tokens.GovernanceDecisionToken
-      Tokens.InvalidDepositToken
-      Tokens.InvalidWithdrawToken
       Tokens.MixerBeaconToken
       Tokens.MixerProfitsBeaconToken
       Tokens.MIXToken
-      Tokens.RealDepositToken
-      Tokens.RealWithdrawToken
-      Tokens.WithdrawBeaconToken
+      Tokens.OneShotCurrency
       Tokens.WithdrawToken
     build-depends:
       base                          >= 4.9 && < 5,

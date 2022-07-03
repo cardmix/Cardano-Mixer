@@ -14,24 +14,40 @@ module Tokens.MIXToken where
 
 import           Ledger                           hiding (singleton, unspentOutputs)
 import           Ledger.Tokens                    (token)
-import           Ledger.Value                     (AssetClass(..), TokenName (..), CurrencySymbol (CurrencySymbol))
+import           Ledger.Value                     (AssetClass(..), TokenName (..))
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
 
-import           Configuration.PABConfig          (mixTokenPolicyId)
+import           Configuration.PABConfig          (mixTokenTxOutRef)
+import           Tokens.OneShotCurrency           (OneShotCurrencyParams, mkCurrency, oneShotCurrencyPolicy, oneShotCurrencyMintTx)
+import           Types.TxConstructor              (TxConstructor)
 
------------------------------------- MIX Token ---------------------------------------------------
+--------------------------------------- On-Chain --------------------------------------------------
 
+{-# INLINABLE mixTokenName #-}
 mixTokenName :: TokenName
 mixTokenName = TokenName "tMIX"
 
+{-# INLINABLE mixTokenAmount #-}
 mixTokenAmount :: Integer
 mixTokenAmount = 100_000_000
 
-mixTokenSymbol :: CurrencySymbol
-mixTokenSymbol = CurrencySymbol mixTokenPolicyId
+{-# INLINABLE mixTokenParams #-}
+mixTokenParams :: OneShotCurrencyParams
+mixTokenParams = mkCurrency mixTokenTxOutRef [(mixTokenName, mixTokenAmount)]
+
+curPolicy :: MintingPolicy
+curPolicy = oneShotCurrencyPolicy mixTokenParams
+
+------------------------------------------ Off-Chain ----------------------------------------------
+
+mixTokenCurrencySymbol :: CurrencySymbol
+mixTokenCurrencySymbol = scriptCurrencySymbol curPolicy
 
 mixTokenAssetClass :: AssetClass
-mixTokenAssetClass = AssetClass (mixTokenSymbol, mixTokenName)
+mixTokenAssetClass = AssetClass (mixTokenCurrencySymbol, mixTokenName)
 
 mixToken :: Value
 mixToken = token mixTokenAssetClass
+
+mixTokenMintTx :: TxConstructor a i o -> TxConstructor a i o
+mixTokenMintTx = oneShotCurrencyMintTx mixTokenParams

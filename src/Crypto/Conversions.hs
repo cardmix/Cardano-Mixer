@@ -4,7 +4,6 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
-{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeFamilies               #-}
 
@@ -14,9 +13,9 @@ module Crypto.Conversions  where
 import           Ledger.Address              (PaymentPubKeyHash (..))
 import           Plutus.V1.Ledger.Api
 import           PlutusTx.Prelude            hiding (toList)
-import           Prelude                     ((^))
 
 import           Crypto.Zp                   (Zp(..), FiniteField(..), toZp)
+import           Utils.ByteString            (byteStringToInteger)
 
 ----------------------------- DataToZp ------------------------------------------
 
@@ -33,7 +32,7 @@ instance FiniteField p => DataToZp Integer p where
 
 instance FiniteField p => DataToZp BuiltinByteString p where
     {-# INLINABLE dataToZp #-}
-    dataToZp = toZp . byteStringToInteger
+    dataToZp bs = toZp $ byteStringToInteger bs
 
 instance FiniteField p => DataToZp PaymentPubKeyHash p where
     {-# INLINABLE dataToZp #-}
@@ -67,10 +66,3 @@ instance FiniteField p => DataToZp TokenName p where
 -- instance FiniteField p => DataToZp Value p where
 --     {-# INLINABLE dataToZp #-}
 --     dataToZp = dataToZp . getValue
-
--------------------------------- Auxiliary ----------------------------------------
-
-{-# INLINABLE byteStringToInteger #-}
-byteStringToInteger :: BuiltinByteString -> Integer
-byteStringToInteger bs = sum $ map (\i -> indexByteString bs' i * (2^i)) [0..lengthOfByteString bs'-1]
-    where bs' = sha2_256 bs

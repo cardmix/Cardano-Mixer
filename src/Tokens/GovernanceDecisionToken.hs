@@ -18,17 +18,13 @@
 
 module Tokens.GovernanceDecisionToken where
 
-import qualified Data.Map
-import           Data.Maybe                       (fromJust)
 import           Ledger                           (CurrencySymbol, ScriptContext (..), TxId (..), scriptCurrencySymbol, TxInfo(..), TxOut (..))
-import           Ledger.Constraints               (TxConstraints, ScriptLookups)
 import           Ledger.Scripts                   (MintingPolicy, mkMintingPolicyScript)
 import           Ledger.Tokens                    (token)
 import           Ledger.Typed.Scripts             (wrapMintingPolicy)
 import           Ledger.Value                     (TokenName (..), Value, AssetClass(..), geq)
 import           PlutusTx                         (compile)
 import           PlutusTx.Prelude                 hiding (Monoid (..), Semigroup (..), Eq)
-import           Prelude                          (mempty)
 
 import           Scripts.Constraints              (utxoSpent, utxoSpentPublicKeyTx)
 import           Types.TxConstructor              (TxConstructor(..))
@@ -63,8 +59,7 @@ governanceDecisionTokenRequired info = utxoSpent info (\o -> txOutValue o `geq` 
 
 -------------------------- Off-Chain -----------------------------
 
--- TxConstraints that Governance Decision Token is spent by the transaction
-governanceDecisionTokenTx :: TxId -> (ScriptLookups a, TxConstraints i o)
-governanceDecisionTokenTx tx = fromJust $ txConstructorResult constr
-    where constr = utxoSpentPublicKeyTx (\o -> txOutValue o `geq` governanceDecisionToken tx) $ TxConstructor Data.Map.empty $ Just (mempty, mempty)
+-- TxConstraints that Governance Decision Token is spent in the transaction
+governanceDecisionTokenTx :: TxId -> TxConstructor a i o -> TxConstructor a i o
+governanceDecisionTokenTx tx = utxoSpentPublicKeyTx (\_ o -> txOutValue o `geq` governanceDecisionToken tx)
     
