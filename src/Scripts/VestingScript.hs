@@ -20,7 +20,7 @@
 
 module Scripts.VestingScript where
 
-import           Ledger                         (Address, POSIXTime, PaymentPubKeyHash (..), ValidatorHash)
+import           Ledger                         (Address, POSIXTime, PaymentPubKeyHash (..), ValidatorHash, Datum (..), ChainIndexTxOut (..))
 import           Ledger.Contexts                (ScriptContext (..), TxInfo (..), txSignedBy)
 import qualified Ledger.Interval                as Interval
 import           Ledger.Typed.Scripts
@@ -73,7 +73,11 @@ payToVestingScriptTx :: Value -> VestingDatum -> TxConstructor a i o -> TxConstr
 payToVestingScriptTx = utxoProducedScriptTx vestingValidatorHash Nothing
 
 withdrawFromVestingScriptTx :: VestingDatum -> TxConstructor a i o -> TxConstructor a i o
-withdrawFromVestingScriptTx _ = utxoSpentScriptTx (const . const True) (const vestingValidator) (const ())
+withdrawFromVestingScriptTx (ct, owner) = utxoSpentScriptTx f (const . const vestingValidator) (const . const ())
+    where f _ o = either (const False) g (_ciTxOutDatum o)
+          g d   = fromMaybe False $ do
+              (t, pkh) <- fromBuiltinData $ getDatum d
+              return $ t <= ct && pkh == owner
 
 ---------------------------- For PlutusTx ------------------------------
 

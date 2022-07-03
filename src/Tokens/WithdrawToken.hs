@@ -154,7 +154,7 @@ withdrawTokenMintTx par@(mixer, dSymb, adaWithdrawAddr, _)
                 -- If the address is a script address, we assume that it is a MixerDepositScript address
                 Address (ScriptCredential valHash) _ ->
                     utxoProducedScriptTx valHash Nothing (mixerValueAfterWithdraw mixer) leaf
-            $ foldr ((.) . (\l -> utxoReferencedTx (\o -> txOutValue o `geq` token (AssetClass (dSymb, depositTokenName l))))) id leafs constr
+            $ foldr ((.) . (\l -> utxoReferencedTx (\_ o -> _ciTxOutValue o `geq` token (AssetClass (dSymb, depositTokenName l))))) id leafs constr
         Nothing -> constr { txConstructorResult = Nothing }
     where
         res = case adaWithdrawAddr of
@@ -166,7 +166,6 @@ withdrawTokenMintTx par@(_, _, adaWithdrawAddr, ref)
         Just vh ->
             tokensMintedTx (curPolicy par) red (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) $
             utxoProducedScriptTx vh Nothing (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) () $
-            -- TODO: add spent TxOutRef function
             utxoSpentPublicKeyTx (\r _ -> r == ref) constr
         Nothing -> constr { txConstructorResult = Nothing }
     where

@@ -85,9 +85,8 @@ depositTokenMintTx par@(mixer, (beaconSymb, beaconName)) red constr@(TxConstruct
     case res of
         Just vh -> 
             tokensMintedTx (curPolicy par) red (depositToken par red) $
-            -- TODO: we need to replace pure value with value depending on the mixing round
             utxoProducedScriptTx vh Nothing (mixerValueAfterDeposit mixer) () $
-            utxoReferencedTx (\o -> txOutValue o `geq` beaconToken) constr
+            utxoReferencedTx (\_ o -> _ciTxOutValue o `geq` beaconToken) constr
         Nothing -> constr { txConstructorResult = Nothing }
     where
         beaconToken = token (AssetClass (beaconSymb, beaconName))

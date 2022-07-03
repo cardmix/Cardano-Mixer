@@ -77,8 +77,7 @@ mixerDepositAddress = validatorAddress . mixerDepositTypedValidator
 payToMixerDepositScriptTx :: Value -> MixerDepositDatum -> MixerDepositParams -> TxConstructor a i o -> TxConstructor a i o
 payToMixerDepositScriptTx v leaf par = utxoProducedScriptTx (mixerDepositValidatorHash par) Nothing v leaf
 
--- TODO: check the datum!
 withdrawFromMixerDepositScriptTx :: Value -> MixerDepositDatum -> MixerDepositParams -> TxConstructor a i o -> TxConstructor a i o
-withdrawFromMixerDepositScriptTx v leaf par = utxoSpentScriptTx f (const $ mixerDepositValidator par) (const leaf)
+withdrawFromMixerDepositScriptTx v leaf par = utxoSpentScriptTx f (const . const $ mixerDepositValidator par) (const . const leaf)
   where
-    f _ o = txOutValue o `geq` v
+    f _ o = _ciTxOutValue o `geq` v && either (const False) (== Datum (toBuiltinData leaf)) (_ciTxOutDatum o)

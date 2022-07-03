@@ -76,6 +76,6 @@ payToMixerScriptTx :: TxConstructor a i o -> TxConstructor a i o
 payToMixerScriptTx = id
 
 withdrawFromMixerScriptTx :: Value -> MixerParams -> MixerRedeemer -> TxConstructor a i o -> TxConstructor a i o
-withdrawFromMixerScriptTx v par red = utxoSpentScriptTx f (const $ mixerValidator par) (const red)
+withdrawFromMixerScriptTx v par red = utxoSpentScriptTx f (const . const $ mixerValidator par) (const . const red)
   where
-    f _ o = txOutValue o `geq` v
+    f _ o = _ciTxOutValue o `geq` v && either (const False) (== Datum (toBuiltinData ())) (_ciTxOutDatum o)

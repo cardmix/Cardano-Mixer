@@ -21,7 +21,8 @@
 module Scripts.ADAWithdrawScript where
 
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
-import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator, validatorScript, validatorHash, wrapValidator)
+import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator, 
+                                                            validatorScript, validatorHash, wrapValidator)
 import           Ledger.Value                             (geq, flattenValue)
 import           Plutus.V1.Ledger.Ada                     (fromValue, toValue)
 import           PlutusTx
@@ -71,6 +72,6 @@ adaWithdrawAddress = scriptAddress adaWithdrawValidator
 
 payToADAWithdrawScriptTx :: Value -> TxConstructor a i o -> TxConstructor a i o
 payToADAWithdrawScriptTx v = utxoProducedScriptTx adaWithdrawValidatorHash Nothing v () .
-    utxoSpentScriptTx f (const adaWithdrawValidator) (const ())
+    utxoSpentScriptTx f (const . const adaWithdrawValidator) (const . const ())
   where
-    f _ o = length (flattenValue $ txOutValue o) <= 16
+    f _ o = length (flattenValue $ _ciTxOutValue o) <= 16

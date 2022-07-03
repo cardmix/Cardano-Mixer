@@ -111,7 +111,6 @@ currencySymbol = scriptCurrencySymbol . oneShotCurrencyPolicy
 currencyValue :: OneShotCurrencyParams -> Value
 currencyValue cur = oneShotCurrencyValue (currencySymbol cur) cur
 
--- TODO: add spending a TxOutRef here!!
 -- Constraints that the OneShotCurrency is minted in the transaction
 oneShotCurrencyMintTx :: OneShotCurrencyParams -> TxConstructor a i o -> TxConstructor a i o
 oneShotCurrencyMintTx par@(OneShotCurrencyParams ref _) = tokensMintedTx (oneShotCurrencyPolicy par) () (currencyValue par) .
