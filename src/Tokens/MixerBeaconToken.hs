@@ -14,8 +14,9 @@ module Tokens.MixerBeaconToken where
 import           Ledger                           hiding (singleton, unspentOutputs)
 import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..))
+import           PlutusTx.Prelude
 
-import           Configuration.PABConfig          (mixerBeaconTxOutRef)
+import           Mixer                            (MixerInstance (..))
 import           Tokens.OneShotCurrency           (OneShotCurrencyParams, oneShotCurrencyPolicy, mkCurrency, oneShotCurrencyMintTx)
 import           Types.TxConstructor              (TxConstructor)
 
@@ -26,22 +27,22 @@ mixerBeaconTokenName :: TokenName
 mixerBeaconTokenName = TokenName ""
 
 {-# INLINABLE mixerBeaconParams #-}
-mixerBeaconParams :: OneShotCurrencyParams
-mixerBeaconParams = mkCurrency mixerBeaconTxOutRef [(mixerBeaconTokenName, 1)]
+mixerBeaconParams :: TxOutRef -> OneShotCurrencyParams
+mixerBeaconParams ref = mkCurrency ref [(mixerBeaconTokenName, 1)]
 
-curPolicy :: MintingPolicy
-curPolicy = oneShotCurrencyPolicy mixerBeaconParams
+curPolicy :: TxOutRef -> MintingPolicy
+curPolicy = oneShotCurrencyPolicy . mixerBeaconParams
 
 -------------------------- Off-Chain -----------------------------
 
-mixerBeaconCurrencySymbol :: CurrencySymbol
-mixerBeaconCurrencySymbol = scriptCurrencySymbol curPolicy
+mixerBeaconCurrencySymbol :: TxOutRef -> CurrencySymbol
+mixerBeaconCurrencySymbol = scriptCurrencySymbol . curPolicy
 
-mixerBeaconAssetClass :: AssetClass
-mixerBeaconAssetClass = AssetClass (mixerBeaconCurrencySymbol, mixerBeaconTokenName)
+mixerBeaconAssetClass :: TxOutRef -> AssetClass
+mixerBeaconAssetClass ref = AssetClass (mixerBeaconCurrencySymbol ref, mixerBeaconTokenName)
 
-mixerBeaconToken :: Value
-mixerBeaconToken = token mixerBeaconAssetClass
+mixerBeaconToken :: TxOutRef -> Value
+mixerBeaconToken = token . mixerBeaconAssetClass
 
-mixerBeaconMintTx :: TxConstructor a i o -> TxConstructor a i o
-mixerBeaconMintTx = oneShotCurrencyMintTx mixerBeaconParams
+mixerBeaconMintTx :: MixerInstance -> TxConstructor a i o -> TxConstructor a i o
+mixerBeaconMintTx = oneShotCurrencyMintTx . mixerBeaconParams . miMixerBeaconTxOutRef

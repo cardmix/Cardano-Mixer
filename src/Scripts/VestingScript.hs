@@ -30,7 +30,7 @@ import           PlutusTx.Prelude               hiding ((<>), Eq, Semigroup, fol
 
 import           Crypto
 import           Scripts.Constraints            (utxoProducedScriptTx, utxoSpentScriptTx)
-import           Types.TxConstructor            (TxConstructor)
+import           Types.TxConstructor            (TxConstructor (..))
 
 --------------------------------------- On-Chain ------------------------------------------
 
@@ -69,15 +69,15 @@ vestingValidatorHash = validatorHash vestingTypedValidator
 vestingValidatorAddress :: Address
 vestingValidatorAddress = validatorAddress vestingTypedValidator
 
-payToVestingScriptTx :: Value -> VestingDatum -> TxConstructor a i o -> TxConstructor a i o
-payToVestingScriptTx = utxoProducedScriptTx vestingValidatorHash Nothing
+payToVestingScriptTx :: Value -> POSIXTime -> TxConstructor a i o -> TxConstructor a i o
+payToVestingScriptTx v vestTime constr = utxoProducedScriptTx vestingValidatorHash Nothing v (vestTime, fst $ txCreator constr) constr
 
-withdrawFromVestingScriptTx :: VestingDatum -> TxConstructor a i o -> TxConstructor a i o
-withdrawFromVestingScriptTx (ct, owner) = utxoSpentScriptTx f (const . const vestingValidator) (const . const ())
+withdrawFromVestingScriptTx :: TxConstructor a i o -> TxConstructor a i o
+withdrawFromVestingScriptTx constr = utxoSpentScriptTx False f (const . const vestingValidator) (const . const ()) constr
     where f _ o = either (const False) g (_ciTxOutDatum o)
           g d   = fromMaybe False $ do
               (t, pkh) <- fromBuiltinData $ getDatum d
-              return $ t <= ct && pkh == owner
+              return $ t <= txCurrentTime constr && pkh == txCreator constr
 
 ---------------------------- For PlutusTx ------------------------------
 

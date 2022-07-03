@@ -25,6 +25,8 @@ import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
+------------------------------------- Mixer type -----------------------------------------
+
 -- Protocol fee is the fee that a relayer takes on every deposit/withdraw operation.
 -- It's value should contaun enough ADA so that a UTXO with pure value is allowed by the ledger rules.
 data Mixer = Mixer
@@ -52,3 +54,20 @@ mixerValueAfterDeposit (Mixer pv _ df wf r) = pv + scale (r-1) df + scale r wf
 
 mixerValueAfterWithdraw :: Mixer -> Value
 mixerValueAfterWithdraw (Mixer pv _ df wf r) = pv + scale (r-1) df + scale (r-1) wf
+
+---------------------------------- MixerInstance type -----------------------------------------
+
+data MixerInstance = MixerInstance
+    {
+        miMixer                      :: Mixer,
+        miMixerBeaconTxOutRef        :: TxOutRef,
+        miWithdrawTxOutRef           :: TxOutRef,
+        miMixerBeaconTokenName       :: TokenName,
+        miMixerBeaconCurrencySymbol  :: CurrencySymbol,        
+        miDepositCurrencySymbol      :: CurrencySymbol,
+        miWithdrawCurrencySymbol     :: CurrencySymbol,
+        miADAWithdrawAddress         :: Address,
+        miMixerAddress               :: Address,
+        miADAWithdrawValidatorHash   :: ValidatorHash,
+        miMixerValidatorHash         :: ValidatorHash
+    }

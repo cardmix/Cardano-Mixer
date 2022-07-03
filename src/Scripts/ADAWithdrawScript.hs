@@ -72,6 +72,6 @@ adaWithdrawAddress = scriptAddress adaWithdrawValidator
 
 payToADAWithdrawScriptTx :: Value -> TxConstructor a i o -> TxConstructor a i o
 payToADAWithdrawScriptTx v = utxoProducedScriptTx adaWithdrawValidatorHash Nothing v () .
-    utxoSpentScriptTx f (const . const adaWithdrawValidator) (const . const ())
+    utxoSpentScriptTx True f (const . const adaWithdrawValidator) (const . const ())
   where
     f _ o = length (flattenValue $ _ciTxOutValue o) <= 16

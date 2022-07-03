@@ -29,6 +29,7 @@ import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
 import           Crypto
+import           Mixer                                    (MixerInstance (..))
 import           Scripts.Constraints                      (utxoProducedScriptTx, utxoSpentScriptTx)
 import           Tokens.DepositToken                      (depositTokenName)
 import           Types.TxConstructor                      (TxConstructor)
@@ -74,10 +75,11 @@ mixerDepositValidatorHash = validatorHash . mixerDepositTypedValidator
 mixerDepositAddress :: MixerDepositParams -> Address
 mixerDepositAddress = validatorAddress . mixerDepositTypedValidator
 
-payToMixerDepositScriptTx :: Value -> MixerDepositDatum -> MixerDepositParams -> TxConstructor a i o -> TxConstructor a i o
-payToMixerDepositScriptTx v leaf par = utxoProducedScriptTx (mixerDepositValidatorHash par) Nothing v leaf
+payToMixerDepositScriptTx :: MixerInstance -> Value -> MixerDepositDatum -> TxConstructor a i o -> TxConstructor a i o
+payToMixerDepositScriptTx mi = utxoProducedScriptTx (mixerDepositValidatorHash $ miDepositCurrencySymbol mi) Nothing
 
-withdrawFromMixerDepositScriptTx :: Value -> MixerDepositDatum -> MixerDepositParams -> TxConstructor a i o -> TxConstructor a i o
-withdrawFromMixerDepositScriptTx v leaf par = utxoSpentScriptTx f (const . const $ mixerDepositValidator par) (const . const leaf)
+withdrawFromMixerDepositScriptTx :: MixerInstance -> Value -> MixerDepositDatum -> TxConstructor a i o -> TxConstructor a i o
+withdrawFromMixerDepositScriptTx mi v leaf = utxoSpentScriptTx False f (const . const $ mixerDepositValidator $ miDepositCurrencySymbol mi)
+    (const . const leaf)
   where
     f _ o = _ciTxOutValue o `geq` v && either (const False) (== Datum (toBuiltinData leaf)) (_ciTxOutDatum o)

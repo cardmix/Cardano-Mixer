@@ -4,11 +4,30 @@
 
 module Configuration.MixerConfig where
 
-import Ledger                        (Value)
-import PlutusTx.Prelude              hiding (elem)
-import Plutus.V1.Ledger.Ada          (lovelaceValueOf)
-import Tokens.MIXToken               (mixToken)
-import Plutus.Contract (Contract, ContractError (..), throwError)
+import           Ledger                        (Value, TxOutRef)
+import           Plutus.Contract               (Contract, ContractError (..), throwError)
+import           Plutus.V1.Ledger.Ada          (lovelaceValueOf)
+import           PlutusTx.Prelude              hiding (elem)
+
+import           Mixer                         (Mixer, MixerInstance (..))
+import           Scripts.ADAWithdrawScript     (adaWithdrawAddress, adaWithdrawValidatorHash)
+import           Scripts.MixerScript           (mixerAddress, mixerValidatorHash)
+import           Tokens.DepositToken           (depositTokenSymbol)
+import           Tokens.MixerBeaconToken       (mixerBeaconCurrencySymbol, mixerBeaconTokenName)
+import           Tokens.MIXToken               (mixToken)
+import           Tokens.WithdrawToken          (withdrawTokenSymbol)
+
+------------------------ Instantiating ---------------------------
+
+toMixerInstance :: Mixer -> TxOutRef -> TxOutRef -> MixerInstance
+toMixerInstance mixer beaconRef withdrawRef = 
+          MixerInstance mixer beaconRef withdrawRef mixerBeaconTokenName bSymb dSymb wSymb adaWithdrawAddress mAddr adaWithdrawValidatorHash mVH
+     where
+          bSymb = mixerBeaconCurrencySymbol beaconRef
+          dSymb = depositTokenSymbol (mixer, (bSymb, mixerBeaconTokenName))
+          wSymb = withdrawTokenSymbol (mixer, dSymb, adaWithdrawAddress, withdrawRef)
+          mAddr = mixerAddress wSymb
+          mVH   = mixerValidatorHash wSymb
 
 ------------------------ Config options --------------------------
 

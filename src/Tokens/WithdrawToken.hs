@@ -77,7 +77,7 @@ sigmaProtocolVerify (leafs, key, addrExp, addr) proof@((as, bs, cs), es, xs) = e
 
 --------------------------- On-Chain -----------------------------
 
--- Deposit token symbol, Withdraw token symbol, ADAWithdraw script address, and TxOutRef of initial mint
+-- Mixer, Deposit token symbol, ADAWithdraw script address, and TxOutRef of initial mint
 type WithdrawTokenParams = (Mixer, CurrencySymbol, Address, TxOutRef)
 
 type WithdrawTokenRedeemer = (SigmaProtocolInput, SigmaProtocolProof, (Fr, Fr, Address), Bool)
@@ -140,35 +140,30 @@ withdrawToken :: WithdrawTokenParams -> WithdrawTokenNameParams -> Value
 withdrawToken par nParams = token $ withdrawTokenAssetClass par nParams
 
 -- Constraints that Withdraw Token is minted in the transaction
-withdrawTokenMintTx :: WithdrawTokenParams -> WithdrawTokenRedeemer -> MixerDepositDatum -> TxConstructor a i o -> TxConstructor a i o
-withdrawTokenMintTx par@(mixer, dSymb, adaWithdrawAddr, _)
-    red@((leafs, cur, _, _), _, (prev, next, addr), False) leaf constr =
-    case res of
-        Just vh ->
-            tokensMintedTx (curPolicy par) red (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) $
-            tokensBurnedTx (curPolicy par) red (withdrawToken par (prev, next)) $
-            utxoProducedScriptTx vh Nothing (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) () $
-            case addr of
-                Address (PubKeyCredential pkh) _ ->
-                    utxoProducedPublicKeyTx (PaymentPubKeyHash pkh) Nothing (mixerValueAfterWithdraw mixer) ()
-                -- If the address is a script address, we assume that it is a MixerDepositScript address
-                Address (ScriptCredential valHash) _ ->
-                    utxoProducedScriptTx valHash Nothing (mixerValueAfterWithdraw mixer) leaf
-            $ foldr ((.) . (\l -> utxoReferencedTx (\_ o -> _ciTxOutValue o `geq` token (AssetClass (dSymb, depositTokenName l))))) id leafs constr
-        Nothing -> constr { txConstructorResult = Nothing }
+withdrawTokenMintTx :: MixerInstance -> WithdrawTokenRedeemer -> MixerDepositDatum -> TxConstructor a i o -> TxConstructor a i o
+withdrawTokenMintTx mi red@((leafs, cur, _, _), _, (prev, next, addr), b) leaf =
+    if b
+    then
+        tokensMintedTx (curPolicy par) red (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) .
+        utxoProducedScriptTx aVH Nothing (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) () .
+        utxoSpentPublicKeyTx False (\r _ -> r == wRef)
+    else
+        tokensMintedTx (curPolicy par) red (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) .
+        tokensBurnedTx (curPolicy par) red (withdrawToken par (prev, next)) .
+        utxoProducedScriptTx aVH Nothing (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) () .
+        utxoProducedWithdraw .
+        foldr ((.) . (\l -> utxoReferencedTx False (\_ o -> _ciTxOutValue o `geq` token (AssetClass (dSymb, depositTokenName l))))) id leafs
     where
-        res = case adaWithdrawAddr of
-            Address (ScriptCredential vh) _ -> Just vh
-            _                               -> Nothing
-withdrawTokenMintTx par@(_, _, adaWithdrawAddr, ref)
-    red@((_, cur, _, _), _, (prev, next, _), True) _ constr = 
-    case res of
-        Just vh ->
-            tokensMintedTx (curPolicy par) red (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) $
-            utxoProducedScriptTx vh Nothing (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) () $
-            utxoSpentPublicKeyTx (\r _ -> r == ref) constr
-        Nothing -> constr { txConstructorResult = Nothing }
-    where
-        res = case adaWithdrawAddr of
-            Address (ScriptCredential vh) _ -> Just vh
-            _                               -> Nothing
+        mixer = miMixer mi
+        dSymb = miDepositCurrencySymbol mi
+        aAddr = miADAWithdrawAddress mi
+        aVH   = miADAWithdrawValidatorHash mi
+        wRef  = miWithdrawTxOutRef mi
+        par   = (mixer, dSymb, aAddr, wRef)
+
+        -- Different condition depending on the type of withdrawal address
+        utxoProducedWithdraw = case addr of
+            Address (PubKeyCredential pkh) _ ->
+                utxoProducedPublicKeyTx (PaymentPubKeyHash pkh) Nothing (mixerValueAfterWithdraw mixer) ()
+            Address (ScriptCredential valHash) _ ->
+                utxoProducedScriptTx valHash Nothing (mixerValueAfterWithdraw mixer) leaf

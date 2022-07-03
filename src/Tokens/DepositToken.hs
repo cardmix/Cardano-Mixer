@@ -18,12 +18,10 @@
 
 module Tokens.DepositToken where
 
-import qualified Data.Map
 import           Ledger                           hiding (singleton, unspentOutputs)
 import           Ledger.Typed.Scripts             (wrapMintingPolicy)
 import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..), geq)
-import           Plutus.V1.Ledger.Api             (Credential(..))
 import           PlutusTx                         (compile, applyCode, liftCode)
 import           PlutusTx.AssocMap                (singleton)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, mempty)
@@ -80,22 +78,15 @@ depositToken :: DepositTokenParams -> DepositTokenRedeemer -> Value
 depositToken par d = token $ depositTokenAssetClass par d
 
 -- Constraints that Deposit Token is minted in the transaction
-depositTokenMintTx :: DepositTokenParams -> DepositTokenRedeemer -> TxConstructor a i o -> TxConstructor a i o
-depositTokenMintTx par@(mixer, (beaconSymb, beaconName)) red constr@(TxConstructor _ lookups _) =
-    case res of
-        Just vh -> 
-            tokensMintedTx (curPolicy par) red (depositToken par red) $
-            utxoProducedScriptTx vh Nothing (mixerValueAfterDeposit mixer) () $
-            utxoReferencedTx (\_ o -> _ciTxOutValue o `geq` beaconToken) constr
-        Nothing -> constr { txConstructorResult = Nothing }
+depositTokenMintTx :: MixerInstance -> DepositTokenRedeemer -> TxConstructor a i o -> TxConstructor a i o
+depositTokenMintTx mi red =
+        tokensMintedTx (curPolicy par) red (depositToken par red) .
+        utxoProducedScriptTx mixerVH Nothing (mixerValueAfterDeposit mixer) () .
+        utxoReferencedTx False (\_ o -> _ciTxOutValue o `geq` beaconToken)
     where
-        beaconToken = token (AssetClass (beaconSymb, beaconName))
-        -- calculating mixerValidatorHash from beacon
-        res = do
-            let m = Data.Map.filter (\(o, _) -> _ciTxOutValue o `geq` beaconToken) lookups
-            txOutBeacon <- if Data.Map.null m then Nothing else Just $ head $ Data.Map.toList m
-            let addr = _ciTxOutAddress $ fst $ snd txOutBeacon
-            case addr of
-                Address (ScriptCredential vh) _ -> Just vh
-                _                               -> Nothing
-        
+        mixer       = miMixer mi
+        beaconSymb  = miMixerBeaconCurrencySymbol mi
+        beaconName  = miMixerBeaconTokenName mi
+        par         = (mixer, (beaconSymb, beaconName))
+        beaconToken = token (AssetClass $ snd par)
+        mixerVH     = miMixerValidatorHash mi

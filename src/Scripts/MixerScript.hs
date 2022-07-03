@@ -28,7 +28,8 @@ import           Ledger.Value                             (AssetClass(..), geq)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
-import           Scripts.Constraints                      (utxoSpentScriptTx)
+import           Mixer                                    (MixerInstance (..))
+import           Scripts.Constraints                      (utxoSpentScriptTx, utxoProducedScriptTx)
 import           Tokens.WithdrawToken                     (WithdrawTokenNameParams, withdrawTokenName)
 import           Types.TxConstructor                      (TxConstructor)
 
@@ -72,10 +73,10 @@ mixerValidatorHash = validatorHash . mixerTypedValidator
 mixerAddress :: MixerParams -> Address
 mixerAddress = validatorAddress . mixerTypedValidator
 
-payToMixerScriptTx :: TxConstructor a i o -> TxConstructor a i o
-payToMixerScriptTx = id
+payToMixerScriptTx :: MixerInstance -> Value -> TxConstructor a i o -> TxConstructor a i o
+payToMixerScriptTx mi v = utxoProducedScriptTx (mixerValidatorHash $ miWithdrawCurrencySymbol mi) Nothing v ()
 
-withdrawFromMixerScriptTx :: Value -> MixerParams -> MixerRedeemer -> TxConstructor a i o -> TxConstructor a i o
-withdrawFromMixerScriptTx v par red = utxoSpentScriptTx f (const . const $ mixerValidator par) (const . const red)
+withdrawFromMixerScriptTx :: MixerInstance -> Value -> MixerRedeemer -> TxConstructor a i o -> TxConstructor a i o
+withdrawFromMixerScriptTx mi v red = utxoSpentScriptTx False f (const . const $ mixerValidator $ miWithdrawCurrencySymbol mi) (const . const red)
   where
     f _ o = _ciTxOutValue o `geq` v && either (const False) (== Datum (toBuiltinData ())) (_ciTxOutDatum o)
