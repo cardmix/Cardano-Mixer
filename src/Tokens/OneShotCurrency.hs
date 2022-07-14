@@ -30,9 +30,10 @@ module Tokens.OneShotCurrency (
     oneShotCurrencyMintTx
     ) where
 
+import           Control.Monad.State             (State)
 import           Data.Aeson                      (FromJSON, ToJSON)
 import           GHC.Generics                    (Generic)
-import           Ledger                          (CurrencySymbol, TxOutRef (..), scriptCurrencySymbol)
+import           Ledger                          (CurrencySymbol, TxOutRef (..), scriptCurrencySymbol, ChainIndexTxOut)
 import qualified Ledger.Contexts                 as V
 import           Ledger.Scripts
 import qualified Ledger.Typed.Scripts            as Scripts
@@ -45,7 +46,6 @@ import qualified Prelude                         as Haskell
 
 import           Scripts.Constraints             (tokensMintedTx, utxoSpentPublicKeyTx)
 import           Types.TxConstructor             (TxConstructor)
-
 
 {- HLINT ignore "Use uncurry" -}
 
@@ -112,6 +112,8 @@ currencyValue :: OneShotCurrencyParams -> Value
 currencyValue cur = oneShotCurrencyValue (currencySymbol cur) cur
 
 -- Constraints that the OneShotCurrency is minted in the transaction
-oneShotCurrencyMintTx :: OneShotCurrencyParams -> TxConstructor a i o -> TxConstructor a i o
-oneShotCurrencyMintTx par@(OneShotCurrencyParams ref _) = tokensMintedTx (oneShotCurrencyPolicy par) () (currencyValue par) .
-    utxoSpentPublicKeyTx False (\r _ -> r == ref)
+oneShotCurrencyMintTx :: OneShotCurrencyParams -> State (TxConstructor d a i o) (Maybe (TxOutRef, ChainIndexTxOut))
+oneShotCurrencyMintTx par@(OneShotCurrencyParams ref _) = do
+    tokensMintedTx (oneShotCurrencyPolicy par) () (currencyValue par)
+    utxoSpentPublicKeyTx (\r _ -> r == ref)
+    

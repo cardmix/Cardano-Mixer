@@ -20,6 +20,7 @@
 
 module Scripts.MixerDepositScript where
 
+import           Control.Monad.State                      (State)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           Ledger.Tokens                            (token)
 import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator,
@@ -29,7 +30,8 @@ import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
 import           Crypto
-import           Mixer                                    (MixerInstance (..))
+import           Mixer                                    (mixerValueBeforeDeposit)
+import           MixerInstance                            (MixerInstance (..))
 import           Scripts.Constraints                      (utxoProducedScriptTx, utxoSpentScriptTx)
 import           Tokens.DepositToken                      (depositTokenName)
 import           Types.TxConstructor                      (TxConstructor)
@@ -40,7 +42,7 @@ type MixerDepositParams = CurrencySymbol
 
 type MixerDepositDatum = Fr
 
-type MixerDepositRedeemer = Fr
+type MixerDepositRedeemer = ()
 
 data MixerDepositing
 instance ValidatorTypes MixerDepositing where
@@ -49,12 +51,10 @@ instance ValidatorTypes MixerDepositing where
 
 {-# INLINABLE mkMixerDepositValidator #-}
 mkMixerDepositValidator :: MixerDepositParams -> MixerDepositDatum -> MixerDepositRedeemer -> ScriptContext -> Bool
-mkMixerDepositValidator dSymb oldLeaf newLeaf ScriptContext{scriptContextTxInfo=info} = cond1 && cond2
+mkMixerDepositValidator dSymb leaf _ ScriptContext{scriptContextTxInfo=info} = cond
     where
-        vDep = token $ AssetClass (dSymb, depositTokenName newLeaf)
-
-        cond1 = txInfoMint info `geq` vDep
-        cond2 = oldLeaf == newLeaf
+        vDep = token $ AssetClass (dSymb, depositTokenName leaf)
+        cond = txInfoMint info `geq` vDep
 
 mixerDepositTypedValidator :: MixerDepositParams -> TypedValidator MixerDepositing
 mixerDepositTypedValidator params = mkTypedValidator @MixerDepositing
@@ -75,11 +75,18 @@ mixerDepositValidatorHash = validatorHash . mixerDepositTypedValidator
 mixerDepositAddress :: MixerDepositParams -> Address
 mixerDepositAddress = validatorAddress . mixerDepositTypedValidator
 
-payToMixerDepositScriptTx :: MixerInstance -> Value -> MixerDepositDatum -> TxConstructor a i o -> TxConstructor a i o
-payToMixerDepositScriptTx mi = utxoProducedScriptTx (mixerDepositValidatorHash $ miDepositCurrencySymbol mi) Nothing
+payToMixerDepositScriptTx :: MixerInstance -> MixerDepositDatum -> State (TxConstructor d a i o) ()
+payToMixerDepositScriptTx mi = utxoProducedScriptTx vh Nothing v
+  where vh = mixerDepositValidatorHash $ miDepositCurrencySymbol mi
+        v  = mixerValueBeforeDeposit   $ miMixer  mi
 
-withdrawFromMixerDepositScriptTx :: MixerInstance -> Value -> MixerDepositDatum -> TxConstructor a i o -> TxConstructor a i o
-withdrawFromMixerDepositScriptTx mi v leaf = utxoSpentScriptTx False f (const . const $ mixerDepositValidator $ miDepositCurrencySymbol mi)
-    (const . const leaf)
-  where
-    f _ o = _ciTxOutValue o `geq` v && either (const False) (== Datum (toBuiltinData leaf)) (_ciTxOutDatum o)
+withdrawFromMixerDepositScriptTx :: MixerInstance -> State (TxConstructor d a i o) (Maybe MixerDepositDatum)
+withdrawFromMixerDepositScriptTx mi = do
+  let g     = (fromBuiltinData :: BuiltinData -> Maybe Fr) . getDatum
+      f _ o = _ciTxOutValue o `geq` v && either (const False) (isJust . g) (_ciTxOutDatum o)
+  res <- utxoSpentScriptTx f (const . const val) (const . const ())
+  case res of
+    Just (_, ciTxOut) -> return $ either (const Nothing) g (_ciTxOutDatum ciTxOut)
+    _                 -> return Nothing
+  where val = mixerDepositValidator $ miDepositCurrencySymbol mi
+        v   = mixerValueBeforeDeposit   $ miMixer  mi

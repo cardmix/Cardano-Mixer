@@ -43,6 +43,9 @@ library
       Contracts.VestingContract
       Crypto.Conversions
       Mixer
+      MixerInput
+      MixerInstance
+      MixerApp
       PABContracts
       Requests
       Scripts.ADAWithdrawScript

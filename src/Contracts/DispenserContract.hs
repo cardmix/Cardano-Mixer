@@ -33,7 +33,7 @@ import           Plutus.V1.Ledger.Credential              (Credential(..), Staki
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  (String, Foldable (null, length), (<>), (<$>))
 
-import           Configuration.PABConfig                  (dispenserWalletPKH)
+import           Configuration.PABConfig                  (dispenserWalletPKH, mixTokenTxOutRef)
 import           Tokens.MIXToken                          (mixToken)
 
 
@@ -41,7 +41,7 @@ dispenserAddress :: Address
 dispenserAddress = pubKeyHashAddress dispenserWalletPKH Nothing
 
 dispenserAmount :: Value
-dispenserAmount = toValue minAdaTxOut + scale 100_000 mixToken
+dispenserAmount = toValue minAdaTxOut + scale 100_000 (mixToken mixTokenTxOutRef)
 
 getSender :: AsContractError e => ChainIndexTx -> Contract w s e (Maybe (PaymentPubKeyHash, StakePubKeyHash))
 getSender tx = do

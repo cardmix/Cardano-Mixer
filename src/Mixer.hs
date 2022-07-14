@@ -24,6 +24,8 @@ import           Ledger                                   hiding (singleton, val
 import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
+import           Prelude                                  (Show)
+import qualified Prelude
 
 ------------------------------------- Mixer type -----------------------------------------
 
@@ -37,6 +39,10 @@ data Mixer = Mixer
         mWithdrawFee  :: !Value,
         mRoundsLeft   :: !Integer
     }
+    deriving (Prelude.Eq, Show)
+
+instance Eq Mixer where
+    (==) = (Prelude.==)
 
 PlutusTx.makeLift ''Mixer
 
@@ -49,25 +55,11 @@ mixerFixedWithdrawFee = lovelaceValueOf 1_500_000
 mixerFromProtocol :: Value -> Integer -> Mixer
 mixerFromProtocol v = Mixer (scale 1000 v) v (v + mixerFixedDepositFee) (v + mixerFixedWithdrawFee)
 
+mixerValueBeforeDeposit :: Mixer -> Value
+mixerValueBeforeDeposit (Mixer pv _ df wf r) = pv + scale r df + scale r wf
+
 mixerValueAfterDeposit :: Mixer -> Value
 mixerValueAfterDeposit (Mixer pv _ df wf r) = pv + scale (r-1) df + scale r wf
 
 mixerValueAfterWithdraw :: Mixer -> Value
 mixerValueAfterWithdraw (Mixer pv _ df wf r) = pv + scale (r-1) df + scale (r-1) wf
-
----------------------------------- MixerInstance type -----------------------------------------
-
-data MixerInstance = MixerInstance
-    {
-        miMixer                      :: Mixer,
-        miMixerBeaconTxOutRef        :: TxOutRef,
-        miWithdrawTxOutRef           :: TxOutRef,
-        miMixerBeaconTokenName       :: TokenName,
-        miMixerBeaconCurrencySymbol  :: CurrencySymbol,        
-        miDepositCurrencySymbol      :: CurrencySymbol,
-        miWithdrawCurrencySymbol     :: CurrencySymbol,
-        miADAWithdrawAddress         :: Address,
-        miMixerAddress               :: Address,
-        miADAWithdrawValidatorHash   :: ValidatorHash,
-        miMixerValidatorHash         :: ValidatorHash
-    }

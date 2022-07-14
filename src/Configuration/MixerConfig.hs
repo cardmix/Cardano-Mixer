@@ -4,36 +4,19 @@
 
 module Configuration.MixerConfig where
 
-import           Ledger                        (Value, TxOutRef)
+import           Ledger                        (Value)
 import           Plutus.Contract               (Contract, ContractError (..), throwError)
 import           Plutus.V1.Ledger.Ada          (lovelaceValueOf)
 import           PlutusTx.Prelude              hiding (elem)
 
-import           Mixer                         (Mixer, MixerInstance (..))
-import           Scripts.ADAWithdrawScript     (adaWithdrawAddress, adaWithdrawValidatorHash)
-import           Scripts.MixerScript           (mixerAddress, mixerValidatorHash)
-import           Tokens.DepositToken           (depositTokenSymbol)
-import           Tokens.MixerBeaconToken       (mixerBeaconCurrencySymbol, mixerBeaconTokenName)
+import           Configuration.PABConfig       (mixTokenTxOutRef)
 import           Tokens.MIXToken               (mixToken)
-import           Tokens.WithdrawToken          (withdrawTokenSymbol)
-
------------------------- Instantiating ---------------------------
-
-toMixerInstance :: Mixer -> TxOutRef -> TxOutRef -> MixerInstance
-toMixerInstance mixer beaconRef withdrawRef = 
-          MixerInstance mixer beaconRef withdrawRef mixerBeaconTokenName bSymb dSymb wSymb adaWithdrawAddress mAddr adaWithdrawValidatorHash mVH
-     where
-          bSymb = mixerBeaconCurrencySymbol beaconRef
-          dSymb = depositTokenSymbol (mixer, (bSymb, mixerBeaconTokenName))
-          wSymb = withdrawTokenSymbol (mixer, dSymb, adaWithdrawAddress, withdrawRef)
-          mAddr = mixerAddress wSymb
-          mVH   = mixerValidatorHash wSymb
 
 ------------------------ Config options --------------------------
 
 mixingValuesTable :: [[Value]]
 mixingValuesTable = [ map lovelaceValueOf [20_000, 200_000, 2_000_000],
-     map (\n -> lovelaceValueOf 4_000 + scale n mixToken) [10, 100, 1000]]
+     map (\n -> lovelaceValueOf 4_000 + scale n (mixToken mixTokenTxOutRef)) [10, 100, 1000]]
 
 ---------------------------- Interface ---------------------------
 

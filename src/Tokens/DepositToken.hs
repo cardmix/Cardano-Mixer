@@ -18,6 +18,7 @@
 
 module Tokens.DepositToken where
 
+import           Control.Monad.State              (State)
 import           Ledger                           hiding (singleton, unspentOutputs)
 import           Ledger.Typed.Scripts             (wrapMintingPolicy)
 import           Ledger.Tokens                    (token)
@@ -28,6 +29,7 @@ import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), 
 
 import           Crypto
 import           Mixer
+import           MixerInstance                    (MixerInstance(..))
 import           Scripts.Constraints              (tokensMinted, utxoProduced, findUtxoReferenced, tokensMintedTx, utxoProducedScriptTx, utxoReferencedTx)
 import           Scripts.VestingScript            ()
 import           Types.TxConstructor              (TxConstructor(..))
@@ -77,16 +79,16 @@ depositTokenAssetClass par red = AssetClass (depositTokenSymbol par, depositToke
 depositToken :: DepositTokenParams -> DepositTokenRedeemer -> Value
 depositToken par d = token $ depositTokenAssetClass par d
 
--- Constraints that Deposit Token is minted in the transaction
-depositTokenMintTx :: MixerInstance -> DepositTokenRedeemer -> TxConstructor a i o -> TxConstructor a i o
-depositTokenMintTx mi red =
-        tokensMintedTx (curPolicy par) red (depositToken par red) .
-        utxoProducedScriptTx mixerVH Nothing (mixerValueAfterDeposit mixer) () .
-        utxoReferencedTx False (\_ o -> _ciTxOutValue o `geq` beaconToken)
+depositTokenMintTx :: MixerInstance -> DepositTokenRedeemer -> State (TxConstructor d a i o) ()
+depositTokenMintTx mi red = do
+        tokensMintedTx (curPolicy par) red (depositToken par red)
+        utxoProducedScriptTx vh Nothing (mixerValueAfterDeposit mixer) ()
+        utxoReferencedTx (\_ o -> _ciTxOutValue o `geq` beaconToken && _ciTxOutAddress o == mixerAddr)
     where
         mixer       = miMixer mi
+        vh          = miMixerValidatorHash mi
+        mixerAddr   = miMixerAddress mi
         beaconSymb  = miMixerBeaconCurrencySymbol mi
         beaconName  = miMixerBeaconTokenName mi
         par         = (mixer, (beaconSymb, beaconName))
         beaconToken = token (AssetClass $ snd par)
-        mixerVH     = miMixerValidatorHash mi

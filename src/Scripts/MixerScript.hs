@@ -20,6 +20,7 @@
 
 module Scripts.MixerScript where
 
+import           Control.Monad.State                      (State)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           Ledger.Tokens                            (token)
 import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator,
@@ -28,9 +29,11 @@ import           Ledger.Value                             (AssetClass(..), geq)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
-import           Mixer                                    (MixerInstance (..))
+import           Mixer                                    (mixerValueBeforeDeposit)
+import           MixerInput                               (WithdrawTokenNameParams)
+import           MixerInstance                            (MixerInstance (..))
 import           Scripts.Constraints                      (utxoSpentScriptTx, utxoProducedScriptTx)
-import           Tokens.WithdrawToken                     (WithdrawTokenNameParams, withdrawTokenName)
+import           Tokens.WithdrawToken                     (withdrawTokenName)
 import           Types.TxConstructor                      (TxConstructor)
 
 --------------------------------------- On-Chain ------------------------------------------
@@ -73,10 +76,14 @@ mixerValidatorHash = validatorHash . mixerTypedValidator
 mixerAddress :: MixerParams -> Address
 mixerAddress = validatorAddress . mixerTypedValidator
 
-payToMixerScriptTx :: MixerInstance -> Value -> TxConstructor a i o -> TxConstructor a i o
-payToMixerScriptTx mi v = utxoProducedScriptTx (mixerValidatorHash $ miWithdrawCurrencySymbol mi) Nothing v ()
+payToMixerScriptTx :: MixerInstance -> State (TxConstructor d a i o) ()
+payToMixerScriptTx mi = utxoProducedScriptTx val Nothing v ()
+  where val = mixerValidatorHash        $ miWithdrawCurrencySymbol mi
+        v   = mixerValueBeforeDeposit   $ miMixer  mi
 
-withdrawFromMixerScriptTx :: MixerInstance -> Value -> MixerRedeemer -> TxConstructor a i o -> TxConstructor a i o
-withdrawFromMixerScriptTx mi v red = utxoSpentScriptTx False f (const . const $ mixerValidator $ miWithdrawCurrencySymbol mi) (const . const red)
-  where
-    f _ o = _ciTxOutValue o `geq` v && either (const False) (== Datum (toBuiltinData ())) (_ciTxOutDatum o)
+withdrawFromMixerScriptTx :: MixerInstance -> MixerRedeemer -> State (TxConstructor d a i o) (Maybe (TxOutRef, ChainIndexTxOut))
+withdrawFromMixerScriptTx mi red = do
+  let f _ o = _ciTxOutValue o `geq` v && either (const False) (== Datum (toBuiltinData ())) (_ciTxOutDatum o)
+  utxoSpentScriptTx f (const . const val) (const . const red)
+  where val = mixerValidator            $ miWithdrawCurrencySymbol mi
+        v   = mixerValueBeforeDeposit   $ miMixer  mi

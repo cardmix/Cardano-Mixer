@@ -11,12 +11,15 @@
 
 module Tokens.MixerBeaconToken where
 
+import           Control.Monad.State              (State)
+import           Data.Functor                     (($>))
 import           Ledger                           hiding (singleton, unspentOutputs)
 import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..))
 import           PlutusTx.Prelude
 
-import           Mixer                            (MixerInstance (..))
+import           MixerInstance                    (MixerInstance (..))
+import           Scripts.Constraints              (utxoProducedScriptTx)
 import           Tokens.OneShotCurrency           (OneShotCurrencyParams, oneShotCurrencyPolicy, mkCurrency, oneShotCurrencyMintTx)
 import           Types.TxConstructor              (TxConstructor)
 
@@ -44,5 +47,10 @@ mixerBeaconAssetClass ref = AssetClass (mixerBeaconCurrencySymbol ref, mixerBeac
 mixerBeaconToken :: TxOutRef -> Value
 mixerBeaconToken = token . mixerBeaconAssetClass
 
-mixerBeaconMintTx :: MixerInstance -> TxConstructor a i o -> TxConstructor a i o
-mixerBeaconMintTx = oneShotCurrencyMintTx . mixerBeaconParams . miMixerBeaconTxOutRef
+mixerBeaconMintTx :: MixerInstance -> State (TxConstructor d a i o) ()
+mixerBeaconMintTx mi = oneShotCurrencyMintTx (mixerBeaconParams $ miMixerBeaconTxOutRef mi) $> ()
+
+mixerBeaconSendTx :: MixerInstance -> State (TxConstructor d a i o) ()
+mixerBeaconSendTx mi = utxoProducedScriptTx val Nothing v ()
+  where val = miMixerValidatorHash mi
+        v   = mixerBeaconToken $ miMixerBeaconTxOutRef mi

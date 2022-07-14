@@ -18,8 +18,9 @@
 
 module Tokens.GovernanceDecisionToken where
 
-import           Ledger                           (CurrencySymbol, ScriptContext (..), TxId (..), TxInfo(..),
-                                                    TxOut (..), ChainIndexTxOut (..), scriptCurrencySymbol)
+import           Control.Monad.State              (State)
+import           Ledger                           (CurrencySymbol, ScriptContext (..), TxId (..), TxInfo(..),  TxOut (..),
+                                                    ChainIndexTxOut (..), TxOutRef, scriptCurrencySymbol)
 import           Ledger.Scripts                   (MintingPolicy, mkMintingPolicyScript)
 import           Ledger.Tokens                    (token)
 import           Ledger.Typed.Scripts             (wrapMintingPolicy)
@@ -61,6 +62,6 @@ governanceDecisionTokenRequired info = utxoSpent info (\o -> txOutValue o `geq` 
 -------------------------- Off-Chain -----------------------------
 
 -- TxConstraints that Governance Decision Token is spent in the transaction
-governanceDecisionTokenTx :: TxId -> TxConstructor a i o -> TxConstructor a i o
-governanceDecisionTokenTx tx = utxoSpentPublicKeyTx False (\_ o -> _ciTxOutValue o `geq` governanceDecisionToken tx)
+governanceDecisionTokenTx :: TxId -> State (TxConstructor d a i o) (Maybe (TxOutRef, ChainIndexTxOut))
+governanceDecisionTokenTx tx = utxoSpentPublicKeyTx (\_ o -> _ciTxOutValue o `geq` governanceDecisionToken tx)
     

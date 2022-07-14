@@ -28,7 +28,7 @@ import           Data.Aeson.Extras                        (encodeByteString, try
 import           Data.ByteString.Lazy                     (toStrict)
 import           Data.Default                             (def)
 import           Data.Either                              (fromRight)
-import           Data.Map                                 (minViewWithKey)
+import           Data.Map                                 (Map, minViewWithKey)
 import qualified Data.Map
 import           Data.Maybe                               (fromJust)
 import           Data.Semigroup                           (Last (..))
@@ -44,14 +44,14 @@ import           Plutus.ChainIndex.Tx                     (ChainIndexTx (..), Ch
 import           Plutus.Contract                          (Promise, Endpoint, type (.\/), Contract,
                                                             endpoint, selectList, utxosAt, logInfo, mkTxConstraints,
                                                             submitTxConfirmed, currentTime, ownPaymentPubKeyHash,
-                                                            tell, handleError, throwError, submitBalancedTx, balanceTx, utxoRefsAt)
+                                                            tell, handleError, throwError, submitBalancedTx, balanceTx, utxoRefsAt, AsContractError, submitTxConstraintsWith)
 import           Plutus.Contract.CardanoAPI               (fromCardanoTx)
 import           Plutus.Contract.Types                    (ContractError(..))
 import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf, toValue)
 import           Plutus.V1.Ledger.Api                     (Credential(..), StakingCredential (..))
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding (Semigroup, (<$>), (<>), mempty, unless, mapMaybe, find, toList, fromInteger, check, null)
-import           Prelude                                  (String, (<>), show, Show, (<$>), null, Monoid (mempty))
+import           Prelude                                  (String, (<>), show, Show, (<$>), null, Monoid (mempty), undefined)
 
 
 import           Configuration.PABConfig                  (pabWalletPKH, pabWalletSKH)
@@ -63,10 +63,35 @@ import           Scripts.MixerScript
 -- import           Scripts.VestingScript                    (VestingParams(..), vestingScriptHash)
 import           Tokens.DepositToken                      (depositTokenMintTx)
 import           Utils.Address                            (bech32ToAddress, bech32ToKeyHashes)
-import           Contracts.ChainIndex                         (txOutsFromRefs)
+-- import           Contracts.ChainIndex                     
 import           Utils.BalanceTx                          (balanceTxWithExternalWallet)
 import Scripts.VestingScript (vestingValidatorHash)
 import Scripts.FailScript (failAddress)
+import Types.TxConstructor (TxConstructor(..))
+import MixerInput (MixerInput)
+import MixerApp (execMixerTx)
+
+-- mixerContract :: AsContractError e => Contract w s e ()
+-- mixerContract = do
+--     -- Updating contract state
+--     chainData <- loadChainData
+--     ct <- currentTime
+--     -- Constructing transaction
+--     let constrInit = TxConstructor ct relayerKeys ([] :: [MixerInput]) chainData (Just (mempty, mempty))
+--         res = do
+--             constr <- execMixerTx constrInit
+--             txConstructorResult constr
+--     -- Submitting transaction
+--     case res of
+--         Just (lookups, cons) -> void $ submitTxConstraintsWith lookups cons
+--         Nothing -> pure ()
+--     mixerContract
+
+-- relayerKeys :: (PaymentPubKeyHash, Maybe StakePubKeyHash)
+-- relayerKeys = undefined
+
+-- loadChainData :: Contract w s e (Map TxOutRef (ChainIndexTxOut, ChainIndexTx))
+-- loadChainData = undefined
 
 -- -- General MixerContract error
 -- errorMixerContract :: ContractError -> Contract (Maybe (Last Text)) MixerSchema ContractError ()

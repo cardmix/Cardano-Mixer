@@ -18,6 +18,9 @@
 
 module Tokens.WithdrawToken where
 
+import           Control.Monad.Extra              (mconcatMapM)
+import           Control.Monad.State              (State)
+import           Data.Functor                     (($>))
 import           Ledger                           hiding (singleton, unspentOutputs)
 import           Ledger.Typed.Scripts             (wrapMintingPolicy)
 import           Ledger.Tokens                    (token)
@@ -28,8 +31,10 @@ import           PlutusTx.AssocMap                (fromList)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, mempty)
 
 import           Crypto
-import           Crypto.Conversions (dataToZp)
+import           Crypto.Conversions               (dataToZp)
 import           Mixer
+import           MixerInput                       (MixerInput, WithdrawTokenNameParams, WithdrawTokenRedeemer, sigmaProtocolVerify, withdrawFirstTokenParams)
+import           MixerInstance                    (MixerInstance (..))
 import           Scripts.Constraints              (tokensMinted, utxoProduced, utxoReferenced, tokensBurnedTx, utxoProducedScriptTx,
                                                     tokensMintedTx, utxoReferencedTx, utxoProducedPublicKeyTx, utxoSpentPublicKeyTx)
 import           Scripts.MixerDepositScript       (MixerDepositDatum)
@@ -38,51 +43,10 @@ import           Tokens.DepositToken              (depositTokenName)
 import           Types.TxConstructor              (TxConstructor (..))
 import           Utils.ByteString                 (ToBuiltinByteString(..))
 
------------------------------------- Sigma protocol ----------------------------------------------
-
--- leafs, key, addrExp, and addrValue
-type SigmaProtocolInput = ([Fr], Fr, Fr, Fr)
-
--- triple of commitments, errors, and responses
-type SigmaProtocolCommit = ([Fr], [Fr], [Fr])
-
-type SigmaProtocolProof = (SigmaProtocolCommit, [Fr], [Fr])
-
-g1 :: Fr
-g1 = Zp 3
-
-g2 :: Fr
-g2 = Zp 5
-
-g3 :: Fr
-g3 = Zp 7
-
-{-# INLINABLE sigmaProtocolChallenge #-}
-sigmaProtocolChallenge :: SigmaProtocolProof -> Fr
-sigmaProtocolChallenge ((as, bs, cs), _, xs) = dataToZp $ sha2_256 $ toBytes $ map fromZp (as ++ bs ++ cs ++ xs)
-
--- TODO: check lengths of the arrays
-{-# INLINABLE sigmaProtocolVerify #-}
-sigmaProtocolVerify :: SigmaProtocolInput -> SigmaProtocolProof -> Bool
-sigmaProtocolVerify (leafs, key, addrExp, addr) proof@((as, bs, cs), es, xs) = eq1 && eq2 && eq3 && eq4
-    where
-        ys  = xs
-        zs  = map (addr *) xs
-        s   = sigmaProtocolChallenge proof
-        eq1 = all (\(a, (e, (x, l))) -> pow g1 (fromZp x) == a * pow l (fromZp e)) $ zip as $ zip es $ zip xs leafs
-        eq2 = all (\(b, (e, y)) -> pow g2 (fromZp y) == b * pow key (fromZp e)) $ zip bs $ zip es ys
-        eq3 = all (\(c, (e, z)) -> pow g3 (fromZp z) == c * pow addrExp (fromZp e)) $ zip cs $ zip es zs
-        eq4 = s == sum es
-
-
 --------------------------- On-Chain -----------------------------
 
 -- Mixer, Deposit token symbol, ADAWithdraw script address, and TxOutRef of initial mint
 type WithdrawTokenParams = (Mixer, CurrencySymbol, Address, TxOutRef)
-
-type WithdrawTokenRedeemer = (SigmaProtocolInput, SigmaProtocolProof, (Fr, Fr, Address), Bool)
-
-type WithdrawTokenNameParams = (Fr, Fr)
 
 {-# INLINABLE withdrawTokenName #-}
 withdrawTokenName :: WithdrawTokenNameParams -> TokenName
@@ -90,7 +54,7 @@ withdrawTokenName (Zp cur, Zp next) = TokenName $ toBytes cur `appendByteString`
 
 checkPolicy :: WithdrawTokenParams -> WithdrawTokenRedeemer -> ScriptContext -> Bool
 checkPolicy (mixer, dSymb, adaWithdrawAddr, _) (sigmaInput@(leafs, cur, _, aVal), sigmaProof, (prev, next, addr), False)
-    ctx@ScriptContext{scriptContextTxInfo=info} = cond1 && cond2 && cond3 && cond4 && cond5 && cond6
+    ctx@ScriptContext{scriptContextTxInfo=info} = cond1 && cond2 && cond3 && cond4 && cond5 && cond6 && cond7
   where
       wSymb    = ownCurrencySymbol ctx
       nameBurn = withdrawTokenName (prev, next)
@@ -112,10 +76,12 @@ checkPolicy (mixer, dSymb, adaWithdrawAddr, _) (sigmaInput@(leafs, cur, _, aVal)
       cond5 = aVal == dataToZp addr
       -- all leafs used in the protocol are presented
       cond6 = all f leafs
+      -- the key was not previously used
+      cond7 = prev < cur && cur < next
 checkPolicy (_, _, adaWithdrawAddr, ref) (_, _, _, True)
     ctx@ScriptContext{scriptContextTxInfo=info} = cond1 && cond2 && cond3
   where
-      nameCur  = withdrawTokenName (Zp 0, toZp (-1))
+      nameCur  = withdrawTokenName withdrawFirstTokenParams
       vCur     = token $ AssetClass (ownCurrencySymbol ctx, nameCur)
 
       cond1 = tokensMinted ctx $ fromList [(nameCur, 1)]
@@ -140,19 +106,19 @@ withdrawToken :: WithdrawTokenParams -> WithdrawTokenNameParams -> Value
 withdrawToken par nParams = token $ withdrawTokenAssetClass par nParams
 
 -- Constraints that Withdraw Token is minted in the transaction
-withdrawTokenMintTx :: MixerInstance -> WithdrawTokenRedeemer -> MixerDepositDatum -> TxConstructor a i o -> TxConstructor a i o
+withdrawTokenMintTx :: MixerInstance -> WithdrawTokenRedeemer -> MixerDepositDatum -> State (TxConstructor [MixerInput] a i o) ()
 withdrawTokenMintTx mi red@((leafs, cur, _, _), _, (prev, next, addr), b) leaf =
     if b
-    then
-        tokensMintedTx (curPolicy par) red (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) .
-        utxoProducedScriptTx aVH Nothing (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) () .
-        utxoSpentPublicKeyTx False (\r _ -> r == wRef)
-    else
-        tokensMintedTx (curPolicy par) red (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) .
-        tokensBurnedTx (curPolicy par) red (withdrawToken par (prev, next)) .
-        utxoProducedScriptTx aVH Nothing (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) () .
-        utxoProducedWithdraw .
-        foldr ((.) . (\l -> utxoReferencedTx False (\_ o -> _ciTxOutValue o `geq` token (AssetClass (dSymb, depositTokenName l))))) id leafs
+    then do
+        tokensMintedTx (curPolicy par) red (withdrawToken par withdrawFirstTokenParams)
+        utxoProducedScriptTx aVH Nothing (withdrawToken par withdrawFirstTokenParams) ()
+        utxoSpentPublicKeyTx (\r _ -> r == wRef) $> ()
+    else do
+        tokensMintedTx (curPolicy par) red (withdrawToken par (prev, cur) + withdrawToken par (cur, next))
+        tokensBurnedTx (curPolicy par) red (withdrawToken par (prev, next))
+        utxoProducedScriptTx aVH Nothing (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) ()
+        utxoProducedWithdraw
+        mconcatMapM f leafs
     where
         mixer = miMixer mi
         dSymb = miDepositCurrencySymbol mi
@@ -167,3 +133,12 @@ withdrawTokenMintTx mi red@((leafs, cur, _, _), _, (prev, next, addr), b) leaf =
                 utxoProducedPublicKeyTx (PaymentPubKeyHash pkh) Nothing (mixerValueAfterWithdraw mixer) ()
             Address (ScriptCredential valHash) _ ->
                 utxoProducedScriptTx valHash Nothing (mixerValueAfterWithdraw mixer) leaf
+
+        g l _ o = _ciTxOutValue o `geq` token (AssetClass (dSymb, depositTokenName l))
+        f l     = utxoReferencedTx (g l)
+
+withdrawTokenFirstMintTx :: MixerInstance -> State (TxConstructor [MixerInput] a i o) ()
+withdrawTokenFirstMintTx mi = withdrawTokenMintTx mi wRed (toZp 0)
+    where
+        wRed = (([], toZp 0, toZp 0, toZp 0), (([], [], []), [], []),
+            (fst withdrawFirstTokenParams, snd withdrawFirstTokenParams, miMixerAddress mi), True)

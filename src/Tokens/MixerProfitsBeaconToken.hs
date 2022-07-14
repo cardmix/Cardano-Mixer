@@ -11,11 +11,12 @@
 
 module Tokens.MixerProfitsBeaconToken where
 
+import           Control.Monad.State              (State)
 import           Ledger                           hiding (singleton, unspentOutputs)
 import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..))
+import           PlutusTx.Prelude
 
-import           Configuration.PABConfig          (mixProfitsBeaconTxOutRef)
 import           Tokens.OneShotCurrency           (OneShotCurrencyParams, oneShotCurrencyPolicy, mkCurrency, oneShotCurrencyMintTx)
 import           Types.TxConstructor              (TxConstructor)
 
@@ -26,22 +27,22 @@ mixerProfitsBeaconTokenName :: TokenName
 mixerProfitsBeaconTokenName = TokenName ""
 
 {-# INLINABLE mixProfitsBeaconParams #-}
-mixProfitsBeaconParams :: OneShotCurrencyParams
-mixProfitsBeaconParams = mkCurrency mixProfitsBeaconTxOutRef [(mixerProfitsBeaconTokenName, 1)]
+mixProfitsBeaconParams :: TxOutRef -> OneShotCurrencyParams
+mixProfitsBeaconParams ref = mkCurrency ref [(mixerProfitsBeaconTokenName, 1)]
 
-curPolicy :: MintingPolicy
-curPolicy = oneShotCurrencyPolicy mixProfitsBeaconParams
+curPolicy :: TxOutRef -> MintingPolicy
+curPolicy = oneShotCurrencyPolicy . mixProfitsBeaconParams
 
 -------------------------- Off-Chain -----------------------------
 
-mixerProfitsBeaconCurrencySymbol :: CurrencySymbol
-mixerProfitsBeaconCurrencySymbol = scriptCurrencySymbol curPolicy
+mixerProfitsBeaconCurrencySymbol :: TxOutRef -> CurrencySymbol
+mixerProfitsBeaconCurrencySymbol = scriptCurrencySymbol . curPolicy
 
-mixerProfitsBeaconAssetClass :: AssetClass
-mixerProfitsBeaconAssetClass = AssetClass (mixerProfitsBeaconCurrencySymbol, mixerProfitsBeaconTokenName)
+mixerProfitsBeaconAssetClass :: TxOutRef -> AssetClass
+mixerProfitsBeaconAssetClass ref = AssetClass (mixerProfitsBeaconCurrencySymbol ref, mixerProfitsBeaconTokenName)
 
-mixerProfitsBeaconToken :: Value
-mixerProfitsBeaconToken = token mixerProfitsBeaconAssetClass
+mixerProfitsBeaconToken :: TxOutRef -> Value
+mixerProfitsBeaconToken = token . mixerProfitsBeaconAssetClass
 
-mixerProfitsBeaconMintTx :: TxConstructor a i o -> TxConstructor a i o
-mixerProfitsBeaconMintTx = oneShotCurrencyMintTx mixProfitsBeaconParams
+mixerProfitsBeaconMintTx :: TxOutRef -> State (TxConstructor d a i o) (Maybe (TxOutRef, ChainIndexTxOut))
+mixerProfitsBeaconMintTx = oneShotCurrencyMintTx . mixProfitsBeaconParams

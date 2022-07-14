@@ -12,12 +12,12 @@
 
 module Tokens.MIXToken where
 
+import           Control.Monad.State              (State)
 import           Ledger                           hiding (singleton, unspentOutputs)
 import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..))
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
 
-import           Configuration.PABConfig          (mixTokenTxOutRef)
 import           Tokens.OneShotCurrency           (OneShotCurrencyParams, mkCurrency, oneShotCurrencyPolicy, oneShotCurrencyMintTx)
 import           Types.TxConstructor              (TxConstructor)
 
@@ -32,22 +32,22 @@ mixTokenAmount :: Integer
 mixTokenAmount = 100_000_000
 
 {-# INLINABLE mixTokenParams #-}
-mixTokenParams :: OneShotCurrencyParams
-mixTokenParams = mkCurrency mixTokenTxOutRef [(mixTokenName, mixTokenAmount)]
+mixTokenParams :: TxOutRef -> OneShotCurrencyParams
+mixTokenParams ref = mkCurrency ref [(mixTokenName, mixTokenAmount)]
 
-curPolicy :: MintingPolicy
-curPolicy = oneShotCurrencyPolicy mixTokenParams
+curPolicy :: TxOutRef -> MintingPolicy
+curPolicy = oneShotCurrencyPolicy . mixTokenParams
 
 ------------------------------------------ Off-Chain ----------------------------------------------
 
-mixTokenCurrencySymbol :: CurrencySymbol
-mixTokenCurrencySymbol = scriptCurrencySymbol curPolicy
+mixTokenCurrencySymbol :: TxOutRef -> CurrencySymbol
+mixTokenCurrencySymbol = scriptCurrencySymbol . curPolicy
 
-mixTokenAssetClass :: AssetClass
-mixTokenAssetClass = AssetClass (mixTokenCurrencySymbol, mixTokenName)
+mixTokenAssetClass :: TxOutRef -> AssetClass
+mixTokenAssetClass ref = AssetClass (mixTokenCurrencySymbol ref, mixTokenName)
 
-mixToken :: Value
-mixToken = token mixTokenAssetClass
+mixToken :: TxOutRef -> Value
+mixToken = token . mixTokenAssetClass
 
-mixTokenMintTx :: TxConstructor a i o -> TxConstructor a i o
-mixTokenMintTx = oneShotCurrencyMintTx mixTokenParams
+mixTokenMintTx :: TxOutRef -> State (TxConstructor d a i o) (Maybe (TxOutRef, ChainIndexTxOut))
+mixTokenMintTx = oneShotCurrencyMintTx . mixTokenParams

@@ -20,6 +20,7 @@
 
 module Scripts.ADAWithdrawScript where
 
+import           Control.Monad.State                      (State)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator, 
                                                             validatorScript, validatorHash, wrapValidator)
@@ -28,7 +29,7 @@ import           Plutus.V1.Ledger.Ada                     (fromValue, toValue)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
-import           Scripts.Constraints                      (utxoProducedScriptTx, utxoSpentScriptTx)
+import           Scripts.Constraints                      (utxoProducedScriptTx, utxoSpentScriptTx')
 import           Types.TxConstructor                      (TxConstructor (..))
 
 --------------------------------------- On-Chain ------------------------------------------
@@ -70,8 +71,8 @@ adaWithdrawValidatorHash = validatorHash adaWithdrawInst
 adaWithdrawAddress :: Address
 adaWithdrawAddress = scriptAddress adaWithdrawValidator
 
-payToADAWithdrawScriptTx :: Value -> TxConstructor a i o -> TxConstructor a i o
-payToADAWithdrawScriptTx v = utxoProducedScriptTx adaWithdrawValidatorHash Nothing v () .
-    utxoSpentScriptTx True f (const . const adaWithdrawValidator) (const . const ())
-  where
-    f _ o = length (flattenValue $ _ciTxOutValue o) <= 16
+payToADAWithdrawScriptTx :: Value -> State (TxConstructor d a i o) ()
+payToADAWithdrawScriptTx v = do
+  let f _ o = length (flattenValue $ _ciTxOutValue o) <= 16
+  _ <- utxoSpentScriptTx' f (const . const adaWithdrawValidator) (const . const ())
+  utxoProducedScriptTx adaWithdrawValidatorHash Nothing v ()

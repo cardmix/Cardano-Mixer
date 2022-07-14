@@ -20,7 +20,8 @@
 
 module Scripts.VestingScript where
 
-import           Ledger                         (Address, POSIXTime, PaymentPubKeyHash (..), ValidatorHash, Datum (..), ChainIndexTxOut (..))
+import           Control.Monad.State            (State, gets)
+import           Ledger                         (Address, POSIXTime, PaymentPubKeyHash (..), ValidatorHash, Datum (..), ChainIndexTxOut (..), TxOutRef)
 import           Ledger.Contexts                (ScriptContext (..), TxInfo (..), txSignedBy)
 import qualified Ledger.Interval                as Interval
 import           Ledger.Typed.Scripts
@@ -69,15 +70,20 @@ vestingValidatorHash = validatorHash vestingTypedValidator
 vestingValidatorAddress :: Address
 vestingValidatorAddress = validatorAddress vestingTypedValidator
 
-payToVestingScriptTx :: Value -> POSIXTime -> TxConstructor a i o -> TxConstructor a i o
-payToVestingScriptTx v vestTime constr = utxoProducedScriptTx vestingValidatorHash Nothing v (vestTime, fst $ txCreator constr) constr
+payToVestingScriptTx :: Value -> POSIXTime -> State (TxConstructor d a i o) ()
+payToVestingScriptTx v vestTime = do
+    creator <- gets txCreator
+    utxoProducedScriptTx vestingValidatorHash Nothing v (vestTime, fst creator)
 
-withdrawFromVestingScriptTx :: TxConstructor a i o -> TxConstructor a i o
-withdrawFromVestingScriptTx constr = utxoSpentScriptTx False f (const . const vestingValidator) (const . const ()) constr
-    where f _ o = either (const False) g (_ciTxOutDatum o)
-          g d   = fromMaybe False $ do
+withdrawFromVestingScriptTx :: State (TxConstructor d a i o) (Maybe (TxOutRef, ChainIndexTxOut))
+withdrawFromVestingScriptTx = do
+    creator <- gets txCreator
+    time    <- gets txCurrentTime
+    let f _ o = either (const False) g (_ciTxOutDatum o)
+        g d   = fromMaybe False $ do
               (t, pkh) <- fromBuiltinData $ getDatum d
-              return $ t <= txCurrentTime constr && pkh == txCreator constr
+              return $ t <= time && pkh == fst creator
+    utxoSpentScriptTx f (const . const vestingValidator) (const . const ())
 
 ---------------------------- For PlutusTx ------------------------------
 
