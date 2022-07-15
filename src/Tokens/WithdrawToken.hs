@@ -33,12 +33,14 @@ import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), 
 import           Crypto
 import           Crypto.Conversions               (dataToZp)
 import           Mixer
-import           MixerInput                       (MixerInput, WithdrawTokenNameParams, WithdrawTokenRedeemer, sigmaProtocolVerify, withdrawFirstTokenParams)
+import           MixerInput                       (MixerInput, WithdrawTokenNameParams, WithdrawTokenRedeemer, withdrawFirstTokenParams)
 import           MixerInstance                    (MixerInstance (..))
+import           Scripts.ADAWithdrawScript        (payToADAWithdrawScriptTx)
 import           Scripts.Constraints              (tokensMinted, utxoProduced, utxoReferenced, tokensBurnedTx, utxoProducedScriptTx,
                                                     tokensMintedTx, utxoReferencedTx, utxoProducedPublicKeyTx, utxoSpentPublicKeyTx)
 import           Scripts.MixerDepositScript       (MixerDepositDatum)
 import           Scripts.VestingScript            ()
+import           SigmaProtocol                    (sigmaProtocolVerify)
 import           Tokens.DepositToken              (depositTokenName)
 import           Types.TxConstructor              (TxConstructor (..))
 import           Utils.ByteString                 (ToBuiltinByteString(..))
@@ -111,19 +113,18 @@ withdrawTokenMintTx mi red@((leafs, cur, _, _), _, (prev, next, addr), b) leaf =
     if b
     then do
         tokensMintedTx (curPolicy par) red (withdrawToken par withdrawFirstTokenParams)
-        utxoProducedScriptTx aVH Nothing (withdrawToken par withdrawFirstTokenParams) ()
+        payToADAWithdrawScriptTx (withdrawToken par withdrawFirstTokenParams)
         utxoSpentPublicKeyTx (\r _ -> r == wRef) $> ()
     else do
         tokensMintedTx (curPolicy par) red (withdrawToken par (prev, cur) + withdrawToken par (cur, next))
         tokensBurnedTx (curPolicy par) red (withdrawToken par (prev, next))
-        utxoProducedScriptTx aVH Nothing (withdrawToken par (prev, cur) + withdrawToken par (cur, next)) ()
+        payToADAWithdrawScriptTx (withdrawToken par (prev, cur) + withdrawToken par (cur, next))
         utxoProducedWithdraw
         mconcatMapM f leafs
     where
         mixer = miMixer mi
         dSymb = miDepositCurrencySymbol mi
         aAddr = miADAWithdrawAddress mi
-        aVH   = miADAWithdrawValidatorHash mi
         wRef  = miWithdrawTxOutRef mi
         par   = (mixer, dSymb, aAddr, wRef)
 

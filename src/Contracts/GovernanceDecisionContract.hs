@@ -31,7 +31,6 @@ import           Plutus.V1.Ledger.Api             (Credential(..), toBuiltinData
 import           PlutusTx.Prelude                 hiding (Monoid (..), Semigroup (..), Eq)
 import           Prelude                          (Semigroup (..), Show, Eq)
 
-import           Contracts.ChainIndex             (getUtxosWithCurrency)
 import           Contracts.CurrencyContract       (AsCurrencyError(..), CurrencyError)
 import           Tokens.GovernanceDecisionToken
 

@@ -1,5 +1,4 @@
 {-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveAnyClass             #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -31,8 +30,7 @@ data MixerInstance = MixerInstance
         miMixerDepositAddress        :: Address,
         miMixerAddress               :: Address,
         miADAWithdrawAddress         :: Address,
-        miMixerValidatorHash         :: ValidatorHash,
-        miADAWithdrawValidatorHash   :: ValidatorHash
+        miMixerValidatorHash         :: ValidatorHash
     }
     deriving (Prelude.Eq, Show)
 

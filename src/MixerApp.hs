@@ -4,15 +4,18 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
+{-# LANGUAGE NumericUnderscores         #-}
 {-# LANGUAGE OverloadedLists            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeFamilies               #-}
+
 
 module MixerApp where
 
 import           Control.Monad.State                      (State, gets, execState)
 import           Data.Functor                             (($>))
 import           Data.Map                                 (empty)
+import           GHC.Base                                 (undefined)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
@@ -20,7 +23,7 @@ import           Contracts.ChainIndex                     (ChainIndexCache (..))
 import           Mixer                                    (Mixer)
 import           MixerInput                               (MixerInput (..), toWithdrawTokenRedeemer)
 import           MixerInstance                            (MixerInstance (..))
-import           Scripts.ADAWithdrawScript                (adaWithdrawAddress, adaWithdrawValidatorHash)
+import           Scripts.ADAWithdrawScript                (adaWithdrawAddress)
 import           Scripts.Constraints                      (failTx)
 import           Scripts.MixerDepositScript               (mixerDepositAddress, withdrawFromMixerDepositScriptTx)
 import           Scripts.MixerScript                      (mixerAddress, mixerValidatorHash, withdrawFromMixerScriptTx)
@@ -28,7 +31,7 @@ import           Tokens.DepositToken                      (depositTokenSymbol, d
 import           Tokens.MixerBeaconToken                  (mixerBeaconCurrencySymbol, mixerBeaconTokenName, mixerBeaconMintTx, mixerBeaconSendTx)
 import           Tokens.WithdrawToken                     (withdrawTokenSymbol, withdrawTokenMintTx, withdrawTokenFirstMintTx)
 import           Types.TxConstructor                      (TxConstructor (..), selectTxConstructor)
-import GHC.Base (undefined)
+import Plutus.V1.Ledger.Ada (lovelaceValueOf)
 
 
 toMixerInstance :: Mixer -> TxOutRef -> TxOutRef -> MixerInstance
@@ -45,19 +48,17 @@ toMixerInstance mixer beaconRef withdrawRef =
         miMixerDepositAddress        = mixerDepositAddress dSymb,
         miMixerAddress               = mixerAddress wSymb,
         miADAWithdrawAddress         = adaWithdrawAddress,
-        miMixerValidatorHash         = mixerValidatorHash wSymb,
-        miADAWithdrawValidatorHash   = adaWithdrawValidatorHash
+        miMixerValidatorHash         = mixerValidatorHash wSymb
      }
      where
           bSymb = mixerBeaconCurrencySymbol beaconRef
-          dSymb = depositTokenSymbol (mixer, (bSymb, mixerBeaconTokenName))
+          dSymb = depositTokenSymbol (mixer, (bSymb, mixerBeaconTokenName), adaWithdrawAddress)
           wSymb = withdrawTokenSymbol (mixer, dSymb, adaWithdrawAddress, withdrawRef)
 
-mkMixerChainIndexCache :: MixerInstance -> ChainIndexCache
-mkMixerChainIndexCache mi = ChainIndexCache addrs curs empty zero
-    where
-        addrs = map ($ mi) [miMixerDepositAddress, miMixerAddress, miADAWithdrawAddress]
-        curs  = map ($ mi) [miMixerBeaconCurrencySymbol, miDepositCurrencySymbol, miWithdrawCurrencySymbol]
+mkMixerChainIndexCache :: ChainIndexCache
+mkMixerChainIndexCache = ChainIndexCache addrs empty zero
+    where addrsMI acc mi = acc ++ map ($ mi) [miMixerDepositAddress, miMixerAddress, miADAWithdrawAddress]
+          addrs          = foldl addrsMI [] mixerInstances
 
 ------------------------------------------- Mixer Transactions ---------------------------------------------
 
@@ -87,4 +88,7 @@ execMixerTx s = selectTxConstructor $ map (`execState` s) mixerTxs
 
 -- TODO: move this to some config file
 mixerInstances :: [MixerInstance]
-mixerInstances = undefined
+mixerInstances = mkMixerInstances $ map lovelaceValueOf [200_000, 1_000_000]
+
+mkMixerInstances :: [Value] -> [MixerInstance]
+mkMixerInstances = undefined

@@ -47,12 +47,14 @@ library
       MixerInstance
       MixerApp
       PABContracts
+      Relayer
       Requests
       Scripts.ADAWithdrawScript
       Scripts.FailScript
       Scripts.MixerDepositScript
       Scripts.MixerScript
       Scripts.VestingScript
+      SigmaProtocol
       Tokens.DepositToken
       Tokens.GovernanceBeaconToken
       Tokens.GovernanceDecisionToken
