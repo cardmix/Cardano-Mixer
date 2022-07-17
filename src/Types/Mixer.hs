@@ -18,7 +18,7 @@
 {-# LANGUAGE TypeOperators              #-}
 
 
-module Mixer where
+module Types.Mixer where
 
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf)

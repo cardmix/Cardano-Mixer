@@ -18,7 +18,6 @@ import Prelude                       (String, undefined)
 import Wallet.Emulator.Wallet        (Wallet(..), fromBase16)
 
 import Utils.Address                 (bech32ToKeyHashes)
-import Utils.Network                 (NetworkConfig (..))
 
 -- TODO: Replace PolicyId with TxOutRef
 
@@ -50,9 +49,6 @@ protocolParams :: ProtocolParameters
 protocolParams = fromJust $ decode $ fromStrict $(embedFile "testnet/protocol-parameters.json")
 
 ------------------------------------------ Common ---------------------------------------------
-
-networkConfig :: NetworkConfig
-networkConfig = NetworkConfig networkId protocolParams
 
 pabWalletIdString :: String
 pabWalletIdString = "2c922c0b34abf5ab0d7f3f290b9f6c8874a4d300"

@@ -7,14 +7,14 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeFamilies               #-}
 
-module MixerInstance where
+module Types.MixerInstance where
 
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           PlutusTx.Prelude
 import           Prelude                                  (Show)
 import qualified Prelude
 
-import           Mixer                                    (Mixer)
+import           Types.Mixer                              (Mixer)
 
 ---------------------------------- MixerInstance type -----------------------------------------
 

@@ -7,7 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeFamilies               #-}
 
-module MixerInput where
+module Types.MixerInput where
 
 import           Data.Set                         (Set, fromList, isSubsetOf, notMember)
 import           Ledger                           hiding (singleton, validatorHash, unspentOutputs)
@@ -15,8 +15,8 @@ import           PlutusTx.Prelude
 
 import           Crypto
 import           Crypto.Conversions               (dataToZp)
-import           MixerInstance                    (MixerInstance)
 import           SigmaProtocol
+import           Types.MixerInstance              (MixerInstance)
 
 
 type WithdrawTokenNameParams = (Fr, Fr)

@@ -33,22 +33,12 @@ library
     exposed-modules:
       Configuration.MixerConfig
       Configuration.PABConfig
-      Contracts.ConnectToPABContract
-      Contracts.CurrencyContract
-      Contracts.DispenserContract
-      Contracts.GovernanceDecisionContract
-      Contracts.MixerContract
-      Contracts.MixerKeysContract
-      Contracts.MixerStateContract
-      Contracts.VestingContract
       Crypto.Conversions
-      Mixer
-      MixerInput
-      MixerInstance
-      MixerApp
-      PABContracts
+      Types.Mixer
+      Types.MixerInput
+      Types.MixerInstance
+      Types.MixerApp
       Relayer
-      Requests
       Scripts.ADAWithdrawScript
       Scripts.FailScript
       Scripts.MixerDepositScript
@@ -89,7 +79,6 @@ library
       plutus-contract                        -any,
       plutus-chain-index                     -any,
       plutus-chain-index-core                -any,
-      plutus-pab                             -any,
       plutus-tx-plugin                       -any,
       plutus-tx                              -any,
       plutus-ledger                          -any,
@@ -107,9 +96,9 @@ library
       uuid                                   -any
     hs-source-dirs: src
 
-executable cardano-mixer-pab
+executable cardmix-relayer
   import: lang
-  main-is: mixer-pab.hs
+  main-is: cardmix-relayer.hs
   hs-source-dirs: app
   ghc-options:
     -threaded
@@ -129,71 +118,7 @@ executable cardano-mixer-pab
     plutus-ledger                          -any,
     plutus-ledger-api                      -any,
     plutus-ledger-constraints              -any,
-    plutus-pab                             -any,
     plutus-tx                              -any,
     plutus-use-cases                       -any,
     prettyprinter                          -any,    
     text                                   -any
-    
-executable cardano-mixer-client
-  import: lang
-  main-is: mixer-client.hs
-  hs-source-dirs: app
-  ghc-options:
-    -threaded
-  build-depends:
-    base64                                 -any,
-  build-depends:
-    aeson                                  -any,
-    base                          >= 4.9 && < 5,
-    bytestring                             -any,
-    cardano-api                            -any,
-    cardano-mixer-common                   -any,
-    cardano-mixer-backend                  -any,
-    containers                             -any,
-    data-default                           -any,
-    directory                              -any,
-    freer-extras                           -any,
-    freer-simple                           -any,
-    plutus-contract                        -any,
-    plutus-ledger                          -any,
-    plutus-ledger-api                      -any,
-    plutus-ledger-constraints              -any,
-    plutus-pab                             -any,
-    plutus-tx                              -any,
-    plutus-use-cases                       -any,
-    prettyprinter                          -any,
-    regex-tdfa                      ^>= 1.3.1.0,
-    req                               ^>= 3.9.0,
-    text                                   -any,
-    uuid                                   -any,
-
-executable cardano-mixer-pab-client
-  import: lang
-  main-is: mixer-pab-client.hs
-  hs-source-dirs: app
-  ghc-options:
-    -threaded
-  build-depends:
-    aeson                                  -any,
-    base                          >= 4.9 && < 5,
-    bytestring                             -any,
-    cardano-mixer-common                   -any,
-    cardano-mixer-backend                  -any,
-    containers                             -any,
-    data-default                           -any,
-    freer-extras                           -any,
-    freer-simple                           -any,
-    plutus-contract                        -any,
-    plutus-ledger                          -any,
-    plutus-ledger-api                      -any,
-    plutus-ledger-constraints              -any,
-    plutus-pab                             -any,
-    plutus-tx                              -any,
-    plutus-use-cases                       -any,
-    prettyprinter                          -any,
-    regex-tdfa                      ^>= 1.3.1.0,
-    req                               ^>= 3.9.0,
-    text                                   -any,
-    uuid                                   -any,
-    

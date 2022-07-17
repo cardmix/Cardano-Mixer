@@ -12,15 +12,15 @@ module Relayer where
 
 import           GHC.Base                                 (undefined)
 import           Ledger.Address                           (PaymentPubKeyHash, StakePubKeyHash)
-import           Ledger.Constraints                       (TxConstraints, ScriptLookups)
-import           Ledger.Tx                                (CardanoTx)
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  (IO)
 
-import           Contracts.ChainIndex                     (ChainIndexCache (..), updateChainIndexCache)
-import           MixerApp                                 (mkMixerChainIndexCache, execMixerTx)
-import           MixerInput                               (MixerInput (..))
+import           IO.ChainIndex                            (ChainIndexCache (..), updateChainIndexCache)
+import           IO.Wallet                                (balanceTx, submitTxConfirmed)
+import           Types.MixerApp                           (mkMixerChainIndexCache, execMixerTx)
+import           Types.MixerInput                         (MixerInput (..))
 import           Types.TxConstructor                      (TxConstructor (..), mkTxConstructor)
+
 
 relayServer :: IO ()
 relayServer = do
@@ -48,12 +48,3 @@ updateMixerInputs = undefined
 
 relayerHashes :: (PaymentPubKeyHash, Maybe StakePubKeyHash)
 relayerHashes = undefined
-
-balanceTx :: (ScriptLookups a, TxConstraints i o) -> IO CardanoTx
-balanceTx = undefined
-
-submitTx :: CardanoTx -> IO ()
-submitTx = undefined
-
-submitTxConfirmed :: CardanoTx -> IO ()
-submitTxConfirmed = undefined

@@ -10,19 +10,17 @@
 {-# LANGUAGE TypeFamilies               #-}
 
 
-module MixerApp where
+module Types.MixerApp where
 
 import           Control.Monad.State                      (State, gets, execState)
 import           Data.Functor                             (($>))
 import           Data.Map                                 (empty)
 import           GHC.Base                                 (undefined)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
+import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf)
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
-import           Contracts.ChainIndex                     (ChainIndexCache (..))
-import           Mixer                                    (Mixer)
-import           MixerInput                               (MixerInput (..), toWithdrawTokenRedeemer)
-import           MixerInstance                            (MixerInstance (..))
+import           IO.ChainIndex                            (ChainIndexCache (..))
 import           Scripts.ADAWithdrawScript                (adaWithdrawAddress)
 import           Scripts.Constraints                      (failTx)
 import           Scripts.MixerDepositScript               (mixerDepositAddress, withdrawFromMixerDepositScriptTx)
@@ -30,8 +28,10 @@ import           Scripts.MixerScript                      (mixerAddress, mixerVa
 import           Tokens.DepositToken                      (depositTokenSymbol, depositTokenMintTx)
 import           Tokens.MixerBeaconToken                  (mixerBeaconCurrencySymbol, mixerBeaconTokenName, mixerBeaconMintTx, mixerBeaconSendTx)
 import           Tokens.WithdrawToken                     (withdrawTokenSymbol, withdrawTokenMintTx, withdrawTokenFirstMintTx)
+import           Types.Mixer                              (Mixer)
+import           Types.MixerInput                         (MixerInput (..), toWithdrawTokenRedeemer)
+import           Types.MixerInstance                      (MixerInstance (..))
 import           Types.TxConstructor                      (TxConstructor (..), selectTxConstructor)
-import Plutus.V1.Ledger.Ada (lovelaceValueOf)
 
 
 toMixerInstance :: Mixer -> TxOutRef -> TxOutRef -> MixerInstance

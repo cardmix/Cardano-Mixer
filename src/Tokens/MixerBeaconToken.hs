@@ -18,9 +18,9 @@ import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..))
 import           PlutusTx.Prelude
 
-import           MixerInstance                    (MixerInstance (..))
 import           Scripts.Constraints              (utxoProducedScriptTx)
 import           Tokens.OneShotCurrency           (OneShotCurrencyParams, oneShotCurrencyPolicy, mkCurrency, oneShotCurrencyMintTx)
+import           Types.MixerInstance              (MixerInstance (..))
 import           Types.TxConstructor              (TxConstructor)
 
 --------------------------- On-Chain -----------------------------

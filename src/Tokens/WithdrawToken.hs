@@ -32,9 +32,6 @@ import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), 
 
 import           Crypto
 import           Crypto.Conversions               (dataToZp)
-import           Mixer
-import           MixerInput                       (MixerInput, WithdrawTokenNameParams, WithdrawTokenRedeemer, withdrawFirstTokenParams)
-import           MixerInstance                    (MixerInstance (..))
 import           Scripts.ADAWithdrawScript        (payToADAWithdrawScriptTx)
 import           Scripts.Constraints              (tokensMinted, utxoProduced, utxoReferenced, tokensBurnedTx, utxoProducedScriptTx,
                                                     tokensMintedTx, utxoReferencedTx, utxoProducedPublicKeyTx, utxoSpentPublicKeyTx)
@@ -42,6 +39,9 @@ import           Scripts.MixerDepositScript       (MixerDepositDatum)
 import           Scripts.VestingScript            ()
 import           SigmaProtocol                    (sigmaProtocolVerify)
 import           Tokens.DepositToken              (depositTokenName)
+import           Types.Mixer
+import           Types.MixerInput                 (MixerInput, WithdrawTokenNameParams, WithdrawTokenRedeemer, withdrawFirstTokenParams)
+import           Types.MixerInstance              (MixerInstance (..))
 import           Types.TxConstructor              (TxConstructor (..))
 import           Utils.ByteString                 (ToBuiltinByteString(..))
 

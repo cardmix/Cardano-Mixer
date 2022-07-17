@@ -29,11 +29,11 @@ import           Ledger.Value                             (AssetClass(..), geq)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
-import           Mixer                                    (mixerValueBeforeDeposit)
-import           MixerInput                               (WithdrawTokenNameParams)
-import           MixerInstance                            (MixerInstance (..))
 import           Scripts.Constraints                      (utxoSpentScriptTx, utxoProducedScriptTx)
 import           Tokens.WithdrawToken                     (withdrawTokenName)
+import           Types.Mixer                              (mixerValueBeforeDeposit)
+import           Types.MixerInput                         (WithdrawTokenNameParams)
+import           Types.MixerInstance                      (MixerInstance (..))
 import           Types.TxConstructor                      (TxConstructor)
 
 --------------------------------------- On-Chain ------------------------------------------

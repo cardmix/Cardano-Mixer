@@ -30,10 +30,10 @@ import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
 import           Crypto
-import           Mixer                                    (mixerValueBeforeDeposit)
-import           MixerInstance                            (MixerInstance (..))
 import           Scripts.Constraints                      (utxoProducedScriptTx, utxoSpentScriptTx)
 import           Tokens.DepositToken                      (depositTokenName)
+import           Types.Mixer                              (mixerValueBeforeDeposit)
+import           Types.MixerInstance                      (MixerInstance (..))
 import           Types.TxConstructor                      (TxConstructor)
 
 --------------------------------------- On-Chain ------------------------------------------

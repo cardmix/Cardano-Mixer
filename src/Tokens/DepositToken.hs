@@ -29,11 +29,11 @@ import           PlutusTx.AssocMap                (singleton)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, mempty)
 
 import           Crypto
-import           Mixer
-import           MixerInstance                    (MixerInstance(..))
 import           Scripts.ADAWithdrawScript        (payToADAWithdrawScriptTx)
 import           Scripts.Constraints              (tokensMinted, utxoProduced, findUtxoReferenced, tokensMintedTx, utxoProducedScriptTx, utxoReferencedTx)
 import           Scripts.VestingScript            ()
+import           Types.Mixer
+import           Types.MixerInstance              (MixerInstance(..))
 import           Types.TxConstructor              (TxConstructor(..))
 -- import           Utils.ByteString                 (ToBuiltinByteString(..))
 
