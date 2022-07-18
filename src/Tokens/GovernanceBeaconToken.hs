@@ -8,52 +8,37 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeFamilies               #-}
 
-module Tokens.GovernanceBeaconToken (
-    governanceBeaconToken,
-    governanceBeaconCurrencySymbol,
-    governanceBeaconTokenName,
-    governanceBeaconAssetClass,
-    governanceBeaconTokenRequired,
-    governanceBeaconTokenTx
-) where
+module Tokens.GovernanceBeaconToken where
 
 import           Ledger                           hiding (singleton, unspentOutputs)
-import           Ledger.Constraints               (mustSpendAtLeast)
 import           Ledger.Tokens                    (token)
-import           Ledger.Value                     (AssetClass(..), TokenName (..), CurrencySymbol (..))
-import           Plutus.Contract.StateMachine
+import           Ledger.Value                     (AssetClass(..), TokenName (..))
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger)
 
-import           Configuration.PABConfig          (governanceBeaconTokenPolicyId)
+import           Tokens.OneShotCurrency           (OneShotCurrencyParams, oneShotCurrencyPolicy, mkCurrency)
 
------------------------------------- Admin Token ---------------------------------------------------
+-- import           Configuration.PABConfig          (governanceBeaconTokenTxOutRef)
+
+--------------------------- On-Chain -----------------------------
 
 {-# INLINABLE governanceBeaconTokenName #-}
 governanceBeaconTokenName :: TokenName
 governanceBeaconTokenName = TokenName "Cardano Mixer Admin Token"
 
-{-# INLINABLE governanceBeaconCurrencySymbol #-}
-governanceBeaconCurrencySymbol :: CurrencySymbol
-governanceBeaconCurrencySymbol = CurrencySymbol governanceBeaconTokenPolicyId
+{-# INLINABLE governanceBeaconParams #-}
+governanceBeaconParams :: TxOutRef -> OneShotCurrencyParams
+governanceBeaconParams ref = mkCurrency ref [(governanceBeaconTokenName, 1)]
 
-{-# INLINABLE governanceBeaconAssetClass #-}
-governanceBeaconAssetClass :: AssetClass
-governanceBeaconAssetClass = AssetClass (governanceBeaconCurrencySymbol, governanceBeaconTokenName)
-
-{-# INLINABLE governanceBeaconToken #-}
-governanceBeaconToken :: Value
-governanceBeaconToken = token governanceBeaconAssetClass
-
---------------------------- On-Chain -----------------------------
-
--- TODO: implement this
-{-# INLINABLE governanceBeaconTokenRequired #-}
-governanceBeaconTokenRequired :: TxInfo -> Bool
-governanceBeaconTokenRequired _ = True
-    --utxoSpent info (\o -> txOutValue o `geq` governanceBeaconToken)
+curPolicy :: TxOutRef -> MintingPolicy
+curPolicy = oneShotCurrencyPolicy . governanceBeaconParams
 
 -------------------------- Off-Chain -----------------------------
 
--- TxConstraints that Admin Token is consumed by transaction
-governanceBeaconTokenTx :: TxConstraints i o
-governanceBeaconTokenTx = mustSpendAtLeast governanceBeaconToken
+governanceBeaconCurrencySymbol :: TxOutRef -> CurrencySymbol
+governanceBeaconCurrencySymbol = scriptCurrencySymbol . curPolicy
+
+governanceBeaconAssetClass :: TxOutRef -> AssetClass
+governanceBeaconAssetClass ref = AssetClass (governanceBeaconCurrencySymbol ref, governanceBeaconTokenName)
+
+governanceBeaconToken :: TxOutRef -> Value
+governanceBeaconToken = token . governanceBeaconAssetClass

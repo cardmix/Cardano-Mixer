@@ -4,7 +4,6 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
-{-# LANGUAGE NumericUnderscores         #-}
 {-# LANGUAGE OverloadedLists            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeFamilies               #-}
@@ -15,50 +14,27 @@ module Types.MixerApp where
 import           Control.Monad.State                      (State, gets, execState)
 import           Data.Functor                             (($>))
 import           Data.Map                                 (empty)
-import           GHC.Base                                 (undefined)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
-import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf)
+import           Ledger.Typed.Scripts                     (ValidatorTypes(..))
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
+import           Prelude                                  (undefined)
 
 import           IO.ChainIndex                            (ChainIndexCache (..))
 import           Scripts.ADAWithdrawScript                (adaWithdrawAddress)
 import           Scripts.Constraints                      (failTx)
 import           Scripts.MixerDepositScript               (mixerDepositAddress, withdrawFromMixerDepositScriptTx)
-import           Scripts.MixerScript                      (mixerAddress, mixerValidatorHash, withdrawFromMixerScriptTx)
+import           Scripts.MixerScript                      (mixerAddress, mixerValidatorHash, withdrawFromMixerScriptTx, Mixing)
 import           Tokens.DepositToken                      (depositTokenSymbol, depositTokenMintTx)
 import           Tokens.MixerBeaconToken                  (mixerBeaconCurrencySymbol, mixerBeaconTokenName, mixerBeaconMintTx, mixerBeaconSendTx)
 import           Tokens.WithdrawToken                     (withdrawTokenSymbol, withdrawTokenMintTx, withdrawTokenFirstMintTx)
-import           Types.Mixer                              (Mixer)
+import           Types.Mixer                              (Mixer, mixerFromProtocol)
 import           Types.MixerInput                         (MixerInput (..), toWithdrawTokenRedeemer)
 import           Types.MixerInstance                      (MixerInstance (..))
 import           Types.TxConstructor                      (TxConstructor (..), selectTxConstructor)
+import           Utils.Prelude                            (uncurry4)
 
 
-toMixerInstance :: Mixer -> TxOutRef -> TxOutRef -> MixerInstance
-toMixerInstance mixer beaconRef withdrawRef =
-     MixerInstance
-     {
-        miMixer                      = mixer,
-        miMixerBeaconTxOutRef        = beaconRef,
-        miWithdrawTxOutRef           = withdrawRef,
-        miMixerBeaconTokenName       = mixerBeaconTokenName,
-        miMixerBeaconCurrencySymbol  = bSymb,
-        miDepositCurrencySymbol      = dSymb,
-        miWithdrawCurrencySymbol     = wSymb,
-        miMixerDepositAddress        = mixerDepositAddress dSymb,
-        miMixerAddress               = mixerAddress wSymb,
-        miADAWithdrawAddress         = adaWithdrawAddress,
-        miMixerValidatorHash         = mixerValidatorHash wSymb
-     }
-     where
-          bSymb = mixerBeaconCurrencySymbol beaconRef
-          dSymb = depositTokenSymbol (mixer, (bSymb, mixerBeaconTokenName), adaWithdrawAddress)
-          wSymb = withdrawTokenSymbol (mixer, dSymb, adaWithdrawAddress, withdrawRef)
-
-mkMixerChainIndexCache :: ChainIndexCache
-mkMixerChainIndexCache = ChainIndexCache addrs empty zero
-    where addrsMI acc mi = acc ++ map ($ mi) [miMixerDepositAddress, miMixerAddress, miADAWithdrawAddress]
-          addrs          = foldl addrsMI [] mixerInstances
+type MixerTxConstructor = TxConstructor [MixerInput] Mixing (RedeemerType Mixing) (DatumType Mixing)
 
 ------------------------------------------- Mixer Transactions ---------------------------------------------
 
@@ -84,11 +60,39 @@ mixerTxs = foldl f [] mixerInstances
 execMixerTx :: TxConstructor [MixerInput] a i o -> Maybe (TxConstructor [MixerInput] a i o)
 execMixerTx s = selectTxConstructor $ map (`execState` s) mixerTxs
 
+-------------------------------------------- ChainIndexCache -----------------------------------------------------
+
+mkMixerChainIndexCache :: ChainIndexCache
+mkMixerChainIndexCache = ChainIndexCache addrs empty zero
+    where addrsMI acc mi = acc ++ map ($ mi) [miMixerDepositAddress, miMixerAddress, miADAWithdrawAddress]
+          addrs          = foldl addrsMI [] mixerInstances
+
 --------------------------------------------- MixerInstances -----------------------------------------------------
 
 -- TODO: move this to some config file
 mixerInstances :: [MixerInstance]
-mixerInstances = mkMixerInstances $ map lovelaceValueOf [200_000, 1_000_000]
+mixerInstances = map (uncurry4 mkMixerInstance) undefined
 
-mkMixerInstances :: [Value] -> [MixerInstance]
-mkMixerInstances = undefined
+mkMixerInstance :: Value -> Integer -> TxOutRef -> TxOutRef -> MixerInstance
+mkMixerInstance v r = toMixerInstance (mixerFromProtocol v r)
+
+toMixerInstance :: Mixer -> TxOutRef -> TxOutRef -> MixerInstance
+toMixerInstance mixer beaconRef withdrawRef =
+     MixerInstance
+     {
+        miMixer                      = mixer,
+        miMixerBeaconTxOutRef        = beaconRef,
+        miWithdrawTxOutRef           = withdrawRef,
+        miMixerBeaconTokenName       = mixerBeaconTokenName,
+        miMixerBeaconCurrencySymbol  = bSymb,
+        miDepositCurrencySymbol      = dSymb,
+        miWithdrawCurrencySymbol     = wSymb,
+        miMixerDepositAddress        = mixerDepositAddress dSymb,
+        miMixerAddress               = mixerAddress wSymb,
+        miADAWithdrawAddress         = adaWithdrawAddress,
+        miMixerValidatorHash         = mixerValidatorHash wSymb
+     }
+     where
+          bSymb = mixerBeaconCurrencySymbol beaconRef
+          dSymb = depositTokenSymbol (mixer, (bSymb, mixerBeaconTokenName), adaWithdrawAddress)
+          wSymb = withdrawTokenSymbol (mixer, dSymb, adaWithdrawAddress, withdrawRef)

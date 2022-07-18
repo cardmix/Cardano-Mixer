@@ -14,12 +14,10 @@ import Data.Text                     (Text, pack)
 import Ledger                        (PubKeyHash(..), TxOutRef (TxOutRef), TxId (..))
 import Ledger.Address                (PaymentPubKeyHash(..), StakePubKeyHash (..))
 import PlutusTx.Prelude              hiding (elem)
-import Prelude                       (String, undefined)
+import Prelude                       (String)
 import Wallet.Emulator.Wallet        (Wallet(..), fromBase16)
 
 import Utils.Address                 (bech32ToKeyHashes)
-
--- TODO: Replace PolicyId with TxOutRef
 
 --------------------------------- Network-dependent -----------------------------------
 
@@ -28,10 +26,6 @@ pabWalletAddressText = "addr_test1qprx98hun3wa7xncxc85mfxu8peg02pr3ftj0nnaqtmtvk
 
 dispenserWalletAddressText :: Text
 dispenserWalletAddressText = "addr_test1qrh8caw4kmlkwydwzdehpyw905dg8ayjv0vpe6vqmkkk5q3psddwydp9ea0gj3jawxyak3d238jpj9fxx3gnfhk7paxqnw2xmw"
-
--- TODO: define this
-governanceBeaconTokenPolicyId :: BuiltinByteString
-governanceBeaconTokenPolicyId = undefined
 
 mixTokenTxOutRef :: TxOutRef
 mixTokenTxOutRef = TxOutRef (TxId emptyByteString) 0 

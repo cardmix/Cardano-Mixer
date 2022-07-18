@@ -15,9 +15,10 @@ import           Ledger.Address                           (PaymentPubKeyHash, St
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  (IO)
 
+import           Configuration.PABConfig                  (networkId, protocolParams)
 import           IO.ChainIndex                            (ChainIndexCache (..), updateChainIndexCache)
 import           IO.Wallet                                (balanceTx, submitTxConfirmed)
-import           Types.MixerApp                           (mkMixerChainIndexCache, execMixerTx)
+import           Types.MixerApp                           (mkMixerChainIndexCache, execMixerTx, MixerTxConstructor)
 import           Types.MixerInput                         (MixerInput (..))
 import           Types.TxConstructor                      (TxConstructor (..), mkTxConstructor)
 
@@ -32,11 +33,11 @@ relayServerLoop cache inputs = do
     inputs' <- updateMixerInputs inputs
 
     -- trying to find and submit admissible transaction
-    let constrInit = mkTxConstructor relayerHashes (cacheTime cache') inputs' (cacheData cache')
+    let constrInit = mkTxConstructor relayerHashes (cacheTime cache') inputs' (cacheData cache') :: MixerTxConstructor
     case execMixerTx constrInit of
         Just constr -> case txConstructorResult constr of
             Just lookups -> do
-                tx <- balanceTx lookups
+                tx <- uncurry (balanceTx protocolParams networkId) lookups
                 submitTxConfirmed tx
             Nothing -> return ()
         Nothing     -> return ()

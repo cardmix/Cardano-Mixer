@@ -21,13 +21,14 @@ module Tokens.WithdrawToken where
 import           Control.Monad.Extra              (mconcatMapM)
 import           Control.Monad.State              (State)
 import           Data.Functor                     (($>))
-import           Ledger                           hiding (singleton, unspentOutputs)
+import           Ledger                           hiding (singleton, unspentOutputs, lookup)
 import           Ledger.Typed.Scripts             (wrapMintingPolicy)
 import           Ledger.Tokens                    (token)
-import           Ledger.Value                     (AssetClass(..), TokenName (..), geq)
+import           Ledger.Value                     (AssetClass(..), TokenName (..), geq, Value (..))
+import           Plutus.ChainIndex                (ChainIndexTx)
 import           Plutus.V1.Ledger.Api             (Credential(..))
 import           PlutusTx                         (compile, applyCode, liftCode)
-import           PlutusTx.AssocMap                (fromList)
+import           PlutusTx.AssocMap                (fromList, Map, keys, lookup, empty)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, mempty)
 
 import           Crypto
@@ -43,16 +44,23 @@ import           Types.Mixer
 import           Types.MixerInput                 (MixerInput, WithdrawTokenNameParams, WithdrawTokenRedeemer, withdrawFirstTokenParams)
 import           Types.MixerInstance              (MixerInstance (..))
 import           Types.TxConstructor              (TxConstructor (..))
-import           Utils.ByteString                 (ToBuiltinByteString(..))
+import           Utils.ByteString                 (ToBuiltinByteString(..), byteStringToInteger)
 
 --------------------------- On-Chain -----------------------------
 
 -- Mixer, Deposit token symbol, ADAWithdraw script address, and TxOutRef of initial mint
 type WithdrawTokenParams = (Mixer, CurrencySymbol, Address, TxOutRef)
 
+toWithdrawTokenParams :: MixerInstance -> WithdrawTokenParams
+toWithdrawTokenParams mi = (mixer, dSymb, aAddr, ref)
+    where mixer          = miMixer mi
+          dSymb          = miDepositCurrencySymbol mi
+          aAddr          = miADAWithdrawAddress mi
+          ref            = miWithdrawTxOutRef mi
+
 {-# INLINABLE withdrawTokenName #-}
 withdrawTokenName :: WithdrawTokenNameParams -> TokenName
-withdrawTokenName (Zp cur, Zp next) = TokenName $ toBytes cur `appendByteString` toBytes next
+withdrawTokenName (n@(Zp cur), Zp next) = TokenName $ toBytes $ cur * char n  + next
 
 checkPolicy :: WithdrawTokenParams -> WithdrawTokenRedeemer -> ScriptContext -> Bool
 checkPolicy (mixer, dSymb, adaWithdrawAddr, _) (sigmaInput@(leafs, cur, _, aVal), sigmaProof, (prev, next, addr), False)
@@ -143,3 +151,9 @@ withdrawTokenFirstMintTx mi = withdrawTokenMintTx mi wRed (toZp 0)
     where
         wRed = (([], toZp 0, toZp 0, toZp 0), (([], [], []), [], []),
             (fst withdrawFirstTokenParams, snd withdrawFirstTokenParams, miMixerAddress mi), True)
+
+withdrawKeys :: MixerInstance -> Map TxOutRef (ChainIndexTxOut, ChainIndexTx) -> [(Fr, Fr)]
+withdrawKeys mi = concatMap f
+    where symb = withdrawTokenSymbol $ toWithdrawTokenParams mi
+          g x  = (Zp $ divide x (char (zero :: Fr)), Zp $ modulo x (char (zero :: Fr)))
+          f    = map (g . byteStringToInteger . unTokenName) . keys . fromMaybe empty . lookup symb . getValue . _ciTxOutValue . fst

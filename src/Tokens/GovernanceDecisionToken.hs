@@ -64,4 +64,3 @@ governanceDecisionTokenRequired info = utxoSpent info (\o -> txOutValue o `geq` 
 -- TxConstraints that Governance Decision Token is spent in the transaction
 governanceDecisionTokenTx :: TxId -> State (TxConstructor d a i o) (Maybe (TxOutRef, ChainIndexTxOut))
 governanceDecisionTokenTx tx = utxoSpentPublicKeyTx (\_ o -> _ciTxOutValue o `geq` governanceDecisionToken tx)
-    

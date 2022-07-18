@@ -20,12 +20,13 @@ module Tokens.DepositToken where
 
 import           Control.Monad.State              (State)
 import           Data.Tuple.Extra                 (snd3)
-import           Ledger                           hiding (singleton, unspentOutputs)
+import           Ledger                           hiding (singleton, unspentOutputs, lookup)
 import           Ledger.Typed.Scripts             (wrapMintingPolicy)
 import           Ledger.Tokens                    (token)
-import           Ledger.Value                     (AssetClass(..), TokenName (..), geq)
+import           Ledger.Value                     (AssetClass(..), TokenName (..), geq, Value (..))
+import           Plutus.ChainIndex                (ChainIndexTx)
 import           PlutusTx                         (compile, applyCode, liftCode)
-import           PlutusTx.AssocMap                (singleton)
+import           PlutusTx.AssocMap                (singleton, Map, lookup, keys, empty)
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, mempty)
 
 import           Crypto
@@ -35,11 +36,20 @@ import           Scripts.VestingScript            ()
 import           Types.Mixer
 import           Types.MixerInstance              (MixerInstance(..))
 import           Types.TxConstructor              (TxConstructor(..))
+import           Utils.ByteString                 (byteStringToInteger)
+
 -- import           Utils.ByteString                 (ToBuiltinByteString(..))
 
 --------------------------------------- On-Chain ------------------------------------------
 
 type DepositTokenParams = (Mixer, (CurrencySymbol, TokenName), Address)
+
+toDepositTokenParams :: MixerInstance -> DepositTokenParams
+toDepositTokenParams mi = (mixer, (beaconSymb, beaconName), aAddr)
+    where mixer         = miMixer mi
+          aAddr         = miADAWithdrawAddress mi
+          beaconSymb    = miMixerBeaconCurrencySymbol mi
+          beaconName    = miMixerBeaconTokenName mi
 
 type DepositTokenRedeemer = Fr
 
@@ -92,9 +102,12 @@ depositTokenMintTx mi red = do
     where
         mixer       = miMixer mi
         vh          = miMixerValidatorHash mi
-        aAddr       = miADAWithdrawAddress mi
         mixerAddr   = miMixerAddress mi
-        beaconSymb  = miMixerBeaconCurrencySymbol mi
-        beaconName  = miMixerBeaconTokenName mi
-        par         = (mixer, (beaconSymb, beaconName), aAddr)
+        par         = toDepositTokenParams mi
         beaconToken = token (AssetClass $ snd3 par)
+
+depositKeys :: MixerInstance -> Map TxOutRef (ChainIndexTxOut, ChainIndexTx) -> [Fr]
+depositKeys mi = concatMap f
+    where symb = depositTokenSymbol $ toDepositTokenParams mi
+          f    = map (Zp . byteStringToInteger . unTokenName) . keys . fromMaybe empty . lookup symb . getValue . _ciTxOutValue . fst
+
