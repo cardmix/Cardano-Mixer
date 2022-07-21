@@ -21,7 +21,7 @@
 module Types.Mixer where
 
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
-import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf)
+import           Ledger.Ada                               (lovelaceValueOf)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  (Show)

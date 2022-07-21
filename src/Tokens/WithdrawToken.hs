@@ -22,7 +22,7 @@ import           Control.Monad.Extra              (mconcatMapM)
 import           Control.Monad.State              (State)
 import           Data.Functor                     (($>))
 import           Ledger                           hiding (singleton, unspentOutputs, lookup)
-import           Ledger.Typed.Scripts             (wrapMintingPolicy)
+import           Ledger.Typed.Scripts             (mkUntypedMintingPolicy)
 import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..), geq, Value (..))
 import           Plutus.ChainIndex                (ChainIndexTx)
@@ -100,7 +100,7 @@ checkPolicy (_, _, adaWithdrawAddr, ref) (_, _, _, True)
 
 curPolicy :: WithdrawTokenParams -> MintingPolicy
 curPolicy par = mkMintingPolicyScript $
-    $$(PlutusTx.compile [|| wrapMintingPolicy . checkPolicy ||])
+    $$(PlutusTx.compile [|| mkUntypedMintingPolicy . checkPolicy ||])
         `PlutusTx.applyCode`
             PlutusTx.liftCode par
 

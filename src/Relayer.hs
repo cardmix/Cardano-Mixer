@@ -15,7 +15,7 @@ import           Ledger.Address                           (PaymentPubKeyHash, St
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 import           Prelude                                  (IO)
 
-import           Configuration.PABConfig                  (networkId, protocolParams)
+import           Configuration.PABConfig                  (ledgerParams)
 import           IO.ChainIndex                            (ChainIndexCache (..), updateChainIndexCache)
 import           IO.Wallet                                (balanceTx, submitTxConfirmed)
 import           Types.MixerApp                           (mkMixerChainIndexCache, execMixerTx, MixerTxConstructor)
@@ -37,7 +37,7 @@ relayServerLoop cache inputs = do
     case execMixerTx constrInit of
         Just constr -> case txConstructorResult constr of
             Just lookups -> do
-                tx <- uncurry (balanceTx protocolParams networkId) lookups
+                tx <- uncurry (balanceTx ledgerParams) lookups
                 submitTxConfirmed tx
             Nothing -> return ()
         Nothing     -> return ()

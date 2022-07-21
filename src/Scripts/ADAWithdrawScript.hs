@@ -22,10 +22,9 @@ module Scripts.ADAWithdrawScript where
 
 import           Control.Monad.State                      (State)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
-import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator, 
-                                                            validatorScript, validatorHash, wrapValidator)
+import           Ledger.Ada                               (fromValue, toValue)
+import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator, validatorScript, validatorHash, validatorAddress, mkUntypedValidator)
 import           Ledger.Value                             (geq, flattenValue)
-import           Plutus.V1.Ledger.Ada                     (fromValue, toValue)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
@@ -58,7 +57,7 @@ adaWithdrawInst = mkTypedValidator @ADAWithdrawing
     $$(PlutusTx.compile [|| mkADAWithdrawValidator ||])
     $$(PlutusTx.compile [|| wrap ||])
   where
-    wrap = wrapValidator @ADAWithdrawDatum @ADAWithdrawRedeemer
+    wrap = mkUntypedValidator @ADAWithdrawDatum @ADAWithdrawRedeemer
 
 ------------------------------------ Off-chain --------------------------------------------
 
@@ -69,7 +68,7 @@ adaWithdrawValidatorHash :: ValidatorHash
 adaWithdrawValidatorHash = validatorHash adaWithdrawInst
 
 adaWithdrawAddress :: Address
-adaWithdrawAddress = scriptAddress adaWithdrawValidator
+adaWithdrawAddress = validatorAddress adaWithdrawInst
 
 payToADAWithdrawScriptTx :: Value -> State (TxConstructor d a i o) ()
 payToADAWithdrawScriptTx v = do

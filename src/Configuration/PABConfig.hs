@@ -7,17 +7,19 @@ module Configuration.PABConfig where
 import Cardano.Api.Shelley           (ProtocolParameters, NetworkId(..), NetworkMagic (..))
 import Data.Aeson                    (decode)
 import Data.ByteString.Lazy          (fromStrict)
+import Data.Default                  (Default(..))
 import Data.Either                   (rights)
 import Data.FileEmbed                (embedFile)
 import Data.Maybe                    (fromJust)
 import Data.Text                     (Text, pack)
-import Ledger                        (PubKeyHash(..), TxOutRef (TxOutRef), TxId (..))
+import Ledger                        (Params (..), TxOutRef (..), TxId (..), PubKeyHash)
 import Ledger.Address                (PaymentPubKeyHash(..), StakePubKeyHash (..))
 import PlutusTx.Prelude              hiding (elem)
 import Prelude                       (String)
 import Wallet.Emulator.Wallet        (Wallet(..), fromBase16)
 
 import Utils.Address                 (bech32ToKeyHashes)
+
 
 --------------------------------- Network-dependent -----------------------------------
 
@@ -41,6 +43,9 @@ networkId = Testnet $ NetworkMagic 1097911063
 
 protocolParams :: ProtocolParameters
 protocolParams = fromJust $ decode $ fromStrict $(embedFile "testnet/protocol-parameters.json")
+
+ledgerParams :: Params
+ledgerParams = Params def protocolParams networkId
 
 ------------------------------------------ Common ---------------------------------------------
 

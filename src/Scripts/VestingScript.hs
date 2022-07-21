@@ -21,8 +21,7 @@
 module Scripts.VestingScript where
 
 import           Control.Monad.State            (State, gets)
-import           Ledger                         (Address, POSIXTime, PaymentPubKeyHash (..), ValidatorHash, Datum (..), ChainIndexTxOut (..), TxOutRef)
-import           Ledger.Contexts                (ScriptContext (..), TxInfo (..), txSignedBy)
+import           Ledger                         (Address, POSIXTime, PaymentPubKeyHash (..), ValidatorHash, Datum (..), ChainIndexTxOut (..), TxOutRef, ScriptContext (..), TxInfo (..), txSignedBy)
 import qualified Ledger.Interval                as Interval
 import           Ledger.Typed.Scripts
 import           Ledger.Value                   (Value)
@@ -57,7 +56,7 @@ vestingTypedValidator = mkTypedValidator @Vesting
     $$(PlutusTx.compile [|| mkVestingValidator ||])
     $$(PlutusTx.compile [|| wrap ||])
     where
-        wrap = wrapValidator @VestingDatum @VestingRedeemer
+        wrap = mkUntypedValidator @VestingDatum @VestingRedeemer
 
 ------------------------------------------ Off-Chain --------------------------------------
 

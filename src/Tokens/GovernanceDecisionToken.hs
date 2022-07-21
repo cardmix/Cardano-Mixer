@@ -23,13 +23,14 @@ import           Ledger                           (CurrencySymbol, ScriptContext
                                                     ChainIndexTxOut (..), TxOutRef, scriptCurrencySymbol)
 import           Ledger.Scripts                   (MintingPolicy, mkMintingPolicyScript)
 import           Ledger.Tokens                    (token)
-import           Ledger.Typed.Scripts             (wrapMintingPolicy)
+import           Ledger.Typed.Scripts             (mkUntypedMintingPolicy)
 import           Ledger.Value                     (TokenName (..), Value, AssetClass(..), geq)
 import           PlutusTx                         (compile)
 import           PlutusTx.Prelude                 hiding (Monoid (..), Semigroup (..), Eq)
 
 import           Scripts.Constraints              (utxoSpent, utxoSpentPublicKeyTx)
 import           Types.TxConstructor              (TxConstructor(..))
+
 
 -------------------------------- On-chain ---------------------------------
 
@@ -43,7 +44,7 @@ checkPolicy _ _ = True
     -- in governanceBeaconTokenRequired info
 
 curPolicy :: MintingPolicy
-curPolicy = mkMintingPolicyScript $$(compile [|| wrapMintingPolicy checkPolicy ||])
+curPolicy = mkMintingPolicyScript $$(compile [|| mkUntypedMintingPolicy checkPolicy ||])
 
 governanceDecisionCurrencySymbol :: CurrencySymbol
 governanceDecisionCurrencySymbol = scriptCurrencySymbol curPolicy

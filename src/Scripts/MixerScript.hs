@@ -23,8 +23,8 @@ module Scripts.MixerScript where
 import           Control.Monad.State                      (State)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           Ledger.Tokens                            (token)
-import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator,
-                                                            validatorScript, validatorHash, wrapValidator, validatorAddress)
+import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator, mkUntypedValidator,
+                                                            validatorScript, validatorHash, validatorAddress)
 import           Ledger.Value                             (AssetClass(..), geq)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
@@ -63,7 +63,7 @@ mixerTypedValidator params = mkTypedValidator @Mixing
     `PlutusTx.applyCode` PlutusTx.liftCode params)
     $$(PlutusTx.compile [|| wrap ||])
   where
-    wrap = wrapValidator @MixerDatum @MixerRedeemer
+    wrap = mkUntypedValidator @MixerDatum @MixerRedeemer
 
 ---------------------------------------- Off-chain -------------------------------------------
 

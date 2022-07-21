@@ -5,12 +5,13 @@
 module Configuration.MixerConfig where
 
 import           Ledger                        (Value)
+import           Ledger.Ada                    (lovelaceValueOf)
 import           Plutus.Contract               (Contract, ContractError (..), throwError)
-import           Plutus.V1.Ledger.Ada          (lovelaceValueOf)
 import           PlutusTx.Prelude              hiding (elem)
 
 import           Configuration.PABConfig       (mixTokenTxOutRef)
 import           Tokens.MIXToken               (mixToken)
+
 
 ------------------------ Config options --------------------------
 

@@ -84,6 +84,7 @@ library
       plutus-ledger                          -any,
       plutus-ledger-api                      -any,
       plutus-ledger-constraints              -any,
+      plutus-script-utils                    -any,
       plutus-use-cases                       -any,
       purescript-bridge                      -any,
       random                                 -any,

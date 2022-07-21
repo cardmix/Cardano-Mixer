@@ -22,7 +22,7 @@ module Scripts.FailScript where
 
 import           Control.Monad.State                      (State)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
-import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator, validatorScript, validatorHash, wrapValidator)
+import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator, validatorScript, validatorHash, validatorAddress, mkUntypedValidator)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
@@ -49,7 +49,7 @@ failInst = mkTypedValidator @Failing
     $$(PlutusTx.compile [|| mkFailValidator ||])
     $$(PlutusTx.compile [|| wrap ||])
   where
-    wrap = wrapValidator @FailDatum @FailRedeemer
+    wrap = mkUntypedValidator @FailDatum @FailRedeemer
 
 ------------------------------------ Off-chain ---------------------------------------------
 
@@ -60,7 +60,7 @@ failValidatorHash :: ValidatorHash
 failValidatorHash = validatorHash failInst
 
 failAddress :: Address
-failAddress = scriptAddress failValidator
+failAddress = validatorAddress failInst
 
 payToFailScriptTx :: Value -> State (TxConstructor d a i o) ()
 payToFailScriptTx v = utxoProducedScriptTx failValidatorHash Nothing v ()

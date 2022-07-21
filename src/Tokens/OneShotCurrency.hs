@@ -33,10 +33,8 @@ module Tokens.OneShotCurrency (
 import           Control.Monad.State             (State)
 import           Data.Aeson                      (FromJSON, ToJSON)
 import           GHC.Generics                    (Generic)
-import           Ledger                          (CurrencySymbol, TxOutRef (..), scriptCurrencySymbol, ChainIndexTxOut)
-import qualified Ledger.Contexts                 as V
-import           Ledger.Scripts
-import qualified Ledger.Typed.Scripts            as Scripts
+import           Ledger                          (CurrencySymbol, TxOutRef (..), ChainIndexTxOut, ScriptContext (..), TxInfo (..), MintingPolicy, spendsOutput, mkMintingPolicyScript, scriptCurrencySymbol, ownCurrencySymbol)
+import           Ledger.Typed.Scripts            (mkUntypedMintingPolicy)
 import           Ledger.Value                    (TokenName, Value)
 import qualified Ledger.Value                    as Value
 import qualified PlutusTx
@@ -46,6 +44,7 @@ import qualified Prelude                         as Haskell
 
 import           Scripts.Constraints             (tokensMintedTx, utxoSpentPublicKeyTx)
 import           Types.TxConstructor             (TxConstructor)
+
 
 {- HLINT ignore "Use uncurry" -}
 
@@ -67,13 +66,13 @@ oneShotCurrencyValue s OneShotCurrencyParams{curAmounts = amts} =
         values = map (\(tn, i) -> Value.singleton s tn i) (AssocMap.toList amts)
     in fold values
 
-checkPolicy :: OneShotCurrencyParams -> () -> V.ScriptContext -> Bool
-checkPolicy c@(OneShotCurrencyParams (TxOutRef refHash refIdx) _) _ ctx@V.ScriptContext{V.scriptContextTxInfo=txinfo} =
+checkPolicy :: OneShotCurrencyParams -> () -> ScriptContext -> Bool
+checkPolicy c@(OneShotCurrencyParams (TxOutRef refHash refIdx) _) _ ctx@ScriptContext{scriptContextTxInfo=txinfo} =
     let
         -- see note [Obtaining the currency symbol]
-        ownSymbol = V.ownCurrencySymbol ctx
+        ownSymbol = ownCurrencySymbol ctx
 
-        minted = V.txInfoMint txinfo
+        minted = txInfoMint txinfo
         expected = oneShotCurrencyValue ownSymbol c
 
         -- True if the pending transaction mints the amount of
@@ -85,14 +84,14 @@ checkPolicy c@(OneShotCurrencyParams (TxOutRef refHash refIdx) _) _ ctx@V.Script
         -- True if the pending transaction spends the output
         -- identified by @(refHash, refIdx)@
         txOutputSpent =
-            let v = V.spendsOutput txinfo refHash refIdx
+            let v = spendsOutput txinfo refHash refIdx
             in  traceIfFalse "C1" {-"Pending transaction does not spend the designated transaction output"-} v
 
     in mintOK && txOutputSpent
 
 oneShotCurrencyPolicy :: OneShotCurrencyParams -> MintingPolicy
 oneShotCurrencyPolicy cur = mkMintingPolicyScript $
-    $$(PlutusTx.compile [|| Scripts.wrapMintingPolicy . checkPolicy ||])
+    $$(PlutusTx.compile [|| mkUntypedMintingPolicy . checkPolicy ||])
         `PlutusTx.applyCode`
             PlutusTx.liftCode cur
 

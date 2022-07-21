@@ -11,7 +11,8 @@
 module Crypto.Conversions  where
 
 import           Ledger.Address              (PaymentPubKeyHash (..))
-import           Plutus.V1.Ledger.Api
+import           Plutus.V2.Ledger.Api        (Address (..), Credential(..), PubKeyHash (..), StakingCredential (..), ValidatorHash (..),
+                                                CurrencySymbol (..), TokenName (..))
 import           PlutusTx.Prelude            hiding (toList)
 
 import           Crypto.Zp                   (Zp(..), FiniteField(..), toZp)

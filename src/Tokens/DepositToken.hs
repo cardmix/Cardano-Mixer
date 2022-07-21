@@ -21,7 +21,7 @@ module Tokens.DepositToken where
 import           Control.Monad.State              (State)
 import           Data.Tuple.Extra                 (snd3)
 import           Ledger                           hiding (singleton, unspentOutputs, lookup)
-import           Ledger.Typed.Scripts             (wrapMintingPolicy)
+import           Ledger.Typed.Scripts             (mkUntypedMintingPolicy)
 import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..), geq, Value (..))
 import           Plutus.ChainIndex                (ChainIndexTx)
@@ -78,7 +78,7 @@ checkPolicy (mixer, (beaconSymb, beaconName), adaWithdrawAddr) red ctx@ScriptCon
 
 curPolicy :: DepositTokenParams -> MintingPolicy
 curPolicy par = mkMintingPolicyScript $
-    $$(PlutusTx.compile [|| wrapMintingPolicy . checkPolicy ||])
+    $$(PlutusTx.compile [|| mkUntypedMintingPolicy . checkPolicy ||])
         `PlutusTx.applyCode`
             PlutusTx.liftCode par
 
