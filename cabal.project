@@ -6,7 +6,7 @@ packages: ./.
 source-repository-package
   type: git
   location: https://github.com/cardmix/plutus-common.git
-  tag: 6f9fbe32dbe4d0748771853103a4422b7aa9f25d
+  tag: a5b2706bcd18262ada8371eb9288174c332753c4
 
 source-repository-package
   type: git

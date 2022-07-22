@@ -9,7 +9,7 @@ import           Ledger.Ada                    (lovelaceValueOf)
 import           Plutus.Contract               (Contract, ContractError (..), throwError)
 import           PlutusTx.Prelude              hiding (elem)
 
-import           Configuration.PABConfig       (mixTokenTxOutRef)
+import           Configuration.RelayerConfig   (mixTokenTxOutRef)
 import           Tokens.MIXToken               (mixToken)
 
 

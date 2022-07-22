@@ -31,8 +31,9 @@ common lang
 library
     import: lang
     exposed-modules:
+      CommandLine
       Configuration.MixerConfig
-      Configuration.PABConfig
+      Configuration.RelayerConfig
       Crypto.Conversions
       Types.Mixer
       Types.MixerInput
@@ -74,6 +75,7 @@ library
       lens                                   -any,
       mtl                                    -any,
       openapi3                               -any,
+      optparse-applicative                   -any,
       playground-common                      -any,
       plutus-common                          -any,
       plutus-contract                        -any,

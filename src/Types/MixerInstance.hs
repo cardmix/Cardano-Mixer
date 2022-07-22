@@ -1,4 +1,6 @@
 {-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -7,8 +9,11 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeFamilies               #-}
 
+
 module Types.MixerInstance where
 
+import           Cardano.Api                              (FromJSON, ToJSON)
+import           GHC.Generics                             (Generic)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           PlutusTx.Prelude
 import           Prelude                                  (Show)
@@ -32,7 +37,7 @@ data MixerInstance = MixerInstance
         miADAWithdrawAddress         :: Address,
         miMixerValidatorHash         :: ValidatorHash
     }
-    deriving (Prelude.Eq, Show)
+    deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
 
 instance Eq MixerInstance where
     (==) = (Prelude.==)

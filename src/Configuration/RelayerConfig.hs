@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE TemplateHaskell    #-}
 
-module Configuration.PABConfig where
+module Configuration.RelayerConfig where
 
 import Cardano.Api.Shelley           (ProtocolParameters, NetworkId(..), NetworkMagic (..))
 import Data.Aeson                    (decode)
@@ -12,7 +12,7 @@ import Data.Either                   (rights)
 import Data.FileEmbed                (embedFile)
 import Data.Maybe                    (fromJust)
 import Data.Text                     (Text, pack)
-import Ledger                        (Params (..), TxOutRef (..), TxId (..), PubKeyHash)
+import Ledger                        (Params (..), TxOutRef (..), TxId (..))
 import Ledger.Address                (PaymentPubKeyHash(..), StakePubKeyHash (..))
 import PlutusTx.Prelude              hiding (elem)
 import Prelude                       (String)
@@ -22,6 +22,12 @@ import Utils.Address                 (bech32ToKeyHashes)
 
 
 --------------------------------- Network-dependent -----------------------------------
+
+protocolParams :: ProtocolParameters
+protocolParams = fromJust $ decode $ fromStrict $(embedFile "testnet/protocol-parameters.json")
+
+networkId :: NetworkId
+networkId = Testnet $ NetworkMagic 1097911063
 
 pabWalletAddressText :: Text
 pabWalletAddressText = "addr_test1qprx98hun3wa7xncxc85mfxu8peg02pr3ftj0nnaqtmtvk8n5s2dl4zqs6gnp36lmcqdz6j65wqlyq5lc3mye7g8kussq5skqf"
@@ -38,28 +44,16 @@ mixerBeaconTxOutRef = TxOutRef (TxId emptyByteString) 0
 mixProfitsBeaconTxOutRef :: TxOutRef
 mixProfitsBeaconTxOutRef = TxOutRef (TxId emptyByteString) 0
 
-networkId :: NetworkId
-networkId = Testnet $ NetworkMagic 1097911063
-
-protocolParams :: ProtocolParameters
-protocolParams = fromJust $ decode $ fromStrict $(embedFile "testnet/protocol-parameters.json")
+------------------------------------------ Common ---------------------------------------------
 
 ledgerParams :: Params
 ledgerParams = Params def protocolParams networkId
 
------------------------------------------- Common ---------------------------------------------
+relayerPKH :: PaymentPubKeyHash
+relayerPKH = fst $ fromJust $ bech32ToKeyHashes pabWalletAddressText
 
-pabWalletIdString :: String
-pabWalletIdString = "2c922c0b34abf5ab0d7f3f290b9f6c8874a4d300"
-
-pabWallet :: Wallet
-pabWallet = Wallet (Just "PAB Wallet") $ head $ rights [fromBase16 $ pack pabWalletIdString]
-
-pabWalletPKH :: PaymentPubKeyHash
-pabWalletPKH = fst $ fromJust $ bech32ToKeyHashes pabWalletAddressText
-
-pabWalletSKH :: PubKeyHash
-pabWalletSKH = let StakePubKeyHash kh = fromJust $ snd $ fromJust $ bech32ToKeyHashes pabWalletAddressText in kh
+relayerSKH :: StakePubKeyHash
+relayerSKH = fromJust $ snd $ fromJust $ bech32ToKeyHashes pabWalletAddressText
 
 dispenserWalletIdString :: String
 dispenserWalletIdString = "5cd8d83d3de9770ac2970f6238386e183e216854"

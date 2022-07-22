@@ -22,7 +22,6 @@ module Scripts.ADAWithdrawScript where
 
 import           Control.Monad.State                      (State)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
-import           Ledger.Ada                               (fromValue, toValue)
 import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator, validatorScript, validatorHash, validatorAddress, mkUntypedValidator)
 import           Ledger.Value                             (geq, flattenValue)
 import           PlutusTx
@@ -44,13 +43,12 @@ instance ValidatorTypes ADAWithdrawing where
 
 {-# INLINABLE mkADAWithdrawValidator #-}
 mkADAWithdrawValidator :: () -> () -> ScriptContext -> Bool
-mkADAWithdrawValidator _ _ ctx@ScriptContext{scriptContextTxInfo=info} = nonADAFlowVal `geq` zero
+mkADAWithdrawValidator _ _ ctx@ScriptContext{scriptContextTxInfo=info} = flowVal `geq` zero
   where
     ownAddr       = maybe (error ()) (txOutAddress . txInInfoResolved) (findOwnInput ctx)
     inVal         = sum $ map txOutValue $ filter (\o -> txOutAddress o == ownAddr) $ map txInInfoResolved $ txInfoInputs info
     outVal        = sum $ map txOutValue $ filter (\o -> txOutAddress o == ownAddr) $ txInfoOutputs info
-    flowVal       = inVal - outVal
-    nonADAFlowVal = flowVal - toValue (fromValue flowVal)
+    flowVal       = noAdaValue $ inVal - outVal
 
 adaWithdrawInst :: TypedValidator ADAWithdrawing
 adaWithdrawInst = mkTypedValidator @ADAWithdrawing
@@ -70,6 +68,7 @@ adaWithdrawValidatorHash = validatorHash adaWithdrawInst
 adaWithdrawAddress :: Address
 adaWithdrawAddress = validatorAddress adaWithdrawInst
 
+-- TODO: one can only withdraw ADA!
 payToADAWithdrawScriptTx :: Value -> State (TxConstructor d a i o) ()
 payToADAWithdrawScriptTx v = do
   let f _ o = length (flattenValue $ _ciTxOutValue o) <= 16

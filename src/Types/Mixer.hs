@@ -20,6 +20,8 @@
 
 module Types.Mixer where
 
+import           Cardano.Api (FromJSON, ToJSON)
+import           GHC.Generics (Generic)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
 import           Ledger.Ada                               (lovelaceValueOf)
 import           PlutusTx
@@ -39,7 +41,7 @@ data Mixer = Mixer
         mWithdrawFee  :: !Value,
         mRoundsLeft   :: !Integer
     }
-    deriving (Prelude.Eq, Show)
+    deriving (Prelude.Eq, Show, Generic, FromJSON, ToJSON)
 
 instance Eq Mixer where
     (==) = (Prelude.==)
