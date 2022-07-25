@@ -15,7 +15,7 @@ import           PlutusTx.Prelude
 
 import           Crypto
 import           Crypto.Conversions               (dataToZp)
-import           SigmaProtocol
+import           MixerProofs.SigmaProtocol
 import           Types.MixerInstance              (MixerInstance)
 
 

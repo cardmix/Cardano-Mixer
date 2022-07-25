@@ -45,7 +45,6 @@ library
       Scripts.MixerDepositScript
       Scripts.MixerScript
       Scripts.VestingScript
-      SigmaProtocol
       Tokens.DepositToken
       Tokens.GovernanceBeaconToken
       Tokens.GovernanceDecisionToken

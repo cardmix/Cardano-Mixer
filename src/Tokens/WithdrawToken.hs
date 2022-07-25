@@ -38,7 +38,7 @@ import           Scripts.Constraints              (tokensMinted, utxoProduced, u
                                                     tokensMintedTx, utxoReferencedTx, utxoProducedPublicKeyTx, utxoSpentPublicKeyTx)
 import           Scripts.MixerDepositScript       (MixerDepositDatum)
 import           Scripts.VestingScript            ()
-import           SigmaProtocol                    (sigmaProtocolVerify)
+import           MixerProofs.SigmaProtocol        (sigmaProtocolVerify)
 import           Tokens.DepositToken              (depositTokenName)
 import           Types.Mixer
 import           Types.MixerInput                 (MixerInput, WithdrawTokenNameParams, WithdrawTokenRedeemer, withdrawFirstTokenParams)
