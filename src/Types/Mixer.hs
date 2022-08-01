@@ -31,7 +31,7 @@ import qualified Prelude
 
 ------------------------------------- Mixer type -----------------------------------------
 
--- Protocol fee is the fee that a relayer takes on every deposit/withdraw operation.
+-- Protocol fee is the fee that a relayer takes on every withdraw operation.
 -- It's value should contaun enough ADA so that a UTXO with pure value is allowed by the ledger rules.
 data Mixer = Mixer
     {
@@ -55,7 +55,7 @@ mixerFixedWithdrawFee :: Value
 mixerFixedWithdrawFee = lovelaceValueOf 1_500_000
 
 mixerFromProtocol :: Value -> Integer -> Mixer
-mixerFromProtocol v = Mixer (scale 1000 v) v (v + mixerFixedDepositFee) (v + mixerFixedWithdrawFee)
+mixerFromProtocol v = Mixer (scale 1000 v) v mixerFixedDepositFee (v + mixerFixedWithdrawFee)
 
 mixerValueBeforeDeposit :: Mixer -> Value
 mixerValueBeforeDeposit (Mixer pv _ df wf r) = pv + scale r df + scale r wf

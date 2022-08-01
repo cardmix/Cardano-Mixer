@@ -12,8 +12,8 @@ module Main
 
 import           Prelude                             (IO)
 
-import           Relayer                             (relayServer)
+import           Cardmix                             (cardmix)
 
 
 main :: IO ()
-main = relayServer
+main = cardmix

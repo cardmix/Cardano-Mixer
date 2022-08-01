@@ -30,6 +30,7 @@ import           PlutusTx.AssocMap                (singleton, Map, lookup, keys,
 import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, mempty)
 
 import           Crypto
+import           MixerProofs.SigmaProtocol        (BaseField)
 import           Scripts.ADAWithdrawScript        (payToADAWithdrawScriptTx)
 import           Scripts.Constraints              (tokensMinted, utxoProduced, findUtxoReferenced, tokensMintedTx, utxoProducedScriptTx, utxoReferencedTx)
 import           Scripts.VestingScript            ()
@@ -51,7 +52,7 @@ toDepositTokenParams mi = (mixer, (beaconSymb, beaconName), aAddr)
           beaconSymb    = miMixerBeaconCurrencySymbol mi
           beaconName    = miMixerBeaconTokenName mi
 
-type DepositTokenRedeemer = Fr
+type DepositTokenRedeemer = BaseField
 
 -- TODO: check if we need to use modulo here
 {-# INLINABLE depositTokenName #-}
@@ -106,7 +107,7 @@ depositTokenMintTx mi red = do
         par         = toDepositTokenParams mi
         beaconToken = token (AssetClass $ snd3 par)
 
-depositKeys :: MixerInstance -> Map TxOutRef (ChainIndexTxOut, ChainIndexTx) -> [Fr]
+depositKeys :: MixerInstance -> Map TxOutRef (ChainIndexTxOut, ChainIndexTx) -> [BaseField]
 depositKeys mi = concatMap f
     where symb = depositTokenSymbol $ toDepositTokenParams mi
           f    = map (Zp . byteStringToInteger . unTokenName) . keys . fromMaybe empty . lookup symb . getValue . _ciTxOutValue . fst

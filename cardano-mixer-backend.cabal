@@ -31,15 +31,11 @@ common lang
 library
     import: lang
     exposed-modules:
+      Cardmix
       CommandLine
       Configuration.MixerConfig
       Configuration.RelayerConfig
       Crypto.Conversions
-      Types.Mixer
-      Types.MixerInput
-      Types.MixerInstance
-      Types.MixerApp
-      Relayer
       Scripts.ADAWithdrawScript
       Scripts.FailScript
       Scripts.MixerDepositScript
@@ -53,6 +49,12 @@ library
       Tokens.MIXToken
       Tokens.OneShotCurrency
       Tokens.WithdrawToken
+      Types.Conversions
+      Types.Mixer
+      Types.MixerApp
+      Types.MixerInput
+      Types.MixerInstance
+      Types.MixerTransactions
     build-depends:
       base                          >= 4.9 && < 5,
       base16-bytestring                      -any,
@@ -98,9 +100,9 @@ library
       uuid                                   -any
     hs-source-dirs: src
 
-executable cardmix-relayer
+executable cardmix
   import: lang
-  main-is: cardmix-relayer.hs
+  main-is: cardmix.hs
   hs-source-dirs: app
   ghc-options:
     -threaded

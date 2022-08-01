@@ -15,17 +15,21 @@ import           PlutusTx.Prelude                         hiding (Semigroup(..),
 import           Prelude                                  (Monoid(..), Semigroup (..), Applicative (..), FilePath)
 
 
-data Command = Serve | MakeMixer FilePath Integer
+data Command = Relay | Serve | MakeMixer FilePath Integer
 
 commandParserInfo :: ParserInfo Command
 commandParserInfo = info (commandParser <**> helper)
-       (fullDesc <> progDesc "Relay server app")
+       (fullDesc <> progDesc "Cardmix server app")
 
 commandParser :: Parser Command
 commandParser = subparser $ mconcat [ serveParser, makeMixerParser ]
 
+relayParser :: Mod CommandFields Command
+relayParser = command "relay" $ flip info (fullDesc <> progDesc "Start a relayer app") $ do
+    pure Serve
+
 serveParser :: Mod CommandFields Command
-serveParser = command "serve" $ flip info (fullDesc <> progDesc "Start the relay server") $ do
+serveParser = command "serve" $ flip info (fullDesc <> progDesc "Start a relay API server") $ do
     pure Serve
 
 makeMixerParser :: Mod CommandFields Command

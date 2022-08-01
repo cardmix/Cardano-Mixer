@@ -29,6 +29,7 @@ import           PlutusTx
 import           PlutusTx.Prelude               hiding ((<>), Eq, Semigroup, fold, mempty)
 
 import           Crypto
+import           MixerProofs.SigmaProtocol      (FBase, FExp)
 import           Scripts.Constraints            (utxoProducedScriptTx, utxoSpentScriptTx)
 import           Types.TxConstructor            (TxConstructor (..))
 
@@ -89,6 +90,8 @@ withdrawFromVestingScriptTx = do
 PlutusTx.unstableMakeIsData ''Zp
 PlutusTx.unstableMakeIsData ''R
 PlutusTx.unstableMakeIsData ''Q
+PlutusTx.unstableMakeIsData ''FBase
+PlutusTx.unstableMakeIsData ''FExp
 PlutusTx.unstableMakeIsData ''Proof
 
 instance ToData t => ToData (Extension t e) where

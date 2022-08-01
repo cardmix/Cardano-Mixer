@@ -38,7 +38,7 @@ import           Scripts.Constraints              (tokensMinted, utxoProduced, u
                                                     tokensMintedTx, utxoReferencedTx, utxoProducedPublicKeyTx, utxoSpentPublicKeyTx)
 import           Scripts.MixerDepositScript       (MixerDepositDatum)
 import           Scripts.VestingScript            ()
-import           MixerProofs.SigmaProtocol        (sigmaProtocolVerify)
+import           MixerProofs.SigmaProtocol        (BaseField, sigmaProtocolVerify, testGens)
 import           Tokens.DepositToken              (depositTokenName)
 import           Types.Mixer
 import           Types.MixerInput                 (MixerInput, WithdrawTokenNameParams, WithdrawTokenRedeemer, withdrawFirstTokenParams)
@@ -81,7 +81,7 @@ checkPolicy (mixer, dSymb, adaWithdrawAddr, _) (sigmaInput@(leafs, cur, _, aVal)
       -- the correct value us payed to the correct address
       cond3 = utxoProduced info (\o -> txOutAddress o == addr && txOutValue o `geq` mixerValueAfterWithdraw mixer)
       -- sigma protocol proof is correct
-      cond4 = sigmaProtocolVerify sigmaInput sigmaProof
+      cond4 = sigmaProtocolVerify testGens sigmaInput sigmaProof
       -- the address is converted to a number correctly
       cond5 = aVal == dataToZp addr
       -- all leafs used in the protocol are presented
@@ -152,7 +152,7 @@ withdrawTokenFirstMintTx mi = withdrawTokenMintTx mi wRed (toZp 0)
         wRed = (([], toZp 0, toZp 0, toZp 0), (([], [], []), [], []),
             (fst withdrawFirstTokenParams, snd withdrawFirstTokenParams, miMixerAddress mi), True)
 
-withdrawKeys :: MixerInstance -> Map TxOutRef (ChainIndexTxOut, ChainIndexTx) -> [(Fr, Fr)]
+withdrawKeys :: MixerInstance -> Map TxOutRef (ChainIndexTxOut, ChainIndexTx) -> [(BaseField, BaseField)]
 withdrawKeys mi = concatMap f
     where symb = withdrawTokenSymbol $ toWithdrawTokenParams mi
           g x  = (Zp $ divide x (char (zero :: Fr)), Zp $ modulo x (char (zero :: Fr)))

@@ -20,6 +20,7 @@ import           Prelude                                  (Show)
 import qualified Prelude
 
 import           Types.Mixer                              (Mixer)
+import           Utils.ByteString                         (ToBuiltinByteString(..), byteStringToInteger)
 
 ---------------------------------- MixerInstance type -----------------------------------------
 
@@ -41,3 +42,13 @@ data MixerInstance = MixerInstance
 
 instance Eq MixerInstance where
     (==) = (Prelude.==)
+
+mixerInstanceHash :: MixerInstance -> Integer
+mixerInstanceHash mi = byteStringToInteger $ sha2_256 x
+    where
+        TxOutRef id1 n1 = miMixerBeaconTxOutRef mi
+        TxOutRef id2 n2 = miWithdrawTxOutRef mi
+        x = getTxId id1 `appendByteString` toBytes n1 `appendByteString` getTxId id2 `appendByteString` toBytes n2
+
+findMixerInstanceByHash :: [MixerInstance] -> Integer -> Maybe MixerInstance
+findMixerInstanceByHash mis h = find ((h ==) . mixerInstanceHash) mis

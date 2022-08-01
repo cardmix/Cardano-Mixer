@@ -29,7 +29,7 @@ import           Ledger.Value                             (AssetClass(..), geq)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
-import           Crypto
+import           MixerProofs.SigmaProtocol                (BaseField)
 import           Scripts.Constraints                      (utxoProducedScriptTx, utxoSpentScriptTx)
 import           Tokens.DepositToken                      (depositTokenName)
 import           Types.Mixer                              (mixerValueBeforeDeposit)
@@ -40,7 +40,7 @@ import           Types.TxConstructor                      (TxConstructor)
 
 type MixerDepositParams = CurrencySymbol
 
-type MixerDepositDatum = Fr
+type MixerDepositDatum = BaseField
 
 type MixerDepositRedeemer = ()
 
@@ -82,7 +82,7 @@ payToMixerDepositScriptTx mi = utxoProducedScriptTx vh Nothing v
 
 withdrawFromMixerDepositScriptTx :: MixerInstance -> State (TxConstructor d a i o) (Maybe MixerDepositDatum)
 withdrawFromMixerDepositScriptTx mi = do
-  let g     = (fromBuiltinData :: BuiltinData -> Maybe Fr) . getDatum
+  let g     = (fromBuiltinData :: BuiltinData -> Maybe BaseField) . getDatum
       f _ o = _ciTxOutValue o `geq` v && either (const False) (isJust . g) (_ciTxOutDatum o)
   res <- utxoSpentScriptTx f (const . const val) (const . const ())
   case res of
