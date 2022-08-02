@@ -19,6 +19,7 @@
 module Tokens.DepositToken where
 
 import           Control.Monad.State              (State)
+import           Data.Map                         (Map)
 import           Data.Tuple.Extra                 (snd3)
 import           Ledger                           hiding (singleton, unspentOutputs, lookup)
 import           Ledger.Typed.Scripts             (mkUntypedMintingPolicy)
@@ -26,8 +27,9 @@ import           Ledger.Tokens                    (token)
 import           Ledger.Value                     (AssetClass(..), TokenName (..), geq, Value (..))
 import           Plutus.ChainIndex                (ChainIndexTx)
 import           PlutusTx                         (compile, applyCode, liftCode)
-import           PlutusTx.AssocMap                (singleton, Map, lookup, keys, empty)
-import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, mempty)
+import           PlutusTx.AssocMap                (singleton, lookup, keys, empty)
+import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, mempty, concatMap)
+import           Prelude                          (concatMap)
 
 import           Crypto
 import           MixerProofs.SigmaProtocol        (BaseField)

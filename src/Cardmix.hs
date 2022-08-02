@@ -12,15 +12,13 @@ module Cardmix where
 import           Data.Aeson                               (decodeFileStrict, encodeFile)
 import           GHC.Base                                 (undefined)
 import           Options.Applicative                      (execParser)
-import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
-import           Prelude                                  (IO, FilePath, (<$>), print)
+import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check, error)
+import           Prelude                                  (IO, FilePath, (<$>), print, error)
 
 import           CommandLine                              (Command(..), commandParserInfo)
 import           Configuration.RelayerConfig              (ledgerParams, relayerPKH, relayerSKH)
 import           IO.Wallet                                (getWalletTxOutRefs)
-import           Types.Conversions                        (mkMixerInstance, mkMixerChainIndexCache)
-import           Types.MixerApp                           (MixerApp(..), mixerApp)
-import           Types.MixerTransactions                  (mixerTxs, mixerMakeTxs)
+import           Types.MixerApp                           (MixerAppType (..), newMixerApp, newMixerInstance, mixerApp)
 
 
 cardmix :: IO ()
@@ -33,14 +31,16 @@ cardmix = do
 
 makeMixer :: FilePath -> Integer -> IO ()
 makeMixer file r = do
-    let fileV   = "pools/values/" ++ file ++ ".json"
-        fileMIS = "pools/instances/" ++ file ++ ".json"
-    v    <- fromMaybe (error ()) <$> decodeFileStrict fileV
-    refs <- getWalletTxOutRefs ledgerParams relayerPKH relayerSKH (2*r)
-    let mis = map (\i -> mkMixerInstance v i (refs !! (2*i)) (refs !! (2*i+1))) [0..r-1]
-    encodeFile fileMIS mis
-    let app = MixerApp mis [] (mkMixerChainIndexCache []) (mixerMakeTxs mis)
-    mixerApp app
+  let fileV   = "pools/values/" ++ file ++ ".json"
+      fileMIS = "pools/instances/" ++ file ++ ".json"
+  v    <- fromMaybe (error "File is not found.") <$> decodeFileStrict fileV
+  
+  refs <- getWalletTxOutRefs ledgerParams relayerPKH relayerSKH (2*r)
+
+  let mis = map (\i -> newMixerInstance v i (refs !! (2*i)) (refs !! (2*i+1))) [0..r-1]
+  encodeFile fileMIS mis
+
+  mixerApp $ newMixerApp MakeMixerApp mis
 
 startAPIServer :: IO ()
 startAPIServer = do
@@ -54,5 +54,4 @@ startRelayer = do
   -- loading mixer instances
   let mis = undefined -- TODO: load mixer instances
 
-  let app = MixerApp mis [] (mkMixerChainIndexCache mis) (mixerTxs mis)
-  mixerApp app
+  mixerApp $ newMixerApp RelayApp mis

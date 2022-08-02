@@ -21,6 +21,7 @@ module Tokens.WithdrawToken where
 import           Control.Monad.Extra              (mconcatMapM)
 import           Control.Monad.State              (State)
 import           Data.Functor                     (($>))
+import           Data.Map                         (Map)
 import           Ledger                           hiding (singleton, unspentOutputs, lookup)
 import           Ledger.Typed.Scripts             (mkUntypedMintingPolicy)
 import           Ledger.Tokens                    (token)
@@ -28,8 +29,9 @@ import           Ledger.Value                     (AssetClass(..), TokenName (..
 import           Plutus.ChainIndex                (ChainIndexTx)
 import           Plutus.V1.Ledger.Api             (Credential(..))
 import           PlutusTx                         (compile, applyCode, liftCode)
-import           PlutusTx.AssocMap                (fromList, Map, keys, lookup, empty)
-import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, mempty)
+import           PlutusTx.AssocMap                (fromList, keys, lookup, empty)
+import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, mempty, concatMap)
+import           Prelude                          (concatMap)
 
 import           Crypto
 import           Crypto.Conversions               (dataToZp)
@@ -155,5 +157,5 @@ withdrawTokenFirstMintTx mi = withdrawTokenMintTx mi wRed (toZp 0)
 withdrawKeys :: MixerInstance -> Map TxOutRef (ChainIndexTxOut, ChainIndexTx) -> [(BaseField, BaseField)]
 withdrawKeys mi = concatMap f
     where symb = withdrawTokenSymbol $ toWithdrawTokenParams mi
-          g x  = (Zp $ divide x (char (zero :: Fr)), Zp $ modulo x (char (zero :: Fr)))
+          g x  = (Zp $ divide x (char (zero :: BaseField)), Zp $ modulo x (char (zero :: BaseField)))
           f    = map (g . byteStringToInteger . unTokenName) . keys . fromMaybe empty . lookup symb . getValue . _ciTxOutValue . fst

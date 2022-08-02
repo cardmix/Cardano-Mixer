@@ -1,4 +1,6 @@
 {-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -6,20 +8,16 @@
 {-# LANGUAGE NoImplicitPrelude          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass #-}
+
 
 module Types.MixerInput where
 
 import           Cardano.Api                      (FromJSON, ToJSON)
-import           Data.Aeson                       (decodeFileStrict)
-import           Data.Map                         (Map)
-import           Data.Set                         (Set, fromList, isSubsetOf, notMember)
+import           Data.Set                         (Set, fromList, isSubsetOf, member)
 import           GHC.Generics                     (Generic)
-import           Ledger                           hiding (singleton, validatorHash, unspentOutputs)
-import           Plutus.ChainIndex.Tx             (ChainIndexTx)
+import           Ledger                           hiding (singleton, validatorHash, unspentOutputs, member)
 import           PlutusTx.Prelude                 hiding ((<$>))
-import           Prelude                          (undefined, Show, IO, (<$>))
+import           Prelude                          (Show)
 import qualified Prelude
 
 import           Crypto
@@ -50,22 +48,14 @@ toWithdrawTokenRedeemer :: MixerInput -> WithdrawTokenRedeemer
 toWithdrawTokenRedeemer mt = (mtSigmaProtocolInput mt, mtSigmaProtocolProof mt, (prev, next, mtWithdrawAddress mt), True)
     where (prev, next) = mtWithdrawTokenNameParams mt
 
-mixerInputVerify :: Set BaseField -> Set BaseField -> MixerInput -> Bool
-mixerInputVerify leafs keys (MixerInput _ inp@(ls, cur, _, aVal) proof (prev, next) addr _) = cond1 && cond2 && cond3 && cond4 && cond5
+mixerInputVerify :: Set BaseField -> Set (BaseField, BaseField) -> MixerInput -> Bool
+mixerInputVerify dKeys wKeys (MixerInput _ inp@(ls, cur, _, aVal) proof (prev, next) addr _) = cond1 && cond2 && cond3 && cond4 && cond5
     where
         cond1 = sigmaProtocolVerify testGens inp proof
         cond2 = prev < cur && cur < next
         cond3 = aVal == dataToZp addr
-        cond4 = fromList ls `isSubsetOf` leafs
-        cond5 = cur `notMember` keys
+        cond4 = fromList ls `isSubsetOf` dKeys
+        cond5 = (prev, next) `member` wKeys
 
-mixerInputFilter :: Set BaseField -> Set BaseField -> [MixerInput] -> [MixerInput]
-mixerInputFilter leafs keys = filter (mixerInputVerify leafs keys)
-
-updateMixerInputs :: [MixerInput] -> IO [MixerInput]
-updateMixerInputs ins = do
-    let file   = "data/inputs.json"
-    fromMaybe ins <$> decodeFileStrict file
-
-fromWithdrawRequest :: [MixerInstance] -> Map TxOutRef (ChainIndexTxOut, ChainIndexTx) -> WithdrawRequest -> Maybe MixerInput
-fromWithdrawRequest = undefined
+mixerInputFilter :: Set BaseField -> Set (BaseField, BaseField) -> [MixerInput] -> [MixerInput]
+mixerInputFilter dKeys wKeys = filter (mixerInputVerify dKeys wKeys)

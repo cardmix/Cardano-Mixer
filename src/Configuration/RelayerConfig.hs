@@ -36,10 +36,7 @@ dispenserWalletAddressText :: Text
 dispenserWalletAddressText = "addr_test1qrh8caw4kmlkwydwzdehpyw905dg8ayjv0vpe6vqmkkk5q3psddwydp9ea0gj3jawxyak3d238jpj9fxx3gnfhk7paxqnw2xmw"
 
 mixTokenTxOutRef :: TxOutRef
-mixTokenTxOutRef = TxOutRef (TxId emptyByteString) 0 
-
-mixerBeaconTxOutRef :: TxOutRef
-mixerBeaconTxOutRef = TxOutRef (TxId emptyByteString) 0
+mixTokenTxOutRef = TxOutRef (TxId emptyByteString) 0
 
 mixProfitsBeaconTxOutRef :: TxOutRef
 mixProfitsBeaconTxOutRef = TxOutRef (TxId emptyByteString) 0

@@ -49,9 +49,9 @@ library
       Tokens.MIXToken
       Tokens.OneShotCurrency
       Tokens.WithdrawToken
-      Types.Conversions
       Types.Mixer
       Types.MixerApp
+      Types.MixerApp.Internal
       Types.MixerInput
       Types.MixerInstance
       Types.MixerTransactions

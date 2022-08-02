@@ -8,33 +8,29 @@
 {-# LANGUAGE TypeFamilies               #-}
 
 
-module Types.MixerApp where
+module Types.MixerApp (MixerAppType (..), newMixerApp, newMixerInstance, mixerApp) where
 
 import           Control.Concurrent                       (threadDelay)
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check, error)
-import           Prelude                                  (IO, error)
+import           Prelude                                  (IO, error, undefined)
 
 import           Configuration.RelayerConfig              (relayerPKH, relayerSKH, ledgerParams)
 import           IO.ChainIndex                            (ChainIndexCache (..), updateChainIndexCache)
 import           IO.Wallet                                (balanceTx, submitTxConfirmed)
-import           Types.MixerInput                         (MixerInput (..), updateMixerInputs)
-import           Types.MixerInstance                      (MixerInstance (..))
-import           Types.MixerTransactions                  (MixerTransactionBuilder, MixerTransaction, execTxs)
+import           MixerProofs.SigmaProtocol                (WithdrawRequest)
+import           Types.MixerApp.Internal
+import           Types.MixerTransactions                  (MixerTransaction, execTxs)
 import           Types.TxConstructor                      (TxConstructor (..), mkTxConstructor)
 
 
-data MixerApp = MixerApp
-    {
-        maInstances    :: [MixerInstance],
-        maInputs       :: [MixerInput],
-        maCache        :: ChainIndexCache,
-        maTxs          :: [MixerTransactionBuilder]
-    }
+getWithdrawRequests :: IO [WithdrawRequest]
+getWithdrawRequests = undefined
 
 mixerApp :: MixerApp -> IO ()
 mixerApp app = do
     cache  <- updateChainIndexCache $ maCache app
-    inputs <- updateMixerInputs $ maInputs app
+    reqs   <- getWithdrawRequests
+    let inputs = newMixerInputs app { maCache = cache } reqs
 
     -- trying to find and submit admissible transaction
     let constrInit = mkTxConstructor (relayerPKH, Just relayerSKH) (cacheTime cache) inputs (cacheData cache) :: MixerTransaction
@@ -46,5 +42,4 @@ mixerApp app = do
             Nothing -> error "Unexpected error"
         Nothing     -> threadDelay 1000000 -- no admissible transaction found
 
-    let app' = app { maInputs = inputs, maCache = cache }
-    mixerApp app'
+    mixerApp $ app { maInputs = inputs, maCache = cache }
