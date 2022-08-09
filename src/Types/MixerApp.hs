@@ -32,7 +32,7 @@ mixerApp app = do
     reqs   <- getWithdrawRequests
     let inputs = newMixerInputs app { maCache = cache } reqs
 
-    -- trying to find and submit admissible transaction
+    -- trying to find and submit an admissible transaction
     let constrInit = mkTxConstructor (relayerPKH, Just relayerSKH) (cacheTime cache) inputs (cacheData cache) :: MixerTransaction
     case execTxs (maTxs app) constrInit of
         Just constr -> case txConstructorResult constr of

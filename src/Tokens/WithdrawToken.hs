@@ -50,6 +50,7 @@ import           Utils.ByteString                 (ToBuiltinByteString(..), byte
 
 --------------------------- On-Chain -----------------------------
 
+-- TODO: add Maybe BaseField == the next deposit key
 -- Mixer, Deposit token symbol, ADAWithdraw script address, and TxOutRef of initial mint
 type WithdrawTokenParams = (Mixer, CurrencySymbol, Address, TxOutRef)
 
@@ -80,6 +81,7 @@ checkPolicy (mixer, dSymb, adaWithdrawAddr, _) (sigmaInput@(leafs, cur, _, aVal)
       cond1 = tokensMinted ctx $ fromList [(nameBurn, -1), (namePrev, 1), (nameCur, 1)]
       -- the newly minted tokens are sent to the correct script address
       cond2 = utxoProduced info (\o -> txOutAddress o == adaWithdrawAddr && txOutValue o `geq` (vPrev + vCur))
+      -- TODO: check that the datum is correct! 
       -- the correct value us payed to the correct address
       cond3 = utxoProduced info (\o -> txOutAddress o == addr && txOutValue o `geq` mixerValueAfterWithdraw mixer)
       -- sigma protocol proof is correct
