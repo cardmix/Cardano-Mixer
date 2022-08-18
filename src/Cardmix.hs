@@ -20,6 +20,8 @@ import           Configuration.RelayerConfig              (ledgerParams, relayer
 import           IO.Wallet                                (getWalletTxOutRefs)
 import           Types.MixerApp                           (MixerAppType (..), newMixerApp, newMixerInstance, mixerApp)
 
+-- TODO: We need to update dependencies before we can proceed.
+-- In particular, we need the latest version of cardmix repos and plutus-apps with full Plutus V2 support which is not available at the moment.
 
 cardmix :: IO ()
 cardmix = do

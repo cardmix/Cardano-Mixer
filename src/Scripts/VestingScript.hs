@@ -87,6 +87,8 @@ withdrawFromVestingScriptTx = do
 
 ---------------------------- For PlutusTx ------------------------------
 
+-- These code is put here because we experienced some bugs with on-chain code compilation otherwise.
+
 PlutusTx.unstableMakeIsData ''Zp
 PlutusTx.unstableMakeIsData ''R
 PlutusTx.unstableMakeIsData ''Q
