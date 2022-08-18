@@ -33,10 +33,11 @@ module Tokens.OneShotCurrency (
 import           Control.Monad.State             (State)
 import           Data.Aeson                      (FromJSON, ToJSON)
 import           GHC.Generics                    (Generic)
-import           Ledger                          (CurrencySymbol, TxOutRef (..), ChainIndexTxOut, ScriptContext (..), TxInfo (..), MintingPolicy, spendsOutput, mkMintingPolicyScript, scriptCurrencySymbol, ownCurrencySymbol)
+import           Ledger                          (CurrencySymbol, TxOutRef (..), ChainIndexTxOut, ScriptContext (..), TxInfo (..), MintingPolicy, spendsOutput, mkMintingPolicyScript, ownCurrencySymbol)
 import           Ledger.Typed.Scripts            (mkUntypedMintingPolicy)
 import           Ledger.Value                    (TokenName, Value)
 import qualified Ledger.Value                    as Value
+import           Plutus.Script.Utils.V2.Scripts  (scriptCurrencySymbol)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap               as AssocMap
 import           PlutusTx.Prelude                hiding (Monoid (..), Semigroup (..))
