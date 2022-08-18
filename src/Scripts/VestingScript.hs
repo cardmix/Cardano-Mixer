@@ -20,114 +20,79 @@
 
 module Scripts.VestingScript where
 
-import           Control.Lens                   (makeClassyPrisms, review)
-import           Data.Aeson                     (FromJSON, ToJSON)
-import           GHC.Generics                   (Generic)
-import           Ledger                         (Address, POSIXTime, PaymentPubKeyHash (..), ValidatorHash, TxOutRef)
-import           Ledger.Constraints             (ScriptLookups(..), TxConstraints(..), mustPayToOtherScript,
-                                                    unspentOutputs, otherScript)
-import           Ledger.Contexts                (ScriptContext (..), TxInfo (..), txSignedBy)
+import           Control.Monad.State            (State, gets)
+import           Ledger                         (Address, POSIXTime, PaymentPubKeyHash (..), ValidatorHash, Datum (..), ChainIndexTxOut (..), TxOutRef, ScriptContext (..), TxInfo (..), txSignedBy)
 import qualified Ledger.Interval                as Interval
-import           Ledger.Scripts                 (Datum(..))
-import           Ledger.Typed.Scripts     
+import           Ledger.Typed.Scripts
 import           Ledger.Value                   (Value)
-import           Prelude                        (Semigroup (..), Eq, Show)
-import           Plutus.Contract
 import           PlutusTx
 import           PlutusTx.Prelude               hiding ((<>), Eq, Semigroup, fold, mempty)
 
 import           Crypto
-import           Tokens.GovernanceDecisionToken (governanceDecisionTokenRequired)
+import           MixerProofs.SigmaProtocol      (FBase, FExp)
+import           Scripts.Constraints            (utxoProducedScriptTx, utxoSpentScriptTx)
+import           Types.TxConstructor            (TxConstructor (..))
 
+--------------------------------------- On-Chain ------------------------------------------
 
-{- |
-    A simple vesting scheme. Money is locked by a contract and may only be
-    retrieved after some time has passed.
+type VestingDatum = (POSIXTime, PaymentPubKeyHash)
 
-    This is our first example of a contract that covers multiple transactions,
-    with a contract state that changes over time.
+type VestingRedeemer = ()
 
-    In our vesting scheme the money will be released in two _tranches_ (parts):
-    A smaller part will be available after an initial number of time has
-    passed, and the entire amount will be released at the end. The owner of the
-    vesting scheme does not have to take out all the money at once: They can
-    take out any amount up to the total that has been released so far. The
-    remaining funds stay locked and can be retrieved later.
+data Vesting
+instance ValidatorTypes Vesting where
+    type instance RedeemerType Vesting = VestingRedeemer
+    type instance DatumType Vesting = VestingDatum
 
-    Let's start with the data types.
+{-# INLINABLE mkVestingValidator #-}
+mkVestingValidator :: VestingDatum -> VestingRedeemer -> ScriptContext -> Bool
+mkVestingValidator (d, o) _ ScriptContext{scriptContextTxInfo=info@TxInfo{txInfoValidRange}} =
+    cond1 && cond2
+  where
+      cond1 = Interval.from d `Interval.contains` txInfoValidRange
+      cond2 = txSignedBy info (unPaymentPubKeyHash o)
 
--}
+vestingTypedValidator :: TypedValidator Vesting
+vestingTypedValidator = mkTypedValidator @Vesting
+    $$(PlutusTx.compile [|| mkVestingValidator ||])
+    $$(PlutusTx.compile [|| wrap ||])
+    where
+        wrap = mkUntypedValidator @VestingDatum @VestingRedeemer
 
-data VestingData = VestingData Address (Integer, Integer) [Fr] Proof
-    deriving (Show, Generic, ToJSON, FromJSON)
+------------------------------------------ Off-Chain --------------------------------------
 
-PlutusTx.unstableMakeIsData ''VestingData
+vestingValidator :: Validator
+vestingValidator = validatorScript vestingTypedValidator
+
+vestingValidatorHash :: ValidatorHash
+vestingValidatorHash = validatorHash vestingTypedValidator
+
+vestingValidatorAddress :: Address
+vestingValidatorAddress = validatorAddress vestingTypedValidator
+
+payToVestingScriptTx :: Value -> POSIXTime -> State (TxConstructor d a i o) ()
+payToVestingScriptTx v vestTime = do
+    creator <- gets txCreator
+    utxoProducedScriptTx vestingValidatorHash Nothing v (vestTime, fst creator)
+
+withdrawFromVestingScriptTx :: State (TxConstructor d a i o) (Maybe (TxOutRef, ChainIndexTxOut))
+withdrawFromVestingScriptTx = do
+    creator <- gets txCreator
+    time    <- gets txCurrentTime
+    let f _ o = either (const False) g (_ciTxOutDatum o)
+        g d   = fromMaybe False $ do
+              (t, pkh) <- fromBuiltinData $ getDatum d
+              return $ t <= time && pkh == fst creator
+    utxoSpentScriptTx f (const . const vestingValidator) (const . const ())
+
+---------------------------- For PlutusTx ------------------------------
 
 PlutusTx.unstableMakeIsData ''Zp
 PlutusTx.unstableMakeIsData ''R
 PlutusTx.unstableMakeIsData ''Q
+PlutusTx.unstableMakeIsData ''FBase
+PlutusTx.unstableMakeIsData ''FExp
 PlutusTx.unstableMakeIsData ''Proof
-
--- | A vesting scheme: vesting tranche and the owner.
-data VestingParams = VestingParams
-    {
-        vestingDate      :: POSIXTime,
-        vestingOwner     :: PaymentPubKeyHash,
-        vestingTx        :: TxOutRef,
-        vestingWHash     :: Fr
-    } deriving (Show, Generic, ToJSON, FromJSON)
-
-PlutusTx.unstableMakeIsData ''VestingParams
-
-data Vesting
-instance ValidatorTypes Vesting where
-    type instance RedeemerType Vesting = ()
-    type instance DatumType Vesting = VestingParams
-
-{-# INLINABLE validate #-}
-validate :: VestingParams -> () -> ScriptContext -> Bool
-validate (VestingParams d o _ _) () ScriptContext{scriptContextTxInfo=txInfo@TxInfo{txInfoValidRange}} =
-    (isUnlocked && isSignedByOwner) || governanceDecisionTokenRequired txInfo
-  where
-      validRange      = Interval.from d
-      isUnlocked      = validRange `Interval.contains` txInfoValidRange
-      isSignedByOwner = txSignedBy txInfo (unPaymentPubKeyHash o)
-
-typedValidator :: TypedValidator Vesting
-typedValidator = mkTypedValidator @Vesting
-    $$(PlutusTx.compile [|| validate ||])
-    $$(PlutusTx.compile [|| wrap ||])
-    where
-        wrap = wrapValidator
-
-vestingScript :: Validator
-vestingScript = validatorScript typedValidator
-
-vestingScriptHash :: ValidatorHash
-vestingScriptHash = validatorHash typedValidator
-
-vestingScriptAddress :: Address
-vestingScriptAddress = validatorAddress typedValidator
-
-data VestingError =
-    VContractError ContractError
-    | InsufficientFundsError Value Value Value
-    deriving stock (Eq, Show, Generic)
-    deriving anyclass (ToJSON, FromJSON)
-
-makeClassyPrisms ''VestingError
-
-instance AsContractError VestingError where
-    _ContractError = _VContractError
-
-timelockTx :: (AsVestingError e) => VestingParams -> Value -> Contract w s e (ScriptLookups a, TxConstraints i o)
-timelockTx p v = mapError (review _VestingError) $ do
-    utxos <- utxosAt vestingScriptAddress
-    let lookups = otherScript vestingScript <> unspentOutputs utxos
-        cons    = mustPayToOtherScript vestingScriptHash (Datum $ toBuiltinData p) v
-    return (lookups, cons)
-
----------------------------- For PlutusTx ------------------------------
 
 instance ToData t => ToData (Extension t e) where
     {-# INLINABLE toBuiltinData #-}

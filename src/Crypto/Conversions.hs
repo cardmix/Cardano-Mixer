@@ -4,7 +4,6 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
-{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeFamilies               #-}
 
@@ -12,12 +11,12 @@
 module Crypto.Conversions  where
 
 import           Ledger.Address              (PaymentPubKeyHash (..))
-import           Plutus.V1.Ledger.Api
-import           PlutusTx.AssocMap           (Map, toList)
+import           Plutus.V2.Ledger.Api        (Address (..), Credential(..), PubKeyHash (..), StakingCredential (..), ValidatorHash (..),
+                                                CurrencySymbol (..), TokenName (..))
 import           PlutusTx.Prelude            hiding (toList)
 
-import           Crypto.MiMC                 (mimcHash)
 import           Crypto.Zp                   (Zp(..), FiniteField(..), toZp)
+import           Utils.ByteString            (byteStringToInteger)
 
 ----------------------------- DataToZp ------------------------------------------
 
@@ -30,15 +29,24 @@ instance FiniteField p => DataToZp (Zp p) p where
 
 instance FiniteField p => DataToZp Integer p where
     {-# INLINABLE dataToZp #-}
-    dataToZp = integerToZp
+    dataToZp = toZp
 
 instance FiniteField p => DataToZp BuiltinByteString p where
     {-# INLINABLE dataToZp #-}
-    dataToZp = integerToZp . byteStringToInteger 0
+    dataToZp bs = toZp $ byteStringToInteger bs
 
 instance FiniteField p => DataToZp PaymentPubKeyHash p where
     {-# INLINABLE dataToZp #-}
     dataToZp = dataToZp . getPubKeyHash . unPaymentPubKeyHash
+
+instance FiniteField p => DataToZp Address p where
+    {-# INLINABLE dataToZp #-}
+    dataToZp (Address (PubKeyCredential (PubKeyHash pkh)) (Just (StakingHash (PubKeyCredential (PubKeyHash skh))))) =
+        dataToZp $ pkh `appendByteString` skh
+    dataToZp (Address (PubKeyCredential (PubKeyHash pkh)) _) = dataToZp pkh
+    dataToZp (Address (ScriptCredential (ValidatorHash vh)) (Just (StakingHash (PubKeyCredential (PubKeyHash skh))))) =
+        dataToZp $ vh `appendByteString` skh
+    dataToZp (Address (ScriptCredential (ValidatorHash vh)) _) = dataToZp vh
 
 instance FiniteField p => DataToZp CurrencySymbol p where
     {-# INLINABLE dataToZp #-}
@@ -48,31 +56,14 @@ instance FiniteField p => DataToZp TokenName p where
     {-# INLINABLE dataToZp #-}
     dataToZp = dataToZp . unTokenName
 
-instance (FiniteField p, DataToZp a p, DataToZp b p) => DataToZp (a, b) p where
-    {-# INLINABLE dataToZp #-}
-    dataToZp (x, y) = mimcHash (dataToZp x) (dataToZp y)
+-- instance (FiniteField p, DataToZp a p, DataToZp b p) => DataToZp (a, b) p where
+--     {-# INLINABLE dataToZp #-}
+--     dataToZp (x, y) = mimcHash (dataToZp x) (dataToZp y)
 
-instance (FiniteField p, DataToZp a p, DataToZp b p) => DataToZp (Map a b) p where
-    {-# INLINABLE dataToZp #-}
-    dataToZp m = foldl (curry dataToZp) zero (toList m)
+-- instance (FiniteField p, DataToZp a p, DataToZp b p) => DataToZp (Map a b) p where
+--     {-# INLINABLE dataToZp #-}
+--     dataToZp m = foldl (curry dataToZp) zero (toList m)
 
-instance FiniteField p => DataToZp Value p where
-    {-# INLINABLE dataToZp #-}
-    dataToZp = dataToZp . getValue
-
--------------------------------- Auxiliary ----------------------------------------
-
-{-# INLINABLE integerToZp #-}
-integerToZp :: forall p. FiniteField p => Integer -> Zp p
-integerToZp m
-            | m < fieldPrime (mempty :: p) = toZp m
-            | otherwise                    = mimcHash (toZp r) (integerToZp q)
-                where (q, r) = quotRem m (fieldPrime (mempty :: p))
-
-{-# INLINABLE byteStringToInteger #-}
-byteStringToInteger :: Integer -> BuiltinByteString -> Integer
-byteStringToInteger z bs
-                    | bs == emptyByteString = z
-                    | otherwise             = byteStringToInteger (256*z + a) bs'
-                        where a   = indexByteString (takeByteString 1 bs) 0
-                              bs' = dropByteString 1 bs
+-- instance FiniteField p => DataToZp Value p where
+--     {-# INLINABLE dataToZp #-}
+--     dataToZp = dataToZp . getValue

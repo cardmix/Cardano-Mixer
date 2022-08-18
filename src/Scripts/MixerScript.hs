@@ -18,122 +18,72 @@
 {-# LANGUAGE TypeOperators              #-}
 
 
-module Scripts.MixerScript (
-    Mixer(..),
-    mixerInst,
-    mixerValidator,
-    mixerValidatorHash,
-    mixerAddress,
-    makeMixerFromFees,
-    mixerAdaUTXO,
-    hourPOSIX
-) where
+module Scripts.MixerScript where
 
+import           Control.Monad.State                      (State)
 import           Ledger                                   hiding (singleton, validatorHash, unspentOutputs)
-import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator, validatorScript, validatorHash, wrapValidator)
-import           Plutus.V1.Ledger.Ada                     (lovelaceValueOf, toValue, fromValue)
-import           Plutus.V1.Ledger.Credential              (Credential(..))
-import           Plutus.V1.Ledger.Value                   (geq)
+import           Ledger.Tokens                            (token)
+import           Ledger.Typed.Scripts                     (TypedValidator, ValidatorTypes(..), mkTypedValidator, mkUntypedValidator,
+                                                            validatorScript, validatorHash, validatorAddress)
+import           Ledger.Value                             (AssetClass(..), geq)
 import           PlutusTx
 import           PlutusTx.Prelude                         hiding ((<>), mempty, Semigroup, (<$>), unless, mapMaybe, find, toList, fromInteger, check)
 
-import           Configuration.PABConfig                  (pabWalletPKH)
-import           Scripts.VestingScript                    (VestingParams(..))
+import           Scripts.Constraints                      (utxoSpentScriptTx, utxoProducedScriptTx)
+import           Tokens.WithdrawToken                     (withdrawTokenName)
+import           Types.Mixer                              (mixerValueBeforeDeposit)
+import           Types.MixerInput                         (WithdrawTokenNameParams)
+import           Types.MixerInstance                      (MixerInstance (..))
+import           Types.TxConstructor                      (TxConstructor)
 
+--------------------------------------- On-Chain ------------------------------------------
 
------------------------ Data types, instances, and constants -----------------------------
-
-data Mixer = Mixer {
-    mVestingHash        :: !ValidatorHash,    -- ValidatorHash of the vesting script
-    mValue              :: !Value,            -- Mixing value
-    mRelayerCollateral  :: !Value,            -- Relayer collateral
-    mTotalFees          :: !Value             -- Total fees that relayer collects
-}
-
-PlutusTx.makeLift ''Mixer
-
-mixerFixedFee :: Value
-mixerFixedFee = lovelaceValueOf 1_500_000
-
-mixerAdaUTXO :: Mixer -> Value
-mixerAdaUTXO mixer = if toValue minAdaTxOut `geq` adaInMixingValue
-        then toValue minAdaTxOut - adaInMixingValue else zero
-    where adaInMixingValue = toValue $ fromValue (mValue mixer)
-
-makeMixerFromFees :: ValidatorHash -> Value -> Mixer
-makeMixerFromFees vh v = Mixer vh (scale 500 v) (scale 1000 v + toValue minAdaTxOut) (v + mixerFixedFee)
+type MixerParams = CurrencySymbol
 
 type MixerDatum = ()
-type MixerRedeemer = ()
+
+type MixerRedeemer = WithdrawTokenNameParams
 
 data Mixing
 instance ValidatorTypes Mixing where
   type instance DatumType Mixing = MixerDatum
   type instance RedeemerType Mixing = MixerRedeemer
 
------------------------------- Validator --------------------------------
-
--- TODO: this should be moved to config and restored to one hour
-hourPOSIX :: POSIXTime
-hourPOSIX = POSIXTime 3_600
-
 {-# INLINABLE mkMixerValidator #-}
-mkMixerValidator :: Mixer -> MixerDatum -> MixerRedeemer -> ScriptContext -> Bool
-mkMixerValidator (Mixer vh _ col _) _ _ ctx = vestingOK &&
-                                --  paymentOK &&
-                                 isSignedByPAB
+mkMixerValidator :: MixerParams -> MixerDatum -> MixerRedeemer -> ScriptContext -> Bool
+mkMixerValidator wSymb _ wTNParams ScriptContext{scriptContextTxInfo=info} = cond
     where
-        txinfo = scriptContextTxInfo ctx
-        outs   = txInfoOutputs txinfo
-        outs'  = head $ filter (\o -> (txOutValue o `geq` col) &&
-            (txOutAddress o == Address (ScriptCredential vh) Nothing)) outs
-
-        VestingParams vTime _ ref _ = unsafeFromBuiltinData $ getDatum $ fromMaybe (error ()) $
-            findDatum (fromMaybe (error ()) $ txOutDatumHash outs') txinfo
-
-        -- finding current time estimate
-        dateOK = case ivTo (txInfoValidRange txinfo) of
-                  UpperBound (Finite t) True -> vTime >= t + hourPOSIX
-                  _                          -> False
-
-        -- finding this input's TxOutRef
-        ownRef = txInInfoOutRef $ fromMaybe (error ()) $ findOwnInput ctx
-
-        vestingOK = (ownRef == ref) && dateOK
-        -- paymentOK = any (\o -> (txOutValue o `geq` mValue mixer) &&
-        --     (txOutAddress o == addr)) outs
-
-        -- TODO: remove this after test
-        isSignedByPAB = txSignedBy txinfo (unPaymentPubKeyHash pabWalletPKH)
+        vWD = token $ AssetClass (wSymb, withdrawTokenName wTNParams)
+        cond = txInfoMint info `geq` vWD
 
 -- Validator instance
-mixerInst :: Mixer -> TypedValidator Mixing
-mixerInst mixer = mkTypedValidator @Mixing
+mixerTypedValidator :: MixerParams -> TypedValidator Mixing
+mixerTypedValidator params = mkTypedValidator @Mixing
     ($$(PlutusTx.compile [|| mkMixerValidator ||])
-    `PlutusTx.applyCode` PlutusTx.liftCode mixer)
+    `PlutusTx.applyCode` PlutusTx.liftCode params)
     $$(PlutusTx.compile [|| wrap ||])
   where
-    wrap = wrapValidator @MixerDatum @MixerRedeemer
+    wrap = mkUntypedValidator @MixerDatum @MixerRedeemer
 
--- Validator script
-mixerValidator :: Mixer -> Validator
-mixerValidator = validatorScript . mixerInst
+---------------------------------------- Off-chain -------------------------------------------
 
--- Validator Hash
-mixerValidatorHash :: Mixer -> ValidatorHash
-mixerValidatorHash = validatorHash . mixerInst
+mixerValidator :: MixerParams -> Validator
+mixerValidator = validatorScript . mixerTypedValidator
 
--- Validator address
-mixerAddress :: Mixer -> Address
-mixerAddress = scriptAddress . mixerValidator
+mixerValidatorHash :: MixerParams -> ValidatorHash
+mixerValidatorHash = validatorHash . mixerTypedValidator
 
------------------------------ Off-chain --------------------------------
+mixerAddress :: MixerParams -> Address
+mixerAddress = validatorAddress . mixerTypedValidator
 
--- getRelayTicketUTXOs :: AsContractError e => Mixer -> Contract w s e (Map TxOutRef ChainIndexTxOut)
--- getRelayTicketUTXOs mixer = do
---     utxos <- utxosAt (mixerAddress mixer)
---     return $ Data.Map.filter (\o -> f o == Just zero) utxos
---   where f o = do
---             d <- either (const Nothing) Just $ _ciTxOutDatum o
---             m <- fromBuiltinData $ getDatum d
---             return $ getMixerDatum m
+payToMixerScriptTx :: MixerInstance -> State (TxConstructor d a i o) ()
+payToMixerScriptTx mi = utxoProducedScriptTx val Nothing v ()
+  where val = mixerValidatorHash        $ miWithdrawCurrencySymbol mi
+        v   = mixerValueBeforeDeposit   $ miMixer  mi
+
+withdrawFromMixerScriptTx :: MixerInstance -> MixerRedeemer -> State (TxConstructor d a i o) (Maybe (TxOutRef, ChainIndexTxOut))
+withdrawFromMixerScriptTx mi red = do
+  let f _ o = _ciTxOutValue o `geq` v && either (const False) (== Datum (toBuiltinData ())) (_ciTxOutDatum o)
+  utxoSpentScriptTx f (const . const val) (const . const red)
+  where val = mixerValidator            $ miWithdrawCurrencySymbol mi
+        v   = mixerValueBeforeDeposit   $ miMixer  mi

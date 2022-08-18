@@ -18,93 +18,146 @@
 
 module Tokens.WithdrawToken where
 
-import qualified Data.Map
-import           Data.Maybe                       (fromJust)
-import           Ledger                           hiding (singleton, unspentOutputs)
-import           Ledger.Constraints.OffChain      (ScriptLookups)
-import           Ledger.Constraints.TxConstraints (TxConstraints, mustPayToOtherScript, mustValidateIn)
-import           Ledger.Typed.Scripts             (wrapMintingPolicy)
+import           Control.Monad.Extra              (mconcatMapM)
+import           Control.Monad.State              (State)
+import           Data.Functor                     (($>))
+import           Data.Map                         (Map)
+import           Ledger                           hiding (singleton, unspentOutputs, lookup)
+import           Ledger.Typed.Scripts             (mkUntypedMintingPolicy)
 import           Ledger.Tokens                    (token)
-import           Ledger.Value                     (AssetClass(..), TokenName (..))
-import           Plutus.V1.Ledger.Ada             (lovelaceValueOf)
-import           Plutus.V1.Ledger.Value           (geq)
-import           PlutusTx                         (compile, toBuiltinData, applyCode, liftCode)
-import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, mempty)
-import           Prelude                          ((<>), mempty)
+import           Ledger.Value                     (AssetClass(..), TokenName (..), geq, Value (..))
+import           Plutus.ChainIndex                (ChainIndexTx)
+import           Plutus.V1.Ledger.Api             (Credential(..))
+import           PlutusTx                         (compile, applyCode, liftCode)
+import           PlutusTx.AssocMap                (fromList, keys, lookup, empty)
+import           PlutusTx.Prelude                 hiding (Semigroup(..), (<$>), unless, mapMaybe, find, toList, fromInteger, mempty, concatMap)
+import           Prelude                          (concatMap)
 
 import           Crypto
+import           Crypto.Conversions               (dataToZp)
+import           Scripts.ADAWithdrawScript        (payToADAWithdrawScriptTx)
+import           Scripts.Constraints              (tokensMinted, utxoProduced, utxoReferenced, tokensBurnedTx, utxoProducedScriptTx,
+                                                    tokensMintedTx, utxoReferencedTx, utxoProducedPublicKeyTx, utxoSpentPublicKeyTx)
+import           Scripts.MixerDepositScript       (MixerDepositDatum)
 import           Scripts.VestingScript            ()
-import           Scripts.Constraints              (tokensMintedTx)
-import           Tokens.DepositToken              (depositTokenTargetValidatorHash)
-import           Types.TxConstructor              (TxConstructor(..))
-
------------------------------------- Deposit Token -----------------------------------------------
-
-withdrawTokenTargetValidatorHash :: ValidatorHash
-withdrawTokenTargetValidatorHash = depositTokenTargetValidatorHash
-
-withdrawTokenTargetAddress :: Address
-withdrawTokenTargetAddress = scriptHashAddress withdrawTokenTargetValidatorHash
-
-{-# INLINABLE withdrawTokenName #-}
-withdrawTokenName :: (Integer, Integer) -> TokenName
-withdrawTokenName (a, b) = TokenName $ withdrawTokenHash (a, b)
-
-withdrawTokenSymbol :: (Address, Value) -> CurrencySymbol
-withdrawTokenSymbol par = scriptCurrencySymbol $ curPolicy par
-
-withdrawTokenAssetClass :: (Address, Value) -> (Fr, POSIXTime) -> AssetClass
-withdrawTokenAssetClass par (Zp a, POSIXTime b) = AssetClass (withdrawTokenSymbol par, withdrawTokenName (a, b))
-
-withdrawToken :: (Address, Value) -> (Fr, POSIXTime) -> Value
-withdrawToken par d = token $ withdrawTokenAssetClass par d
+import           MixerProofs.SigmaProtocol        (BaseField, sigmaProtocolVerify, testGens)
+import           Tokens.DepositToken              (depositTokenName)
+import           Types.Mixer
+import           Types.MixerInput                 (MixerInput, WithdrawTokenNameParams, WithdrawTokenRedeemer, withdrawFirstTokenParams)
+import           Types.MixerInstance              (MixerInstance (..))
+import           Types.TxConstructor              (TxConstructor (..))
+import           Utils.ByteString                 (ToBuiltinByteString(..), byteStringToInteger)
 
 --------------------------- On-Chain -----------------------------
 
-integerToBuiltinByteString :: Integer -> BuiltinByteString
-integerToBuiltinByteString n = consByteString r $ if q > 0 then integerToBuiltinByteString q else emptyByteString
-  where (q, r) = divMod n 256
+-- TODO: add Maybe BaseField == the next deposit key
+-- Mixer, Deposit token symbol, ADAWithdraw script address, and TxOutRef of initial mint
+type WithdrawTokenParams = (Mixer, CurrencySymbol, Address, TxOutRef)
 
-withdrawTokenHash :: (Integer, Integer) -> BuiltinByteString
-withdrawTokenHash (a, b) = sha2_256 $ integerToBuiltinByteString a `appendByteString` integerToBuiltinByteString b
+toWithdrawTokenParams :: MixerInstance -> WithdrawTokenParams
+toWithdrawTokenParams mi = (mixer, dSymb, aAddr, ref)
+    where mixer          = miMixer mi
+          dSymb          = miDepositCurrencySymbol mi
+          aAddr          = miADAWithdrawAddress mi
+          ref            = miWithdrawTxOutRef mi
 
-checkPolicy :: (Address, Value) -> (Fr, POSIXTime) -> ScriptContext -> Bool
-checkPolicy (addr, val) (Zp a, dTime@(POSIXTime b)) ctx@ScriptContext{scriptContextTxInfo=txinfo} = mintOK && sentOK && txOK && timeOK
-  where hash      = withdrawTokenHash (a, b)
-        ownSymbol = ownCurrencySymbol ctx
-        t         = token $ AssetClass (ownSymbol, TokenName hash)
-        minted    = txInfoMint txinfo
+{-# INLINABLE withdrawTokenName #-}
+withdrawTokenName :: WithdrawTokenNameParams -> TokenName
+withdrawTokenName (n@(Zp cur), Zp next) = TokenName $ toBytes $ cur * char n  + next
 
-        -- True if the pending transaction mints the amount of
-        -- currency that we expect
-        mintOK = minted == t
+checkPolicy :: WithdrawTokenParams -> WithdrawTokenRedeemer -> ScriptContext -> Bool
+checkPolicy (mixer, dSymb, adaWithdrawAddr, _) (sigmaInput@(leafs, cur, _, aVal), sigmaProof, (prev, next, addr), False)
+    ctx@ScriptContext{scriptContextTxInfo=info} = cond1 && cond2 && cond3 && cond4 && cond5 && cond6 && cond7
+  where
+      wSymb    = ownCurrencySymbol ctx
+      nameBurn = withdrawTokenName (prev, next)
+      namePrev = withdrawTokenName (prev, cur)
+      nameCur  = withdrawTokenName (cur, next)
+      vPrev    = token $ AssetClass (wSymb, namePrev)
+      vCur     = token $ AssetClass (wSymb, nameCur)
+      f leaf   = utxoReferenced info (\o -> txOutValue o `geq` token (AssetClass (dSymb, depositTokenName leaf)))
 
-        outs   = txInfoOutputs txinfo
+      -- tokens are minted and burned correctly
+      cond1 = tokensMinted ctx $ fromList [(nameBurn, -1), (namePrev, 1), (nameCur, 1)]
+      -- the newly minted tokens are sent to the correct script address
+      cond2 = utxoProduced info (\o -> txOutAddress o == adaWithdrawAddr && txOutValue o `geq` (vPrev + vCur))
+      -- TODO: check that the datum is correct! 
+      -- the correct value us payed to the correct address
+      cond3 = utxoProduced info (\o -> txOutAddress o == addr && txOutValue o `geq` mixerValueAfterWithdraw mixer)
+      -- sigma protocol proof is correct
+      cond4 = sigmaProtocolVerify testGens sigmaInput sigmaProof
+      -- the address is converted to a number correctly
+      cond5 = aVal == dataToZp addr
+      -- all leafs used in the protocol are presented
+      cond6 = all f leafs
+      -- the key was not previously used
+      cond7 = prev < cur && cur < next
+checkPolicy (_, _, adaWithdrawAddr, ref) (_, _, _, True)
+    ctx@ScriptContext{scriptContextTxInfo=info} = cond1 && cond2 && cond3
+  where
+      nameCur  = withdrawTokenName withdrawFirstTokenParams
+      vCur     = token $ AssetClass (ownCurrencySymbol ctx, nameCur)
 
-        outs'  = filter (\o -> txOutAddress o == withdrawTokenTargetAddress) outs
-        sentOK = sum (map txOutValue outs') `geq` t
+      cond1 = tokensMinted ctx $ fromList [(nameCur, 1)]
+      cond2 = utxoProduced info (\o -> txOutAddress o == adaWithdrawAddr && txOutValue o `geq` vCur)
+      cond3 = isJust $ findTxInByTxOutRef ref info -- TODO: check that this finds only utxos that are spent
 
-        outs'' = filter (\o -> txOutAddress o == addr) outs
-        txOK = sum (map txOutValue outs'') `geq` val
-
-        int    = txInfoValidRange txinfo
-        int'   = interval (dTime-600_000) (dTime+600_000)
-        timeOK = int' `contains` int
-
-curPolicy :: (Address, Value) -> MintingPolicy
+curPolicy :: WithdrawTokenParams -> MintingPolicy
 curPolicy par = mkMintingPolicyScript $
-    $$(PlutusTx.compile [|| wrapMintingPolicy . checkPolicy ||])
+    $$(PlutusTx.compile [|| mkUntypedMintingPolicy . checkPolicy ||])
         `PlutusTx.applyCode`
             PlutusTx.liftCode par
 
 -------------------------- Off-Chain -----------------------------
 
--- TxConstraints that Relay Token is minted and sent by the transaction
-withdrawTokenMintTx :: (Address, Value) -> (Fr, POSIXTime) -> (ScriptLookups a, TxConstraints i o)
-withdrawTokenMintTx par red@(_, ct) = (lookups, cons <> 
-      mustPayToOtherScript withdrawTokenTargetValidatorHash (Datum $ toBuiltinData (par, red)) (withdrawToken par red + lovelaceValueOf 2_000_000) <>
-      mustValidateIn (interval (ct-100_000) (ct+200_000)))
-  where
-    (lookups, cons) = fromJust $ txConstructorResult constr
-    constr = tokensMintedTx (curPolicy par) (Redeemer $ toBuiltinData red) (withdrawToken par red) $
-        TxConstructor Data.Map.empty $ Just (mempty, mempty)
+withdrawTokenSymbol :: WithdrawTokenParams -> CurrencySymbol
+withdrawTokenSymbol par = scriptCurrencySymbol $ curPolicy par
+
+withdrawTokenAssetClass :: WithdrawTokenParams -> WithdrawTokenNameParams -> AssetClass
+withdrawTokenAssetClass par nParams = AssetClass (withdrawTokenSymbol par, withdrawTokenName nParams)
+
+withdrawToken :: WithdrawTokenParams -> WithdrawTokenNameParams -> Value
+withdrawToken par nParams = token $ withdrawTokenAssetClass par nParams
+
+-- Constraints that Withdraw Token is minted in the transaction
+withdrawTokenMintTx :: MixerInstance -> WithdrawTokenRedeemer -> MixerDepositDatum -> State (TxConstructor [MixerInput] a i o) ()
+withdrawTokenMintTx mi red@((leafs, cur, _, _), _, (prev, next, addr), b) leaf =
+    if b
+    then do
+        tokensMintedTx (curPolicy par) red (withdrawToken par withdrawFirstTokenParams)
+        payToADAWithdrawScriptTx (withdrawToken par withdrawFirstTokenParams)
+        utxoSpentPublicKeyTx (\r _ -> r == wRef) $> ()
+    else do
+        tokensMintedTx (curPolicy par) red (withdrawToken par (prev, cur) + withdrawToken par (cur, next))
+        tokensBurnedTx (curPolicy par) red (withdrawToken par (prev, next))
+        payToADAWithdrawScriptTx (withdrawToken par (prev, cur) + withdrawToken par (cur, next))
+        utxoProducedWithdraw
+        mconcatMapM f leafs
+    where
+        mixer = miMixer mi
+        dSymb = miDepositCurrencySymbol mi
+        aAddr = miADAWithdrawAddress mi
+        wRef  = miWithdrawTxOutRef mi
+        par   = (mixer, dSymb, aAddr, wRef)
+
+        -- Different condition depending on the type of withdrawal address
+        utxoProducedWithdraw = case addr of
+            Address (PubKeyCredential pkh) _ ->
+                utxoProducedPublicKeyTx (PaymentPubKeyHash pkh) Nothing (mixerValueAfterWithdraw mixer) ()
+            Address (ScriptCredential valHash) _ ->
+                utxoProducedScriptTx valHash Nothing (mixerValueAfterWithdraw mixer) leaf
+
+        g l _ o = _ciTxOutValue o `geq` token (AssetClass (dSymb, depositTokenName l))
+        f l     = utxoReferencedTx (g l)
+
+withdrawTokenFirstMintTx :: MixerInstance -> State (TxConstructor [MixerInput] a i o) ()
+withdrawTokenFirstMintTx mi = withdrawTokenMintTx mi wRed (toZp 0)
+    where
+        wRed = (([], toZp 0, toZp 0, toZp 0), (([], [], []), [], []),
+            (fst withdrawFirstTokenParams, snd withdrawFirstTokenParams, miMixerAddress mi), True)
+
+withdrawKeys :: MixerInstance -> Map TxOutRef (ChainIndexTxOut, ChainIndexTx) -> [(BaseField, BaseField)]
+withdrawKeys mi = concatMap f
+    where symb = withdrawTokenSymbol $ toWithdrawTokenParams mi
+          g x  = (Zp $ divide x (char (zero :: BaseField)), Zp $ modulo x (char (zero :: BaseField)))
+          f    = map (g . byteStringToInteger . unTokenName) . keys . fromMaybe empty . lookup symb . getValue . _ciTxOutValue . fst

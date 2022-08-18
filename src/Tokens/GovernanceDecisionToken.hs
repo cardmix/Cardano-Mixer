@@ -18,21 +18,19 @@
 
 module Tokens.GovernanceDecisionToken where
 
-import qualified Data.Map
-import           Data.Maybe                       (fromJust)
-import           Ledger                           (CurrencySymbol, ScriptContext (..), TxId (..), scriptCurrencySymbol, TxInfo(..), TxOut (..))
-import           Ledger.Constraints               (TxConstraints, ScriptLookups)
+import           Control.Monad.State              (State)
+import           Ledger                           (CurrencySymbol, ScriptContext (..), TxId (..), TxInfo(..),  TxOut (..),
+                                                    ChainIndexTxOut (..), TxOutRef, scriptCurrencySymbol)
 import           Ledger.Scripts                   (MintingPolicy, mkMintingPolicyScript)
 import           Ledger.Tokens                    (token)
-import           Ledger.Typed.Scripts             (wrapMintingPolicy)
+import           Ledger.Typed.Scripts             (mkUntypedMintingPolicy)
 import           Ledger.Value                     (TokenName (..), Value, AssetClass(..), geq)
 import           PlutusTx                         (compile)
 import           PlutusTx.Prelude                 hiding (Monoid (..), Semigroup (..), Eq)
-import           Prelude                          (mempty)
 
 import           Scripts.Constraints              (utxoSpent, utxoSpentPublicKeyTx)
-import           Tokens.GovernanceBeaconToken     (governanceBeaconTokenRequired)
 import           Types.TxConstructor              (TxConstructor(..))
+
 
 -------------------------------- On-chain ---------------------------------
 
@@ -41,12 +39,12 @@ governanceDecisionTokenName :: TxId -> TokenName
 governanceDecisionTokenName tx = TokenName $ getTxId tx
 
 checkPolicy :: () -> ScriptContext -> Bool
-checkPolicy _ ctx =
-    let info = scriptContextTxInfo ctx
-    in governanceBeaconTokenRequired info
+checkPolicy _ _ = True
+    -- let info = scriptContextTxInfo ctx
+    -- in governanceBeaconTokenRequired info
 
 curPolicy :: MintingPolicy
-curPolicy = mkMintingPolicyScript $$(compile [|| wrapMintingPolicy checkPolicy ||])
+curPolicy = mkMintingPolicyScript $$(compile [|| mkUntypedMintingPolicy checkPolicy ||])
 
 governanceDecisionCurrencySymbol :: CurrencySymbol
 governanceDecisionCurrencySymbol = scriptCurrencySymbol curPolicy
@@ -59,12 +57,11 @@ governanceDecisionToken = token . governanceDecisionAssetClass
 
 {-# INLINABLE governanceDecisionTokenRequired #-}
 governanceDecisionTokenRequired :: TxInfo -> Bool
-governanceDecisionTokenRequired info = utxoSpent (\o -> txOutValue o `geq` governanceDecisionToken tx) info
+governanceDecisionTokenRequired info = utxoSpent info (\o -> txOutValue o `geq` governanceDecisionToken tx)
     where tx = txInfoId info
 
 -------------------------- Off-Chain -----------------------------
 
--- TxConstraints that Governance Decision Token is spent by the transaction
-governanceDecisionTokenTx :: TxId -> (ScriptLookups a, TxConstraints i o)
-governanceDecisionTokenTx tx = fromJust $ txConstructorResult constr
-    where constr = utxoSpentPublicKeyTx (\o -> txOutValue o `geq` governanceDecisionToken tx) $ TxConstructor Data.Map.empty $ Just (mempty, mempty)
+-- TxConstraints that Governance Decision Token is spent in the transaction
+governanceDecisionTokenTx :: TxId -> State (TxConstructor d a i o) (Maybe (TxOutRef, ChainIndexTxOut))
+governanceDecisionTokenTx tx = utxoSpentPublicKeyTx (\_ o -> _ciTxOutValue o `geq` governanceDecisionToken tx)

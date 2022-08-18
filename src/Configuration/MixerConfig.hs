@@ -4,17 +4,20 @@
 
 module Configuration.MixerConfig where
 
-import Ledger                        (Value)
-import PlutusTx.Prelude              hiding (elem)
-import Plutus.V1.Ledger.Ada          (lovelaceValueOf)
-import Tokens.MIXToken               (mixToken)
-import Plutus.Contract (Contract, ContractError (..), throwError)
+import           Ledger                        (Value)
+import           Ledger.Ada                    (lovelaceValueOf)
+import           Plutus.Contract               (Contract, ContractError (..), throwError)
+import           PlutusTx.Prelude              hiding (elem)
+
+import           Configuration.RelayerConfig   (mixTokenTxOutRef)
+import           Tokens.MIXToken               (mixToken)
+
 
 ------------------------ Config options --------------------------
 
 mixingValuesTable :: [[Value]]
 mixingValuesTable = [ map lovelaceValueOf [20_000, 200_000, 2_000_000],
-     map (\n -> lovelaceValueOf 4_000 + scale n mixToken) [10, 100, 1000]]
+     map (\n -> lovelaceValueOf 4_000 + scale n (mixToken mixTokenTxOutRef)) [10, 100, 1000]]
 
 ---------------------------- Interface ---------------------------
 
