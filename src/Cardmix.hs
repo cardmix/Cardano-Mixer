@@ -23,6 +23,8 @@ import           Types.MixerApp                           (MixerAppType (..), ne
 -- TODO: We need to update dependencies before we can proceed.
 -- In particular, we need the latest version of cardmix repos and plutus-apps with full Plutus V2 support which is not available at the moment.
 
+-- TODO: Reimplement zero-knowledge on-chain verification in Plutarch or Pluto as the Haskell/Plutus implementation is not efficient.
+
 cardmix :: IO ()
 cardmix = do
     cmd <- execParser commandParserInfo
